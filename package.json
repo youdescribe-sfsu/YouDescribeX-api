@@ -1,0 +1,22 @@
+{
+  "name": "ydx-ai-backend",
+  "version": "1.0.0",
+  "description": "YouDescribeX Backend Server",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bhavani-goruganthu/ydx-ai-backend.git"
+  },
+  "author": "YouDescribe",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bhavani-goruganthu/ydx-ai-backend/issues"
+  },
+  "homepage": "https://github.com/bhavani-goruganthu/ydx-ai-backend#readme",
+  "dependencies": {
+    "express": "^4.17.3"
+  }
+}
