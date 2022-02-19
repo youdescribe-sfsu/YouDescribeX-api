@@ -1,8 +1,14 @@
 const express = require('express');
 const cors = require('cors');
 
-const app = express();
+//database
+const db = require('./db');
+// Test DB connection
+db.authenticate()
+  .then(() => console.log('Connected to YDXAI Database'))
+  .catch((err) => console.log('Error' + err));
 
+const app = express();
 app.use(cors());
 app.use(express.json());
 
