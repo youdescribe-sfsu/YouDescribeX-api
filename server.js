@@ -1,11 +1,9 @@
 const express = require('express');
 const cors = require('cors');
-
 //routes
 const users = require('./routes/users');
-
 //database
-const db = require('./db');
+const db = require('./db.js');
 
 // Test DB connection
 db.authenticate()
@@ -18,8 +16,7 @@ app.use(express.json());
 
 app.get('/', (req, res) => res.send('INDEX'));
 
-//User Routes
-app.use('./user', users);
-
 port = 4000;
+//User Routes
+app.use('/user', users);
 app.listen(port, () => console.log(`YDX Backend server on port ${port}!`));
