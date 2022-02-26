@@ -1,29 +1,25 @@
 const Sequelize = require('sequelize');
 const db = require('../db');
 
-const User = db.define('User', {
-  user_id: {
+const Video = db.define('Video', {
+  video_id: {
     type: Sequelize.INTEGER,
     autoIncrement: true,
     allowNull: false,
     primaryKey: true,
   },
-  user_type: {
+  youtube_video_id: {
     allowNull: false,
     type: Sequelize.STRING,
   },
-  first_name: {
+  video_name: {
     allowNull: false,
     type: Sequelize.STRING,
   },
-  last_name: {
+  video_length: {
     allowNull: false,
-    type: Sequelize.STRING,
-  },
-  user_email: {
-    allowNull: false,
-    type: Sequelize.STRING,
+    type: Sequelize.INTEGER,
   },
 });
 
-module.exports = User;
+module.exports = Video;
