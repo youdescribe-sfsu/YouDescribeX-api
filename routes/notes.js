@@ -2,13 +2,13 @@ const express = require('express');
 const router = express.Router();
 
 const db = require('../db.js');
-const User = require('../models/User');
+const Notes = require('../models/Notes');
 
 router.use(express.json());
-router.get('/all-users', (req, res) =>
-  User.findAll()
-    .then((users) => {
-      console.log(users);
+router.get('/all-notess', (req, res) =>
+  Notes.findAll()
+    .then((notes) => {
+      console.log(notes);
       res.sendStatus(200);
     })
     .catch((err) => console.log(err))

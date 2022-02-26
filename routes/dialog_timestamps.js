@@ -2,13 +2,13 @@ const express = require('express');
 const router = express.Router();
 
 const db = require('../db.js');
-const User = require('../models/User');
+const Dialog_Timestamps = require('../models/Dialog_Timestamps');
 
 router.use(express.json());
-router.get('/all-users', (req, res) =>
-  User.findAll()
-    .then((users) => {
-      console.log(users);
+router.get('/all-dialog-timestamps', (req, res) =>
+  Dialog_Timestamps.findAll()
+    .then((dialog_timestamps) => {
+      console.log(dialog_timestamps);
       res.sendStatus(200);
     })
     .catch((err) => console.log(err))
