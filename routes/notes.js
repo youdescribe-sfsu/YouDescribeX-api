@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-const db = require('../db.js');
+const db = require('../config/db.js');
 const Notes = require('../models/Notes');
 
 router.use(express.json());
