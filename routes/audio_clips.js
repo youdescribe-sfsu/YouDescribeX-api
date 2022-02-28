@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-const db = require('../db.js');
+const db = require('../config/db.js');
 const Audio_Clips = require('../models/Audio_Clips');
 
 router.use(express.json());

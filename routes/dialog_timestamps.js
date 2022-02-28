@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-const db = require('../db.js');
+const db = require('../config/db.js');
 const Dialog_Timestamps = require('../models/Dialog_Timestamps');
 
 router.use(express.json());

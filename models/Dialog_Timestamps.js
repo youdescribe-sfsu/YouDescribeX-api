@@ -1,5 +1,5 @@
 const Sequelize = require('sequelize');
-const db = require('../db');
+const db = require('../config/db');
 
 const Dialog_Timestamps = db.define('Dialog_Timestamps', {
   dialog_id: {
