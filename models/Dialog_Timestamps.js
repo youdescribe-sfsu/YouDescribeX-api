@@ -28,8 +28,6 @@ const Dialog_Timestamps = db.define('Dialog_Timestamps', {
 });
 
 //Associations
-Dialog_Timestamps.belongsTo(Video, {
-  through: 'timestamps_video_relation',
-});
+Dialog_Timestamps.belongsTo(Video);
 
 module.exports = Dialog_Timestamps;

@@ -20,8 +20,6 @@ const Notes = db.define('Notes', {
 });
 
 //Associations
-Notes.belongsTo(Audio_Descriptions, {
-  through: 'audiodesc_notes_relation',
-});
+Notes.belongsTo(Audio_Descriptions);
 
 module.exports = Notes;
