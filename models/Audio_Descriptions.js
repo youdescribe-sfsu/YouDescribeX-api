@@ -1,7 +1,7 @@
 const Sequelize = require('sequelize');
 const db = require('../config/db');
-const Notes = require('./Notes');
-const Audio_Clips = require('./Audio_Clips');
+const User = require('./User');
+const Video = require('./Video');
 
 const Audio_Descriptions = db.define('Audio_Descriptions', {
   ad_id: {
@@ -21,18 +21,11 @@ const Audio_Descriptions = db.define('Audio_Descriptions', {
 });
 
 //Associations
-Audio_Descriptions.belongsToMany(Notes, {
-  through: 'ad_has_many_notes',
+Audio_Descriptions.belongsTo(User, {
+  through: 'audiodesc_user_relation',
 });
-Notes.belongsTo(Audio_Descriptions, {
-  through: 'ad_has_many_notes',
-});
-
-Audio_Descriptions.belongsToMany(Audio_Clips, {
-  through: 'ad_has_many_audioClips',
-});
-Audio_Clips.belongsTo(Audio_Descriptions, {
-  through: 'ad_has_many_audioClips',
+Audio_Descriptions.belongsTo(Video, {
+  through: 'audiodesc_video_relation',
 });
 
 module.exports = Audio_Descriptions;
