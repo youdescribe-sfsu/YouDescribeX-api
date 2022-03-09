@@ -21,11 +21,7 @@ const Audio_Descriptions = db.define('Audio_Descriptions', {
 });
 
 //Associations
-Audio_Descriptions.belongsTo(User, {
-  through: 'audiodesc_user_relation',
-});
-Audio_Descriptions.belongsTo(Video, {
-  through: 'audiodesc_video_relation',
-});
+Audio_Descriptions.belongsTo(User);
+Audio_Descriptions.belongsTo(Video);
 
 module.exports = Audio_Descriptions;

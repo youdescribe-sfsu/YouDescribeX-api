@@ -52,8 +52,6 @@ const Audio_Clips = db.define('Audio_Clips', {
 });
 
 //Associations
-Audio_Clips.belongsTo(Audio_Descriptions, {
-  through: 'audiodesc_audioclips_relation',
-});
+Audio_Clips.belongsTo(Audio_Descriptions);
 
 module.exports = Audio_Clips;
