@@ -1,5 +1,6 @@
 const Sequelize = require('sequelize');
 const db = require('../config/db');
+const Audio_Descriptions = require('./Audio_Descriptions');
 
 const Notes = db.define('Notes', {
   notes_id: {
@@ -16,6 +17,11 @@ const Notes = db.define('Notes', {
     allowNull: false,
     type: Sequelize.STRING,
   },
+});
+
+//Associations
+Notes.belongsTo(Audio_Descriptions, {
+  through: 'audiodesc_notes_relation',
 });
 
 module.exports = Notes;

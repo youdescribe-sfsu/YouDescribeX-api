@@ -1,5 +1,6 @@
 const Sequelize = require('sequelize');
 const db = require('../config/db');
+const Video = require('./Video');
 
 const Dialog_Timestamps = db.define('Dialog_Timestamps', {
   dialog_id: {
@@ -24,6 +25,11 @@ const Dialog_Timestamps = db.define('Dialog_Timestamps', {
     allowNull: false,
     type: Sequelize.STRING,
   },
+});
+
+//Associations
+Dialog_Timestamps.belongsTo(Video, {
+  through: 'timestamps_video_relation',
 });
 
 module.exports = Dialog_Timestamps;
