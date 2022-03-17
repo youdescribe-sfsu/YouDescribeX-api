@@ -15,15 +15,15 @@ const Dialog_Timestamps = db.define('Dialog_Timestamps', {
   },
   dialog_start_time: {
     allowNull: false,
-    type: Sequelize.STRING,
+    type: Sequelize.FLOAT,
   },
   dialog_end_time: {
     allowNull: false,
-    type: Sequelize.STRING,
+    type: Sequelize.FLOAT,
   },
   dialog_duration: {
     allowNull: false,
-    type: Sequelize.STRING,
+    type: Sequelize.FLOAT,
   },
 });
 

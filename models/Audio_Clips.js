@@ -27,15 +27,15 @@ const Audio_Clips = db.define('Audio_Clips', {
   },
   clip_start_time: {
     allowNull: false,
-    type: Sequelize.STRING,
+    type: Sequelize.FLOAT,
   },
   clip_end_time: {
     allowNull: false,
-    type: Sequelize.STRING,
+    type: Sequelize.FLOAT,
   },
   clip_duration: {
     allowNull: false,
-    type: Sequelize.STRING,
+    type: Sequelize.FLOAT,
   },
   clip_audio_path: {
     allowNull: false,
