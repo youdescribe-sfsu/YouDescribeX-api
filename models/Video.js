@@ -18,7 +18,7 @@ const Video = db.define('Video', {
   },
   video_length: {
     allowNull: false,
-    type: Sequelize.INTEGER,
+    type: Sequelize.FLOAT,
   },
 });
 
