@@ -1,17 +1,12 @@
 const express = require('express');
 const router = express.Router();
-
-const db = require('../config/db.js');
-const Video = require('../models/Video');
-
+const videoController = require('../controllers/videoController');
 router.use(express.json());
-router.get('/all-videos', (req, res) =>
-  Video.findAll()
-    .then((videos) => {
-      console.log(videos);
-      res.sendStatus(200);
-    })
-    .catch((err) => console.log(err))
-);
+
+// Routes - send request to controller where db processing is done
+// get all videos route
+router.get('/all-videos', videoController.getAllVideos);
+// get one video route
+router.get('/get-video/:id', videoController.getVideo);
 
 module.exports = router;
