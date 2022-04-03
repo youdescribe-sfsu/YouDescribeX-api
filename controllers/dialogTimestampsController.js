@@ -3,7 +3,7 @@ const Dialog_Timestamps = require('../models/Dialog_Timestamps');
 // db processing is done here using sequelize models
 
 // find all Dialog_Timestamps
-exports.dialogTimestampsController = async (req, res) => {
+exports.getAllDialogTimestamps = async (req, res) => {
   Dialog_Timestamps.findAll()
     .then((allDialogTimestampss) => {
       console.log(allDialogTimestampss);

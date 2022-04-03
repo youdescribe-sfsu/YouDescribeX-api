@@ -6,8 +6,8 @@ router.use(express.json());
 // Routes - send request to controller where db processing is done
 // get all Dialog Timestamps route
 router.get(
-  '/all-dialog-timestamps',
-  dialogTimestampsController.dialogTimestampsController
+  '/get-all-dialog-timestamps',
+  dialogTimestampsController.getAllDialogTimestamps
 );
 // get one Dialog Timestamp row route
 router.get(

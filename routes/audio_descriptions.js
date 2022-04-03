@@ -1,17 +1,22 @@
 const express = require('express');
 const router = express.Router();
+const audioDescriptionsController = require('../controllers/audioDescriptionsController');
 
-const db = require('../config/db.js');
-const Audio_Descriptions = require('../models/Audio_Descriptions');
-
+// Routes - send request to controller where db processing is done
+// get all Audio Descriptions route
 router.use(express.json());
-router.get('/all-Audio-Desciptions', (req, res) =>
-  Audio_Descriptions.findAll()
-    .then((audio_descriptions) => {
-      console.log(audio_descriptions);
-      res.sendStatus(200);
-    })
-    .catch((err) => console.log(err))
+router.get(
+  '/get-all-audio-descriptions',
+  audioDescriptionsController.getAllAudioDescriptions
+);
+
+// get one Audio Description row route - based on id
+router.get('/get-ad/:adId', audioDescriptionsController.getAudioDescription);
+
+// get user Audio Description row - based on UserId & VideoId
+router.get(
+  '/get-user-ad/:videoId&:userId',
+  audioDescriptionsController.getUserAudioDescription
 );
 
 module.exports = router;

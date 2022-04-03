@@ -1,17 +1,16 @@
 const express = require('express');
 const router = express.Router();
+const audioClipsController = require('../controllers/audioClipsController');
 
-const db = require('../config/db.js');
-const Audio_Clips = require('../models/Audio_Clips');
-
+// Routes - send request to controller where db processing is done
+// get all Audio Clips route
 router.use(express.json());
-router.get('/all-audio-clips', (req, res) =>
-  Audio_Clips.findAll()
-    .then((audio_clips) => {
-      console.log(audio_clips);
-      res.sendStatus(200);
-    })
-    .catch((err) => console.log(err))
-);
+router.get('/get-all-audio-clips', audioClipsController.getAllAudioClips);
+
+// get one Audio Clip row route - based on clip id
+router.get('/get-audio-clips/:clipId', audioClipsController.getAudioClip);
+
+// get user Audio Clip row - based on adId
+router.get('/get-user-ad/:adId', audioClipsController.getADAudioClips);
 
 module.exports = router;

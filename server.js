@@ -16,8 +16,8 @@ port = 4000;
 //User Routes
 app.use('/api/users', users);
 app.use('/api/videos', videos);
-app.use('/api/dialog_timestamps', dialog_timestamps);
-app.use('/api/audio_descriptions', audio_descriptions);
+app.use('/api/dialog-timestamps', dialog_timestamps);
+app.use('/api/audio-descriptions', audio_descriptions);
 app.use('/api/notes', notes);
-app.use('/api/audio_clips', audio_clips);
+app.use('/api/audio-clips', audio_clips);
 app.listen(port, () => console.log(`YDX Backend server on port ${port}!`));
