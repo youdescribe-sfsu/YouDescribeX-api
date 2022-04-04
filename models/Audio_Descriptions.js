@@ -10,10 +10,6 @@ const Audio_Descriptions = db.define('Audio_Descriptions', {
     allowNull: false,
     primaryKey: true,
   },
-  ad_sequence_num: {
-    allowNull: false,
-    type: Sequelize.INTEGER,
-  },
   is_published: {
     allowNull: false,
     type: Sequelize.BOOLEAN,
