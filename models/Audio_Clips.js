@@ -9,10 +9,6 @@ const Audio_Clips = db.define('Audio_Clips', {
     allowNull: false,
     primaryKey: true,
   },
-  clip_sequence_num: {
-    allowNull: false,
-    type: Sequelize.INTEGER,
-  },
   clip_title: {
     allowNull: false,
     type: Sequelize.STRING,
