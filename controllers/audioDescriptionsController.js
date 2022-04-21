@@ -29,7 +29,7 @@ exports.getAudioDescription = async (req, res) => {
 
 // find the Audio_Descriptions - based on video_id & user_id
 exports.getUserAudioDescription = async (req, res) => {
-  Audio_Descriptions.findAll({
+  Audio_Descriptions.findOne({
     where: {
       VideoVideoId: req.params.videoId,
       UserUserId: req.params.userId,
