@@ -13,4 +13,22 @@ router.get('/get-audio-clips/:clipId', audioClipsController.getAudioClip);
 // get user Audio Clip row - based on adId
 router.get('/get-user-ad/:adId', audioClipsController.getADAudioClips);
 
+// update user Audio Clip title - based on clip Id
+router.put(
+  '/update-ad-title/:clipId',
+  audioClipsController.updateAudioClipTitle
+);
+
+// update user Audio Clip Playback type - based on clip Id
+router.put(
+  '/update-ad-playback-type/:clipId',
+  audioClipsController.updateAudioClipPlaybackType
+);
+
+// update user Audio Clip Playback type - based on clip Id
+router.put(
+  '/update-ad-start-time/:clipId',
+  audioClipsController.updateAudioClipStartTime
+);
+
 module.exports = router;
