@@ -11,12 +11,12 @@ const Notes = db.define('Notes', {
   },
   notes_text: {
     allowNull: false,
-    type: Sequelize.STRING,
+    type: Sequelize.STRING(1000),
   },
-  notes_timestamp: {
-    allowNull: false,
-    type: Sequelize.STRING,
-  },
+  // notes_timestamp: {
+  //   allowNull: false,
+  //   type: Sequelize.STRING,
+  // },
 });
 
 //Associations
