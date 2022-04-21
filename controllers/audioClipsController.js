@@ -13,7 +13,7 @@ exports.getAllAudioClips = async (req, res) => {
 
 // find one Audio_Clips row - based on id
 exports.getAudioClip = async (req, res) => {
-  Audio_Clips.findAll({
+  Audio_Clips.findOne({
     where: {
       clip_id: req.params.clipId,
     },
@@ -33,7 +33,7 @@ exports.getADAudioClips = async (req, res) => {
     where: {
       AudioDescriptionAdId: req.params.adId,
     },
-    order: ['clip_sequence_num'],
+    order: ['clip_start_time'],
   })
     .then((ADAudioClips) => {
       console.log(ADAudioClips);
