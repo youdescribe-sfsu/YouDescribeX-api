@@ -1,4 +1,5 @@
 const Audio_Clips = require('../models/Audio_Clips');
+const generateMp3forDescriptionText = require('../processor/textToSpeech');
 
 // db processing is done here using sequelize models
 // find all Audio_Clips
@@ -143,4 +144,59 @@ exports.updateAudioClipStartTime = async (req, res) => {
       console.log(err);
       return res.send(err);
     });
+};
+
+exports.updateAudioDescription = async (req, res) => {
+  // process TexttoSpeech for updated description
+  let response = await generateMp3forDescriptionText(
+    req.body.userId,
+    req.body.youtubeVideoId,
+    req.body.clipDescriptionText,
+    req.body.clipDescriptionType
+  );
+  // check if there is an error
+  if (!response.status) {
+    return res.status(500).send({
+      message: 'Unable to generate Text to Speech!! Please try again',
+    }); // send error message
+  } else {
+    // update the path of the audio file & the description text for the audio clip in the db
+    Audio_Clips.findOne({
+      where: {
+        clip_id: req.params.clipId,
+      },
+    })
+      .then((obj) => {
+        if (obj) {
+          obj
+            .update({
+              clip_audio_path: response.filepath,
+              description_text:
+                req.body.clipDescriptionText || clip.description_text,
+            })
+            .then((clip) => {
+              console.log('status ok');
+              return res.status(200).send({
+                message: 'Success OK',
+              });
+            })
+            .catch((err) => {
+              console.log(err);
+              return res.status(500).send({
+                message: 'Unable to update Description!! Please try again',
+              }); // send error message
+            });
+        } else {
+          return res.status(404).send({
+            message: 'Audio Clip Not Found!! Please try again',
+          });
+        }
+      })
+      .catch((err) => {
+        console.log(err);
+        return res.status(500).send({
+          message: 'Unable to connect to DB!! Please try again',
+        }); // send error message
+      });
+  }
 };

@@ -31,4 +31,9 @@ router.put(
   audioClipsController.updateAudioClipStartTime
 );
 
+// update Audio Clip Description & Generate a new mp3 for it
+router.put(
+  '/update-ad-description/:clipId',
+  audioClipsController.updateAudioDescription
+);
 module.exports = router;
