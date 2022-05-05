@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 //routes
 const users = require('./routes/users');
 const videos = require('./routes/videos');
@@ -10,6 +11,9 @@ const audio_clips = require('./routes/audio_clips');
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// to server static files - audio files
+app.use(express.static(path.join(__dirname, 'public')));
 
 port = 4000;
 
