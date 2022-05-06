@@ -1,9 +1,14 @@
 const { Sequelize } = require('sequelize');
 
-const db = new Sequelize('YDXAI', 'postgres', 'password', {
-  host: 'localhost',
-  dialect: 'postgres',
-});
+const db = new Sequelize(
+  process.env.DATABASE,
+  process.env.UNAME,
+  process.env.DBPASSWORD,
+  {
+    host: process.env.HOST,
+    dialect: 'postgres',
+  }
+);
 
 // Test DB connection
 db.authenticate()

@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+require('dotenv').config();
 //routes
 const users = require('./routes/users');
 const videos = require('./routes/videos');
@@ -15,7 +16,7 @@ app.use(express.json());
 // to server static files - audio files
 app.use(express.static(path.join(__dirname, 'public')));
 
-port = 4000;
+port = process.env.PORT;
 
 //User Routes
 app.use('/api/users', users);
