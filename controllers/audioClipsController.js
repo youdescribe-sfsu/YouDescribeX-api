@@ -1,6 +1,7 @@
 const Audio_Clips = require('../models/Audio_Clips');
 const Audio_Descriptions = require('../models/Audio_Descriptions');
 const Videos = require('../models/Videos');
+const fs = require('fs');
 const generateMp3forDescriptionText = require('../processor/textToSpeech');
 
 // db processing to generate mp3 for all audio clip texts
@@ -96,7 +97,7 @@ exports.generateMP3ForAllClipsInDB = async (req, res) => {
 };
 
 // to update the clip_audio_path column of Audio_Clips Table with the generated audio path
-async function updateClipAudioPathInDB(data) {
+const updateClipAudioPathInDB = async (data) => {
   // check if there is an error in text to speech generation
   if (!data.textToSpeechOutput.status) {
     let updateStatus = {
@@ -132,7 +133,7 @@ async function updateClipAudioPathInDB(data) {
       });
     return updateStatus;
   }
-}
+};
 
 // db processing is done here using sequelize models
 // find all Audio_Clips
@@ -294,36 +295,33 @@ exports.updateAudioDescription = async (req, res) => {
       message: 'Unable to generate Text to Speech!! Please try again',
     }); // send error message
   } else {
+    // find old audioPath in the db
+    let old_audio_path = await getOldAudioFilePath(req.params.clipId);
     // update the path of the audio file & the description text for the audio clip in the db
-    Audio_Clips.findOne({
-      where: {
-        clip_id: req.params.clipId,
+    Audio_Clips.update(
+      {
+        clip_audio_path: response.filepath,
+        description_text: req.body.clipDescriptionText || clip.description_text,
       },
-    })
-      .then((obj) => {
-        if (obj) {
-          obj
-            .update({
-              clip_audio_path: response.filepath,
-              description_text:
-                req.body.clipDescriptionText || clip.description_text,
-            })
-            .then((clip) => {
-              return res.status(200).send({
-                message: 'Success OK',
-              });
-            })
-            .catch((err) => {
-              console.log(err);
-              return res.status(500).send({
-                message: 'Unable to update Description!! Please try again',
-              }); // send error message
-            });
-        } else {
-          return res.status(404).send({
-            message: 'Audio Clip Not Found!! Please try again',
-          });
-        }
+      {
+        where: {
+          clip_id: req.params.clipId,
+        },
+      }
+    )
+      .then(async (clip) => {
+        // wait until the old file gets deleted
+        // let deleteOldAudioFileStatus = await deleteOldAudioFile(old_audio_path);
+        await deleteOldAudioFile(old_audio_path);
+        // if (deleteOldAudioFileStatus) {
+        return res.status(200).send({
+          message: 'Success OK',
+        });
+        // } else {
+        //   return res.status(500).send({
+        //     message: 'Unable to delete old Audio File!! Please try again',
+        //   });
+        // }
       })
       .catch((err) => {
         // console.log(err);
@@ -331,5 +329,36 @@ exports.updateAudioDescription = async (req, res) => {
           message: 'Unable to connect to DB!! Please try again',
         }); // send error message
       });
+  }
+};
+
+// get the old audioPath in the db
+const getOldAudioFilePath = async (clipId) => {
+  return Audio_Clips.findOne({
+    where: {
+      clip_id: clipId,
+    },
+    attributes: ['clip_audio_path'],
+  })
+    .then((clip) => {
+      return clip.clip_audio_path;
+    })
+    .catch((err) => {
+      return {
+        message: 'Unable to connect to DB!! Please try again',
+      }; // send error message
+    });
+};
+
+// delete the old audio file from the local system
+const deleteOldAudioFile = async (old_audio_path) => {
+  const path = old_audio_path.replace('.', './public');
+  try {
+    fs.unlinkSync(path);
+    console.log('Old Audio File Deleted');
+    return true;
+  } catch (err) {
+    console.error(err);
+    return false;
   }
 };
