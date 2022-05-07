@@ -2,7 +2,8 @@ const Audio_Clips = require('../models/Audio_Clips');
 const Audio_Descriptions = require('../models/Audio_Descriptions');
 const Videos = require('../models/Videos');
 const fs = require('fs');
-const generateMp3forDescriptionText = require('../processor/textToSpeech');
+const generateMp3forDescriptionText = require('../processors/textToSpeech');
+const getAudioDuration = require('../processors/getAudioDuration');
 
 // db processing to generate mp3 for all audio clip texts
 exports.generateMP3ForAllClipsInDB = async (req, res) => {
@@ -297,11 +298,20 @@ exports.updateAudioDescription = async (req, res) => {
   } else {
     // find old audioPath in the db
     let old_audio_path = await getOldAudioFilePath(req.params.clipId);
+    // calculate audio duration
+    let updatedAudioDuration = await getAudioDuration(response.filepath);
+    // calculate audio clip end time
+    let updatedClipEndTime = await calculateClipEndTime(
+      req.params.clipId,
+      updatedAudioDuration
+    );
     // update the path of the audio file & the description text for the audio clip in the db
     Audio_Clips.update(
       {
         clip_audio_path: response.filepath,
         description_text: req.body.clipDescriptionText || clip.description_text,
+        clip_duration: parseFloat(updatedAudioDuration),
+        clip_end_time: parseFloat(updatedClipEndTime),
       },
       {
         where: {
@@ -310,6 +320,9 @@ exports.updateAudioDescription = async (req, res) => {
       }
     )
       .then(async (clip) => {
+        console.log(
+          'Updated Clip Audio Path, Clip Description Text, Clip Duration, Clip End Time'
+        );
         // wait until the old file gets deleted
         // let deleteOldAudioFileStatus = await deleteOldAudioFile(old_audio_path);
         await deleteOldAudioFile(old_audio_path);
@@ -361,4 +374,25 @@ const deleteOldAudioFile = async (old_audio_path) => {
     console.error(err);
     return false;
   }
+};
+
+// calculate audio clip end time
+const calculateClipEndTime = async (clipId, audioDuration) => {
+  return Audio_Clips.findOne({
+    where: {
+      clip_id: clipId,
+    },
+    attributes: ['clip_start_time'],
+  })
+    .then((clip) => {
+      const clipEndTime = parseFloat(
+        parseFloat(clip.clip_start_time) + parseFloat(audioDuration)
+      );
+      return clipEndTime.toFixed(2);
+    })
+    .catch((err) => {
+      return {
+        message: 'Unable to connect to DB!! Please try again',
+      }; // send error message
+    });
 };
