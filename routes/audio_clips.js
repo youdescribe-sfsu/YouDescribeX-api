@@ -2,9 +2,16 @@ const express = require('express');
 const router = express.Router();
 const audioClipsController = require('../controllers/audioClipsController');
 
+router.use(express.json());
+
+// route to generate mp3 files for all audio clips in the db - based on video id
+router.get(
+  '/generateMp3ForAllClipsInDB/:adId',
+  audioClipsController.generateMP3ForAllClipsInDB
+);
+
 // Routes - send request to controller where db processing is done
 // get all Audio Clips route
-router.use(express.json());
 router.get('/get-all-audio-clips', audioClipsController.getAllAudioClips);
 
 // get one Audio Clip row route - based on clip id
