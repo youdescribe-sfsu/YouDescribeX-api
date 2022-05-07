@@ -46,7 +46,7 @@ const Audio_Clips = db.define('Audio_Clips', {
     type: Sequelize.BOOLEAN,
   },
   recorded_audio_path: {
-    allowNull: false,
+    allowNull: true,
     type: Sequelize.STRING,
   },
 });
