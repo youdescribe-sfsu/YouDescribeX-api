@@ -1,7 +1,7 @@
 const Sequelize = require('sequelize');
 const db = require('../config/db');
 
-const Video = db.define('Video', {
+const Videos = db.define('Videos', {
   video_id: {
     type: Sequelize.INTEGER,
     autoIncrement: true,
@@ -22,4 +22,4 @@ const Video = db.define('Video', {
   },
 });
 
-module.exports = Video;
+module.exports = Videos;

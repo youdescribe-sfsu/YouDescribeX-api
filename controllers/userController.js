@@ -1,10 +1,10 @@
-const User = require('../models/User');
+const Users = require('../models/Users');
 
 // db processing is done here using sequelize models
 
 // find all users
 exports.getAllUsers = async (req, res) => {
-  User.findAll()
+  Users.findAll()
     .then((allUsers) => {
       console.log(allUsers);
       return res.send(allUsers);
@@ -14,7 +14,7 @@ exports.getAllUsers = async (req, res) => {
 
 // find one user
 exports.getUser = async (req, res) => {
-  User.findAll({
+  Users.findAll({
     where: {
       user_id: req.params.id,
     },

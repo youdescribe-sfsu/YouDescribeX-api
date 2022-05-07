@@ -1,7 +1,7 @@
 const Sequelize = require('sequelize');
 const db = require('../config/db');
-const User = require('./User');
-const Video = require('./Video');
+const Users = require('./Users');
+const Videos = require('./Videos');
 
 const Audio_Descriptions = db.define('Audio_Descriptions', {
   ad_id: {
@@ -17,7 +17,7 @@ const Audio_Descriptions = db.define('Audio_Descriptions', {
 });
 
 //Associations
-Audio_Descriptions.belongsTo(User);
-Audio_Descriptions.belongsTo(Video);
+Audio_Descriptions.belongsTo(Users);
+Audio_Descriptions.belongsTo(Videos);
 
 module.exports = Audio_Descriptions;
