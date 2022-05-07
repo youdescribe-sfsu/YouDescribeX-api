@@ -18,8 +18,6 @@ const generateMp3forDescriptionText = async (
   clipDescriptionType
 ) => {
   try {
-    // store a variable ocr to add to the path of the audio file
-    clipDescriptionType === 'Visual' ? (type = 'nonOCR') : (type = 'OCR');
     // generate a unique ID
     const uniqueId = uuidv4();
     // assign female/male voice types based on description type
@@ -40,7 +38,6 @@ const generateMp3forDescriptionText = async (
       // select the type of audio encoding
       audioConfig: { audioEncoding: 'MP3', speakingRate: 1.5 },
     };
-
     // Performs the text-to-speech request
     const [response] = await client.synthesizeSpeech(request);
 
@@ -52,11 +49,16 @@ const generateMp3forDescriptionText = async (
 
     // write the audio file only if the directory exists/created
     if (fs.existsSync(dir)) {
+      // store a variable ocr to add to the path of the audio file
+      clipDescriptionType === 'Visual' ? (type = 'nonOCR') : (type = 'OCR');
       const filepath = `${dir}/${type}-${uniqueId}.mp3`;
       // Write the binary audio content to a local file
       const writeFile = util.promisify(fs.writeFile);
       await writeFile(filepath, response.audioContent, 'binary');
       console.log('Converted Text to Speech');
+      // store a variable ocr to add to the path of the audio file
+      // adding this again, because value is not updating for all audio files - TODO
+      clipDescriptionType === 'Visual' ? (type = 'nonOCR') : (type = 'OCR');
       // remove public from the file path
       const servingFilepath = `./audio/${youtubeVideoId}/${userId}/${type}-${uniqueId}.mp3`;
       return { status: true, filepath: servingFilepath };
