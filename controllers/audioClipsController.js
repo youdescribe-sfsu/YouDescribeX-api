@@ -8,6 +8,9 @@ const getAudioDuration = require('../processors/getAudioDuration');
 // db processing to generate mp3 for all audio clip texts
 exports.generateMP3ForAllClipsInDB = async (req, res) => {
   // generate mp3 for all audio clips - given audio description ID as a parameter
+  console.log(
+    'Fetching Audio Video Data from Audio_Clips, Audio_Descriptions, Videos'
+  );
   Audio_Clips.findAll({
     where: {
       AudioDescriptionAdId: req.params.adId,
@@ -60,6 +63,7 @@ exports.generateMP3ForAllClipsInDB = async (req, res) => {
       // wait for text to speech generation of all description texts
       await Promise.all(
         descriptionTexts.map(async (desc) => {
+          console.log('Generating Text to Speech');
           // add the text to speech output and the clip_id to an object and push to statusData
           let data = {
             textToSpeechOutput: await generateMp3forDescriptionText(
@@ -78,8 +82,9 @@ exports.generateMP3ForAllClipsInDB = async (req, res) => {
         // wait until all promises are done
         await Promise.all(
           statusData.map(async (data) => {
-            // to update the clip_audio_path column of Audio_Clips Table with the generated audio path
-            let updateStatus = await updateClipAudioPathInDB(data);
+            console.log('Yet to update data in DB');
+            // to update clip_audio_path, clip_duration, clip_end_time columns of Audio_Clips Table
+            let updateStatus = await updateDataInDB(data);
             // get the status message and push it to an array
             updateStatusOfAllClips.push(updateStatus);
           })
@@ -97,8 +102,8 @@ exports.generateMP3ForAllClipsInDB = async (req, res) => {
     });
 };
 
-// to update the clip_audio_path column of Audio_Clips Table with the generated audio path
-const updateClipAudioPathInDB = async (data) => {
+// to update clip_audio_path, clip_duration, clip_end_time columns of Audio_Clips Table
+const updateDataInDB = async (data) => {
   // check if there is an error in text to speech generation
   if (!data.textToSpeechOutput.status) {
     let updateStatus = {
@@ -109,9 +114,19 @@ const updateClipAudioPathInDB = async (data) => {
   }
   // text to speech generation is successful
   else {
+    // calculate audio duration
+    console.log('Generating Audio Duration');
+    let clipDuration = await getAudioDuration(data.textToSpeechOutput.filepath);
+    // calculate audio clip end time
+    console.log('Generating Audio Clip End Time');
+    let clipEndTime = await calculateClipEndTime(data.clip_id, clipDuration);
     // update the path of the audio file & the description text for the audio clip in the db
-    let updateStatus = Audio_Clips.update(
-      { clip_audio_path: data.textToSpeechOutput.filepath },
+    let updateStatus = await Audio_Clips.update(
+      {
+        clip_audio_path: data.textToSpeechOutput.filepath,
+        clip_duration: parseFloat(clipDuration),
+        clip_end_time: parseFloat(clipEndTime),
+      },
       {
         where: {
           clip_id: data.clip_id,
