@@ -11,6 +11,10 @@
 # production
 /build
 
+.vscode/
+
+video-pipeline/
+
 # misc
 .DS_Store
 .env.local

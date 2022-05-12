@@ -1,20 +1,15 @@
-const Sequelize = require('sequelize');
-const db = require('../config/db');
-const Audio_Descriptions = require('./Audio_Descriptions');
+const Sequelize = require("sequelize");
+const db = require("../config/db");
 
-const Audio_Clips = db.define('Audio_Clips', {
-  clip_id: {
-    type: Sequelize.INTEGER,
-    autoIncrement: true,
+const Audio_Clips = db.define("Audio_Clips", {
+  id: {
+    type: Sequelize.UUID,
+    defaultValue: Sequelize.UUIDV4,
     allowNull: false,
     primaryKey: true,
   },
-  clip_sequence_num: {
-    allowNull: false,
-    type: Sequelize.INTEGER,
-  },
-  clip_title: {
-    allowNull: false,
+  title: {
+    allowNull: true,
     type: Sequelize.STRING,
   },
   description_type: {
@@ -29,33 +24,29 @@ const Audio_Clips = db.define('Audio_Clips', {
     allowNull: false,
     type: Sequelize.STRING,
   },
-  clip_start_time: {
+  start_time: {
     allowNull: false,
     type: Sequelize.FLOAT,
   },
-  clip_end_time: {
-    allowNull: false,
+  end_time: {
+    allowNull: true,
     type: Sequelize.FLOAT,
   },
-  clip_duration: {
-    allowNull: false,
+  duration: {
+    allowNull: true,
     type: Sequelize.FLOAT,
   },
-  clip_audio_path: {
-    allowNull: false,
+  audio_path: {
+    allowNull: true,
     type: Sequelize.STRING,
   },
   is_recorded: {
     allowNull: false,
+    defaultValue: false,
     type: Sequelize.BOOLEAN,
-  },
-  recorded_audio_path: {
-    allowNull: false,
-    type: Sequelize.STRING,
   },
 });
 
 //Associations
-Audio_Clips.belongsTo(Audio_Descriptions);
 
 module.exports = Audio_Clips;

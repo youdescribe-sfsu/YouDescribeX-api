@@ -1,23 +1,23 @@
-const { Sequelize } = require('sequelize');
+const { Sequelize, UUID } = require("sequelize");
 
-const db = new Sequelize('YDXAI', 'postgres', 'password', {
-  host: 'localhost',
-  dialect: 'postgres',
+const db = new Sequelize("ydx", "postgres", "password", {
+  host: "localhost",
+  port: 5000,
+  dialect: "postgres",
 });
 
 // Test DB connection
 db.authenticate()
-  .then(() => console.log('Connected to YDXAI Database'))
+  .then(() => console.log("Connected to YDXAI Database"))
   .then(() => {
-    // db.sync({ alter: true })
     db.sync()
       .then((result) => {
-        console.log(result);
+        // console.log(result);
       })
       .catch((err) => {
         console.log(err);
       });
   })
-  .catch((err) => console.log('Error' + err));
+  .catch((err) => console.log("Error" + err));
 
 module.exports = db;
