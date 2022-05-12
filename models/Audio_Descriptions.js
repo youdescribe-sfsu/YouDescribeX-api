@@ -5,7 +5,7 @@ const User = require("./User");
 const Video = require("./Video");
 
 const Audio_Descriptions = db.define("Audio_Descriptions", {
-  id: {
+  ad_id: {
     type: Sequelize.UUID,
     defaultValue: Sequelize.UUIDV4,
 

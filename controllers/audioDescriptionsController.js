@@ -18,7 +18,7 @@ exports.getAllAudioDescriptions = async (req, res) => {
 exports.getAudioDescription = async (req, res) => {
   ad = await Audio_Descriptions.findOne({
     where: {
-      id: req.params.adId,
+      ad_id: req.params.adId,
     },
     include: [User, Audio_Clips],
   }).catch((err) => {
@@ -33,8 +33,8 @@ exports.getAudioDescription = async (req, res) => {
 exports.getUserAudioDescription = async (req, res) => {
   ad = await Audio_Descriptions.findAll({
     where: {
-      id: req.params.videoId,
-      UserId: req.params.userId,
+      ad_id: req.params.videoId,
+      UserUser_Id: req.params.userId,
     },
     include: [User, Audio_Clips],
   }).catch((err) => {
@@ -50,13 +50,13 @@ exports.newAiDescription = async (req, res) => {
   const audio_clips = req.body.audio_clips;
 
   const aiuser = await User.create({
-    id: "abce2994-aa43-4abe-84ce-5f347e7dcb58",
+    user_id: "abce2994-aa43-4abe-84ce-5f347e7dcb58",
     is_ai: true,
     name: "YDX AI",
   }).catch((e) => {});
 
   let vid = await Video.findOne({
-    where: { youtube_id: req.body.youtube_id },
+    where: { youtube_video_id: req.body.youtube_id },
   });
 
   const ad = await Audio_Descriptions.create({
@@ -69,9 +69,10 @@ exports.newAiDescription = async (req, res) => {
     await ad.setVideo(vid);
   } else {
     vid = await Video.create({
-      youtube_id: req.body.youtube_id,
-      name: "youtubevid",
-      length: req.body,
+      youtube_video_id: req.body.youtube_id,
+      video_name:
+        "Hope For Paws: Stray dog walks into a yard and then collapses...",
+      video_length: req.body,
     }).catch((e) => console.log(e));
 
     await ad.setVideo(vid).catch((e) => console.log(e));
@@ -81,11 +82,11 @@ exports.newAiDescription = async (req, res) => {
 
   for (const clip of audio_clips) {
     new_clip = await Audio_Clips.create({
-      title: "scene " + clip.scene_number,
+      clip_title: "scene " + clip.scene_number,
       description_text: clip.text,
       playback_type: "extended",
       description_type: clip.type,
-      start_time: clip.start_time,
+      clip_start_time: clip.start_time,
     });
     ad.addAudio_Clip(new_clip);
   }

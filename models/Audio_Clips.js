@@ -2,13 +2,13 @@ const Sequelize = require("sequelize");
 const db = require("../config/db");
 
 const Audio_Clips = db.define("Audio_Clips", {
-  id: {
+  clip_id: {
     type: Sequelize.UUID,
     defaultValue: Sequelize.UUIDV4,
     allowNull: false,
     primaryKey: true,
   },
-  title: {
+  clip_title: {
     allowNull: true,
     type: Sequelize.STRING,
   },
@@ -24,19 +24,19 @@ const Audio_Clips = db.define("Audio_Clips", {
     allowNull: false,
     type: Sequelize.STRING,
   },
-  start_time: {
+  clip_start_time: {
     allowNull: false,
     type: Sequelize.FLOAT,
   },
-  end_time: {
+  clip_end_time: {
     allowNull: true,
     type: Sequelize.FLOAT,
   },
-  duration: {
+  clip_duration: {
     allowNull: true,
     type: Sequelize.FLOAT,
   },
-  audio_path: {
+  clip_audio_path: {
     allowNull: true,
     type: Sequelize.STRING,
   },
