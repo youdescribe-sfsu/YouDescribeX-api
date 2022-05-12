@@ -3,10 +3,9 @@ const db = require("../config/db");
 const Audio_Descriptions = require("./Audio_Descriptions");
 
 const Notes = db.define("Notes", {
-  id: {
+  notes_id: {
     type: Sequelize.UUID,
     defaultValue: Sequelize.UUIDV4,
-
     allowNull: false,
     primaryKey: true,
   },

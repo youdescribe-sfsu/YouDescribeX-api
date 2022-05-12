@@ -3,25 +3,25 @@ const db = require("../config/db");
 const Video = require("./Video");
 
 const Dialog_Timestamps = db.define("Dialog_Timestamps", {
-  id: {
+  dialog_id: {
     type: Sequelize.UUID,
     defaultValue: Sequelize.UUIDV4,
     allowNull: false,
     primaryKey: true,
   },
-  sequence_num: {
+  dialog_sequence_num: {
     allowNull: false,
     type: Sequelize.INTEGER,
   },
-  start_time: {
+  dialog_start_time: {
     allowNull: false,
     type: Sequelize.FLOAT,
   },
-  end_time: {
+  dialog_end_time: {
     allowNull: false,
     type: Sequelize.FLOAT,
   },
-  duration: {
+  dialog_duration: {
     allowNull: false,
     type: Sequelize.FLOAT,
   },
