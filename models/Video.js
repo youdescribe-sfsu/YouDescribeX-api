@@ -1,22 +1,21 @@
-const Sequelize = require('sequelize');
-const db = require('../config/db');
+const Sequelize = require("sequelize");
+const db = require("../config/db");
 
-const Video = db.define('Video', {
-  video_id: {
-    type: Sequelize.INTEGER,
-    autoIncrement: true,
-    allowNull: false,
+const Video = db.define("Video", {
+  id: {
+    type: Sequelize.UUID,
+    defaultValue: Sequelize.UUIDV4,
     primaryKey: true,
   },
-  youtube_video_id: {
+  youtube_id: {
     allowNull: false,
     type: Sequelize.STRING,
   },
-  video_name: {
+  name: {
     allowNull: false,
     type: Sequelize.STRING,
   },
-  video_length: {
+  length: {
     allowNull: false,
     type: Sequelize.FLOAT,
   },

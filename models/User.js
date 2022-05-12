@@ -1,27 +1,24 @@
-const Sequelize = require('sequelize');
-const db = require('../config/db');
+const { UUIDV4 } = require("sequelize");
+const Sequelize = require("sequelize");
+const db = require("../config/db");
 
-const User = db.define('User', {
-  user_id: {
-    type: Sequelize.INTEGER,
-    autoIncrement: true,
+const User = db.define("User", {
+  id: {
+    type: Sequelize.UUID,
+    defaultValue: Sequelize.UUIDV4,
     allowNull: false,
     primaryKey: true,
   },
-  user_type: {
+  is_ai: {
     allowNull: false,
-    type: Sequelize.STRING,
+    type: Sequelize.BOOLEAN,
   },
-  first_name: {
-    allowNull: false,
-    type: Sequelize.STRING,
-  },
-  last_name: {
+  name: {
     allowNull: false,
     type: Sequelize.STRING,
   },
   user_email: {
-    allowNull: false,
+    allowNull: true,
     type: Sequelize.STRING,
   },
 });
