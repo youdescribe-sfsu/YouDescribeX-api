@@ -1,7 +1,7 @@
-const Audio_Clips = require("../models/Audio_Clips");
-const Audio_Descriptions = require("../models/Audio_Descriptions");
-const User = require("../models/User");
-const Video = require("../models/Video");
+const Audio_Clips = require('../models/Audio_Clips');
+const Audio_Descriptions = require('../models/Audio_Descriptions');
+const Users = require('../models/Users');
+const Videos = require('../models/Videos');
 
 // db processing is done here using sequelize models
 // find all Audio_Descriptions
@@ -20,7 +20,7 @@ exports.getAudioDescription = async (req, res) => {
     where: {
       ad_id: req.params.adId,
     },
-    include: [User, Audio_Clips],
+    include: [Users, Audio_Clips],
   }).catch((err) => {
     console.log(err);
   });
@@ -36,7 +36,7 @@ exports.getUserAudioDescription = async (req, res) => {
       ad_id: req.params.videoId,
       UserUser_Id: req.params.userId,
     },
-    include: [User, Audio_Clips],
+    include: [Users, Audio_Clips],
   }).catch((err) => {
     console.log(err);
   });
@@ -50,12 +50,12 @@ exports.newAiDescription = async (req, res) => {
   const audio_clips = req.body.audio_clips;
 
   const aiuser = await User.create({
-    user_id: "abce2994-aa43-4abe-84ce-5f347e7dcb58",
+    user_id: 'abce2994-aa43-4abe-84ce-5f347e7dcb58',
     is_ai: true,
-    name: "YDX AI",
+    name: 'YDX AI',
   }).catch((e) => {});
 
-  let vid = await Video.findOne({
+  let vid = await Videos.findOne({
     where: { youtube_video_id: req.body.youtube_id },
   });
 
@@ -68,10 +68,10 @@ exports.newAiDescription = async (req, res) => {
   if (vid) {
     await ad.setVideo(vid);
   } else {
-    vid = await Video.create({
+    vid = await Videos.create({
       youtube_video_id: req.body.youtube_id,
       video_name:
-        "Hope For Paws: Stray dog walks into a yard and then collapses...",
+        'Hope For Paws: Stray dog walks into a yard and then collapses...',
       video_length: req.body,
     }).catch((e) => console.log(e));
 
@@ -82,9 +82,9 @@ exports.newAiDescription = async (req, res) => {
 
   for (const clip of audio_clips) {
     new_clip = await Audio_Clips.create({
-      clip_title: "scene " + clip.scene_number,
+      clip_title: 'scene ' + clip.scene_number,
       description_text: clip.text,
-      playback_type: "extended",
+      playback_type: 'extended',
       description_type: clip.type,
       clip_start_time: clip.start_time,
     });

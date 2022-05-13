@@ -25,3 +25,9 @@ video-pipeline/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# API keys
+tts_api_key.json
+
+#env
+.env

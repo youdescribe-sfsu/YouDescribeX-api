@@ -8,5 +8,10 @@ router.use(express.json());
 router.get('/all-videos', videoController.getAllVideos);
 // get one video route
 router.get('/get-video/:id', videoController.getVideo);
+// get video by YouTubeVideoID
+router.get(
+  '/get-by-youtubeVideo/:youtubeId',
+  videoController.getVideobyYoutubeId
+);
 
 module.exports = router;

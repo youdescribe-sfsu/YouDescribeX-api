@@ -1,8 +1,8 @@
-const Sequelize = require("sequelize");
-const db = require("../config/db");
-const Video = require("./Video");
+const Sequelize = require('sequelize');
+const db = require('../config/db');
+const Videos = require('./Videos');
 
-const Dialog_Timestamps = db.define("Dialog_Timestamps", {
+const Dialog_Timestamps = db.define('Dialog_Timestamps', {
   dialog_id: {
     type: Sequelize.UUID,
     defaultValue: Sequelize.UUIDV4,
@@ -28,6 +28,6 @@ const Dialog_Timestamps = db.define("Dialog_Timestamps", {
 });
 
 //Associations
-Dialog_Timestamps.belongsTo(Video);
+Dialog_Timestamps.belongsTo(Videos);
 
 module.exports = Dialog_Timestamps;
