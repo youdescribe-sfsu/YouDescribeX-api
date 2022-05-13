@@ -15,8 +15,8 @@ const db = new Sequelize(
 db.authenticate()
   .then(() => console.log('Connected to YDXAI Database'))
   .then(() => {
-    db.sync({ alter: true })
-      // db.sync()
+    // db.sync({ alter: true })
+    db.sync()
       .then((result) => {
         // console.log(result);
       })
