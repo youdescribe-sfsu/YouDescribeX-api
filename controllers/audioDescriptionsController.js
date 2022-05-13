@@ -33,8 +33,8 @@ exports.getAudioDescription = async (req, res) => {
 exports.getUserAudioDescription = async (req, res) => {
   ad = await Audio_Descriptions.findAll({
     where: {
-      ad_id: req.params.videoId,
-      UserUser_Id: req.params.userId,
+      VideoVideoId: req.params.videoId,
+      UserUserId: req.params.userId,
     },
     include: [Users, Audio_Clips],
   }).catch((err) => {
@@ -49,7 +49,7 @@ exports.newAiDescription = async (req, res) => {
   console.log(req.body);
   const audio_clips = req.body.audio_clips;
 
-  const aiuser = await User.create({
+  const aiuser = await Users.create({
     user_id: 'abce2994-aa43-4abe-84ce-5f347e7dcb58',
     is_ai: true,
     name: 'YDX AI',
