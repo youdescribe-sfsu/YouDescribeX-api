@@ -1,10 +1,11 @@
-const Sequelize = require("sequelize");
-const db = require("../config/db");
+const Sequelize = require('sequelize');
+const db = require('../config/db');
 
-const Video = db.define("Video", {
+const Videos = db.define('Videos', {
   video_id: {
     type: Sequelize.UUID,
     defaultValue: Sequelize.UUIDV4,
+    allowNull: false,
     primaryKey: true,
   },
   youtube_video_id: {
@@ -21,4 +22,4 @@ const Video = db.define("Video", {
   },
 });
 
-module.exports = Video;
+module.exports = Videos;

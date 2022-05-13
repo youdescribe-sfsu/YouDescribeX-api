@@ -1,8 +1,8 @@
-const Sequelize = require("sequelize");
-const db = require("../config/db");
-const Audio_Descriptions = require("./Audio_Descriptions");
+const Sequelize = require('sequelize');
+const db = require('../config/db');
+const Audio_Descriptions = require('./Audio_Descriptions');
 
-const Notes = db.define("Notes", {
+const Notes = db.define('Notes', {
   notes_id: {
     type: Sequelize.UUID,
     defaultValue: Sequelize.UUIDV4,
@@ -13,10 +13,10 @@ const Notes = db.define("Notes", {
     allowNull: false,
     type: Sequelize.STRING,
   },
-  notes_timestamp: {
-    allowNull: false,
-    type: Sequelize.STRING,
-  },
+  // notes_timestamp: {
+  //   allowNull: false,
+  //   type: Sequelize.STRING,
+  // },
 });
 
 //Associations
