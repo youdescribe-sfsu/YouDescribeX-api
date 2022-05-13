@@ -17,8 +17,8 @@ router.get('/get-all-audio-clips', audioClipsController.getAllAudioClips);
 // get one Audio Clip row route - based on clip id
 router.get('/get-audio-clips/:clipId', audioClipsController.getAudioClip);
 
-// get user Audio Clip row - based on adId
-router.get('/get-user-ad/:adId', audioClipsController.getADAudioClips);
+// get all Audio Clips for one adId - based on adId
+router.get('/get-ad-audio-clips/:adId', audioClipsController.getADAudioClips);
 
 // update user Audio Clip title - based on clip Id
 router.put(
