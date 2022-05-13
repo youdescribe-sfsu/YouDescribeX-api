@@ -20,6 +20,5 @@ const Audio_Descriptions = db.define('Audio_Descriptions', {
 //Associations
 Audio_Descriptions.belongsTo(Users);
 Audio_Descriptions.belongsTo(Videos);
-Audio_Descriptions.hasMany(Audio_Clips);
 
 module.exports = Audio_Descriptions;
