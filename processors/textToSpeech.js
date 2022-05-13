@@ -43,6 +43,7 @@ const generateMp3forDescriptionText = async (
 
     // add a folder for video ID and a sub folder for user ID
     const dir = `./public/audio/${youtubeVideoId}/${userId}`;
+    // creates the folder structure if it doesn't exist -- ${youtubeVideoId}/${userId}
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
