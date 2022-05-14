@@ -8,13 +8,13 @@ GET Routes for frontend - there are others but using these for now
     2) http://localhost:4000/api/dialog-timestamps/get-video-dialog/:videoId
     API to get Dialog Timestamps for the video
 
-    3) http://localhost:4000/api/videos/get-by-youtubeVideo/:youtubVideoId
+    3) http://localhost:4000/api/videos/get-by-youtubeVideo/:youtubeVideoId
     API to get Video data for a youtube video
 
     4) http://localhost:4000/api/audio-descriptions/get-user-ad/:videoId&:userId
     API to get audio descriptions related to videoId & userId
 
-    5) http://localhost:4000/api/audio-clips/get-user-ad/:adId
+    5) http://localhost:4000/api/audio-clips/get-ad-audio-clips/:adId
     API to get all audio clips for one audio Description
 
     6) http://localhost:4000/api/notes/get-note-byAdId/:adId
