@@ -4,13 +4,13 @@ const Audio_Descriptions = require('./Audio_Descriptions');
 
 const Audio_Clips = db.define('Audio_Clips', {
   clip_id: {
-    type: Sequelize.INTEGER,
-    autoIncrement: true,
+    type: Sequelize.UUID,
+    defaultValue: Sequelize.UUIDV4,
     allowNull: false,
     primaryKey: true,
   },
   clip_title: {
-    allowNull: false,
+    allowNull: true,
     type: Sequelize.STRING,
   },
   description_type: {
@@ -30,28 +30,26 @@ const Audio_Clips = db.define('Audio_Clips', {
     type: Sequelize.FLOAT,
   },
   clip_end_time: {
-    allowNull: false,
+    allowNull: true,
     type: Sequelize.FLOAT,
   },
   clip_duration: {
-    allowNull: false,
+    allowNull: true,
     type: Sequelize.FLOAT,
   },
   clip_audio_path: {
-    allowNull: false,
+    allowNull: true,
     type: Sequelize.STRING,
   },
   is_recorded: {
     allowNull: false,
+    defaultValue: false,
     type: Sequelize.BOOLEAN,
-  },
-  recorded_audio_path: {
-    allowNull: true,
-    type: Sequelize.STRING,
   },
 });
 
 //Associations
 Audio_Clips.belongsTo(Audio_Descriptions);
+Audio_Descriptions.hasMany(Audio_Clips);
 
 module.exports = Audio_Clips;

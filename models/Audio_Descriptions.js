@@ -5,8 +5,8 @@ const Videos = require('./Videos');
 
 const Audio_Descriptions = db.define('Audio_Descriptions', {
   ad_id: {
-    type: Sequelize.INTEGER,
-    autoIncrement: true,
+    type: Sequelize.UUID,
+    defaultValue: Sequelize.UUIDV4,
     allowNull: false,
     primaryKey: true,
   },
