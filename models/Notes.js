@@ -4,14 +4,14 @@ const Audio_Descriptions = require('./Audio_Descriptions');
 
 const Notes = db.define('Notes', {
   notes_id: {
-    type: Sequelize.INTEGER,
-    autoIncrement: true,
+    type: Sequelize.UUID,
+    defaultValue: Sequelize.UUIDV4,
     allowNull: false,
     primaryKey: true,
   },
   notes_text: {
     allowNull: false,
-    type: Sequelize.STRING(1000),
+    type: Sequelize.STRING,
   },
   // notes_timestamp: {
   //   allowNull: false,

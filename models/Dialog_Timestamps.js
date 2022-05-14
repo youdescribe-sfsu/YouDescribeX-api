@@ -4,8 +4,8 @@ const Videos = require('./Videos');
 
 const Dialog_Timestamps = db.define('Dialog_Timestamps', {
   dialog_id: {
-    type: Sequelize.INTEGER,
-    autoIncrement: true,
+    type: Sequelize.UUID,
+    defaultValue: Sequelize.UUIDV4,
     allowNull: false,
     primaryKey: true,
   },

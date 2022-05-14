@@ -3,8 +3,8 @@ const db = require('../config/db');
 
 const Videos = db.define('Videos', {
   video_id: {
-    type: Sequelize.INTEGER,
-    autoIncrement: true,
+    type: Sequelize.UUID,
+    defaultValue: Sequelize.UUIDV4,
     allowNull: false,
     primaryKey: true,
   },
