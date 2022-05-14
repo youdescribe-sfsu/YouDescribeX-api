@@ -27,3 +27,6 @@ tts_api_key.json
 
 #env
 .env
+
+# audio files
+public/audio/
