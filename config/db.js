@@ -17,7 +17,7 @@ db.authenticate()
     // db.sync({ alter: true })
     db.sync()
       .then((result) => {
-        console.log(result);
+        // console.log(result);
       })
       .catch((err) => {
         console.log(err);
