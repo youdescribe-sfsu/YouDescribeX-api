@@ -17,5 +17,6 @@ const Notes = db.define('Notes', {
 
 //Associations
 Notes.belongsTo(Audio_Descriptions);
+Audio_Descriptions.hasMany(Notes);
 
 module.exports = Notes;

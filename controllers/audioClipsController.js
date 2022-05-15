@@ -152,22 +152,22 @@ exports.updateAudioClipDescription = async (req, res) => {
           'Updated Clip Audio Path, Clip Description Text, Clip Duration, Clip End Time'
         );
         // wait until the old file gets deleted
-        // let deleteOldAudioFileStatus = await deleteOldAudioFile(old_audio_path);
-        await deleteOldAudioFile(old_audio_path);
-        // if (deleteOldAudioFileStatus) {
-        return res.status(200).send({
-          message: 'Success OK',
-        });
-        // } else {
-        //   return res.status(500).send({
-        //     message: 'Unable to delete old Audio File!! Please try again',
-        //   });
-        // }
+        let deleteOldAudioFileStatus = await deleteOldAudioFile(old_audio_path);
+        // await deleteOldAudioFile(old_audio_path);
+        if (deleteOldAudioFileStatus) {
+          return res.status(200).send({
+            message: 'Success OK',
+          });
+        } else {
+          return res.status(500).send({
+            message: 'Problem Saving Audio!! Please try again',
+          });
+        }
       })
       .catch((err) => {
         // console.log(err);
         return res.status(500).send({
-          message: 'Unable to connect to DB!! Please try again',
+          message: 'Server Error!! Please try again',
         }); // send error message
       });
   }

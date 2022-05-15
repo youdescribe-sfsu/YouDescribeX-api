@@ -16,6 +16,7 @@ exports.getUserAudioDescriptionData = async (req, res) => {
     include: [
       {
         model: Audio_Clips,
+        separate: true, // this is nested data, so ordering works only with separate true
         order: ['clip_start_time'],
       },
       {
