@@ -1,43 +1,31 @@
 const Audio_Descriptions = require('../models/Audio_Descriptions');
+const Audio_Clips = require('../models/Audio_Clips');
+const Notes = require('../models/Notes');
 
 // db processing is done here using sequelize models
-// find all Audio_Descriptions
-exports.getAllAudioDescriptions = async (req, res) => {
-  Audio_Descriptions.findAll()
-    .then((allAudioDescriptions) => {
-      console.log(allAudioDescriptions);
-      return res.send(allAudioDescriptions);
-    })
-    .catch((err) => console.log(err));
-};
 
-// find one Audio_Descriptions row - based on id
-exports.getAudioDescription = async (req, res) => {
-  Audio_Descriptions.findAll({
-    where: {
-      ad_id: req.params.adId,
-    },
-  })
-    .then((AudioDescription) => {
-      console.log(AudioDescription);
-      return res.send(AudioDescription);
-    })
-    .catch((err) => {
-      console.log(err);
-    });
-};
-
-// find the Audio_Descriptions - based on video_id & user_id
-exports.getUserAudioDescription = async (req, res) => {
+// GET Routes
+// get user Audio Description Data (including Notes, AudioClips) - based on UserId & VideoId
+exports.getUserAudioDescriptionData = async (req, res) => {
   Audio_Descriptions.findOne({
     where: {
       VideoVideoId: req.params.videoId,
       UserUserId: req.params.userId,
     },
+    // nesting Audio_Clips & Notes data too
+    include: [
+      {
+        model: Audio_Clips,
+        order: ['clip_start_time'],
+      },
+      {
+        model: Notes,
+      },
+    ],
   })
-    .then((UserAudioDescription) => {
-      console.log(UserAudioDescription);
-      return res.send(UserAudioDescription);
+    .then((data) => {
+      // console.log(data);
+      return res.send(data);
     })
     .catch((err) => {
       console.log(err);
