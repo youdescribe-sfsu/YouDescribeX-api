@@ -13,10 +13,6 @@ const Notes = db.define('Notes', {
     allowNull: false,
     type: Sequelize.STRING,
   },
-  // notes_timestamp: {
-  //   allowNull: false,
-  //   type: Sequelize.STRING,
-  // },
 });
 
 //Associations

@@ -2,87 +2,44 @@ const Notes = require('../models/Notes');
 
 // db processing is done here using sequelize models
 
-// GET Requests
-// find all Notess
-exports.getAllNotes = async (req, res) => {
-  Notes.findAll()
-    .then((allNotes) => {
-      console.log(allNotes);
-      return res.send(allNotes);
-    })
-    .catch((err) => console.log(err));
-};
-
-// find one Notes - based on notes_id
-exports.getNoteById = async (req, res) => {
-  Notes.findOne({
-    where: {
-      notes_id: req.params.id,
-    },
-  })
-    .then((note) => {
-      console.log(note);
-      return res.send(note);
-    })
-    .catch((err) => {
-      console.log(err);
-    });
-};
-
-// find one Notes - based on adid
-exports.getNoteByAdId = async (req, res) => {
-  Notes.findOne({
-    where: {
-      AudioDescriptionAdId: req.params.adId,
-    },
-  })
-    .then((note) => {
-      console.log(note);
-      return res.send(note);
-    })
-    .catch((err) => {
-      console.log(err);
-    });
-};
-
 // POST Requests
 // post new Note - based on adid
 // check if there exists a record, if yes update it, otherwise, create a new note record
 exports.postNoteByAdId = async (req, res) => {
-  Notes.findOne({
-    where: {
+  if (req.body.noteId === '') {
+    // create new note if there is no noteId
+    Notes.create({
+      notes_text: req.body.notes,
       AudioDescriptionAdId: req.body.adId,
-    },
-  })
-    .then((obj) => {
-      if (obj) {
-        obj
-          .update({ notes_text: req.body.notes })
-          .then((note) => {
-            console.log(note);
-            return res.send(note);
-          })
-          .catch((err) => {
-            console.log(err);
-            return res.send(err);
-          });
-      } else {
-        Notes.create({
-          AudioDescriptionAdId: req.body.adId,
-          notes_text: req.body.notes,
-        })
-          .then((note) => {
-            console.log(note);
-            return res.send(note);
-          })
-          .catch((err) => {
-            console.log(err);
-            return res.send(err);
-          });
-      }
     })
-    .catch((err) => {
-      console.log(err);
-      return res.send(err);
-    });
+      .then((note) => {
+        console.log(note);
+        res.send(note);
+      })
+      .catch((err) => {
+        console.log(err);
+        return res.send(err);
+      });
+  } else {
+    // update the note if there is noteId is mentioned
+    Notes.update(
+      { notes_text: req.body.notes },
+      {
+        where: {
+          AudioDescriptionAdId: req.body.adId,
+        },
+        returning: true, // returns the updated row
+        plain: true, // returns only the object & not the messy data
+      }
+    )
+      .then(([count, note]) => {
+        // returns the number of affected rows & actual data values
+        console.log(note);
+        res.send(note);
+      })
+      .catch((err) => {
+        console.log(err);
+        return res.send(err);
+      });
+  }
 };
