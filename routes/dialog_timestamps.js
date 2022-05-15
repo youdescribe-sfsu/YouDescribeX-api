@@ -4,16 +4,6 @@ const dialogTimestampsController = require('../controllers/dialogTimestampsContr
 router.use(express.json());
 
 // Routes - send request to controller where db processing is done
-// get all Dialog Timestamps route
-router.get(
-  '/get-all-dialog-timestamps',
-  dialogTimestampsController.getAllDialogTimestamps
-);
-// get one Dialog Timestamp row route
-router.get(
-  '/get-dialog/:dialogId',
-  dialogTimestampsController.getDialogTimestamp
-);
 // get Dialog Timestamps related to a Video
 router.get(
   '/get-video-dialog/:videoId',
