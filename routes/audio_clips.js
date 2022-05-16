@@ -15,25 +15,25 @@ router.get(
 // PUT Requests
 // update user Audio Clip title - based on clip Id
 router.put(
-  '/update-ad-title/:clipId',
+  '/update-clip-title/:clipId',
   audioClipsController.updateAudioClipTitle
 );
 
 // update user Audio Clip Playback type - based on clip Id
 router.put(
-  '/update-ad-playback-type/:clipId',
+  '/update-clip-playback-type/:clipId',
   audioClipsController.updateAudioClipPlaybackType
 );
 
 // update user Audio Clip Playback type - based on clip Id
 router.put(
-  '/update-ad-start-time/:clipId',
+  '/update-clip-start-time/:clipId',
   audioClipsController.updateAudioClipStartTime
 );
 
 // update Audio Clip Description & Generate a new mp3 for it
 router.put(
-  '/update-ad-description/:clipId',
+  '/update-clip-description/:clipId',
   audioClipsController.updateAudioClipDescription
 );
 module.exports = router;
