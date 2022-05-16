@@ -25,13 +25,13 @@ router.put(
   audioClipsController.updateAudioClipPlaybackType
 );
 
-// update user Audio Clip Playback type - based on clip Id
+// update user Audio Clip Start Time type - based on clip Id, update endtime based on duration
 router.put(
   '/update-clip-start-time/:clipId',
   audioClipsController.updateAudioClipStartTime
 );
 
-// update Audio Clip Description & Generate a new mp3 for it
+// update Audio Clip Description & Generate a new mp3, update endtime & duration for it
 router.put(
   '/update-clip-description/:clipId',
   audioClipsController.updateAudioClipDescription
