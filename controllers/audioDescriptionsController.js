@@ -1,8 +1,9 @@
-const Audio_Clips = require('../models/Audio_Clips');
-const Audio_Descriptions = require('../models/Audio_Descriptions');
-const Notes = require('../models/Notes');
-const Users = require('../models/Users');
-const Videos = require('../models/Videos');
+const Audio_Clips = require("../models/Audio_Clips");
+const Audio_Descriptions = require("../models/Audio_Descriptions");
+const Dialog_Timestamps = require("../models/Dialog_Timestamps");
+const Notes = require("../models/Notes");
+const Users = require("../models/Users");
+const Videos = require("../models/Videos");
 
 // db processing is done here using sequelize models
 // GET Routes
@@ -18,7 +19,7 @@ exports.getUserAudioDescriptionData = async (req, res) => {
       {
         model: Audio_Clips,
         separate: true, // this is nested data, so ordering works only with separate true
-        order: ['clip_start_time'],
+        order: ["clip_start_time"],
       },
       {
         model: Notes,
@@ -35,12 +36,14 @@ exports.getUserAudioDescriptionData = async (req, res) => {
 };
 
 exports.newAiDescription = async (req, res) => {
-  console.log(req.body);
+  const dialog = req.body.dialogue_timestamps;
+
   const audio_clips = req.body.audio_clips;
-  const aiuser = await Users.create({
-    user_id: 'abce2994-aa43-4abe-84ce-5f347e7dcb58',
-    is_ai: true,
-    name: 'YDX AI',
+
+  const aiuser = await Users.findOne({
+    where: {
+      user_id: "abce2994-aa43-4abe-84ce-5f347e7dcb58",
+    },
   }).catch((e) => {});
   let vid = await Videos.findOne({
     where: { youtube_video_id: req.body.youtube_id },
@@ -55,22 +58,31 @@ exports.newAiDescription = async (req, res) => {
   } else {
     vid = await Videos.create({
       youtube_video_id: req.body.youtube_id,
-      video_name:
-        'Hope For Paws: Stray dog walks into a yard and then collapses...',
-      video_length: req.body,
+      video_name: req.body.video_name,
+      video_length: req.body.video_length,
     }).catch((e) => console.log(e));
     await ad.setVideo(vid).catch((e) => console.log(e));
   }
   await ad.setUser(aiuser);
   for (const clip of audio_clips) {
     new_clip = await Audio_Clips.create({
-      clip_title: 'scene ' + clip.scene_number,
+      clip_title: "scene " + clip.scene_number,
       description_text: clip.text,
-      playback_type: 'extended',
+      playback_type: "extended",
       description_type: clip.type,
       clip_start_time: clip.start_time,
     });
     ad.addAudio_Clip(new_clip);
+  }
+
+  for (const timestamp of dialog) {
+    new_timestamp = await Dialog_Timestamps.create({
+      dialog_sequence_num: timestamp.sequence_num,
+      dialog_start_time: timestamp.start_time,
+      dialog_end_time: timestamp.end_time,
+      dialog_duration: timestamp.duration,
+    });
+    new_timestamp.setVideo(vid);
   }
   res.send(200);
 };
