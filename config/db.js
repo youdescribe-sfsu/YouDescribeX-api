@@ -16,7 +16,7 @@ db.authenticate()
   .then(() => console.log('Connected to YDXAI Database'))
   .then(() => {
     // db.sync({ alter: true })
-    db.sync()
+    db.sync({ logging: false })
       .then((result) => {
         // console.log(result);
       })
