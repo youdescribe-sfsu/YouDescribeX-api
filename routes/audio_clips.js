@@ -1,25 +1,18 @@
 const express = require('express');
 const router = express.Router();
-const audioClipsController = require('../controllers/audioClipsController');
+const audioAllClipsMP3Controller = require('../controllers/audioAllClipsMP3Controller'); // generating mp3 for all AudioClips based on AdId
+const audioClipsController = require('../controllers/audioClipsController'); // handles routes for all other audioClip requests
 
 router.use(express.json());
 
 // route to generate mp3 files for all audio clips in the db - based on video id
 router.get(
   '/generateMp3ForAllClipsInDB/:adId',
-  audioClipsController.generateMP3ForAllClipsInDB
+  audioAllClipsMP3Controller.generateMP3ForAllClipsInDB
 );
 
 // Routes - send request to controller where db processing is done
-// get all Audio Clips route
-router.get('/get-all-audio-clips', audioClipsController.getAllAudioClips);
-
-// get one Audio Clip row route - based on clip id
-router.get('/get-audio-clips/:clipId', audioClipsController.getAudioClip);
-
-// get all Audio Clips for one adId - based on adId
-router.get('/get-ad-audio-clips/:adId', audioClipsController.getADAudioClips);
-
+// PUT Requests
 // update user Audio Clip title - based on clip Id
 router.put(
   '/update-ad-title/:clipId',
@@ -32,7 +25,7 @@ router.put(
   audioClipsController.updateAudioClipPlaybackType
 );
 
-// update user Audio Clip Playback type - based on clip Id
+// update user Audio Clip Start Time type - based on clip Id
 router.put(
   '/update-ad-start-time/:clipId',
   audioClipsController.updateAudioClipStartTime
@@ -41,6 +34,6 @@ router.put(
 // update Audio Clip Description & Generate a new mp3 for it
 router.put(
   '/update-ad-description/:clipId',
-  audioClipsController.updateAudioDescription
+  audioClipsController.updateAudioClipDescription
 );
 module.exports = router;

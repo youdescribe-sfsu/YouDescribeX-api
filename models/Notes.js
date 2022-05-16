@@ -13,13 +13,10 @@ const Notes = db.define('Notes', {
     allowNull: false,
     type: Sequelize.STRING,
   },
-  // notes_timestamp: {
-  //   allowNull: false,
-  //   type: Sequelize.STRING,
-  // },
 });
 
 //Associations
 Notes.belongsTo(Audio_Descriptions);
+Audio_Descriptions.hasMany(Notes);
 
 module.exports = Notes;
