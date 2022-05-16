@@ -13,99 +13,86 @@ const getOldAudioFilePath = require('../audioClipHelperFunctions/getOldAudioFile
 // update audio clip Title - based on clip_id
 // check if there exists a record, if yes update it
 exports.updateAudioClipTitle = async (req, res) => {
-  Audio_Clips.findOne({
-    where: {
-      clip_id: req.params.clipId,
+  Audio_Clips.update(
+    {
+      clip_title: req.body.adTitle,
     },
-  })
-    .then((obj) => {
-      if (obj) {
-        obj
-          .update({ clip_title: req.body.adTitle || clip.clip_title })
-          .then((clip) => {
-            console.log(clip);
-            return res.send(clip);
-          })
-          .catch((err) => {
-            console.log(err);
-            return res.send(err);
-          });
-      } else {
-        return res.status(404).send({
-          message: 'Audio Clip Not Found',
-        });
-      }
+    {
+      where: {
+        clip_id: req.params.clipId,
+      },
+    }
+  )
+    .then((data) => {
+      return res.status(200).send(data);
     })
     .catch((err) => {
       console.log(err);
-      return res.send(err);
+      return res.status(500).send(err);
     });
 };
 // update audio clip Playback Type - from inline to extended or vice versa - based on clip_id
 // check if there exists a record, if yes update it
 exports.updateAudioClipPlaybackType = async (req, res) => {
-  Audio_Clips.findOne({
-    where: {
-      clip_id: req.params.clipId,
+  Audio_Clips.update(
+    {
+      playback_type: req.body.clipPlaybackType,
     },
-  })
-    .then((obj) => {
-      if (obj) {
-        obj
-          .update({
-            playback_type: req.body.clipPlaybackType || clip.playback_type,
-          })
-          .then((clip) => {
-            console.log(clip);
-            return res.send(clip);
-          })
-          .catch((err) => {
-            console.log(err);
-            return res.send(err);
-          });
-      } else {
-        return res.status(404).send({
-          message: 'Audio Clip Not Found',
-        });
-      }
+    {
+      where: {
+        clip_id: req.params.clipId,
+      },
+    }
+  )
+    .then((data) => {
+      return res.status(200).send(data);
     })
     .catch((err) => {
       console.log(err);
-      return res.send(err);
+      return res.status(500).send(err);
     });
 };
 
 // update audio clip Start Time based on clip_id
 // check if there exists a record, if yes update it
 exports.updateAudioClipStartTime = async (req, res) => {
+  // get the audio_duration to update both start time & end time
   Audio_Clips.findOne({
     where: {
       clip_id: req.params.clipId,
     },
+    attributes: ['clip_duration'],
   })
-    .then((obj) => {
-      if (obj) {
-        obj
-          .update({
-            clip_start_time: req.body.clipStartTime || clip.clip_start_time,
-          })
-          .then((clip) => {
-            console.log(clip);
-            return res.send(clip);
-          })
-          .catch((err) => {
-            console.log(err);
-            return res.send(err);
-          });
-      } else {
-        return res.status(404).send({
-          message: 'Audio Clip Not Found',
+    .then((clip) => {
+      const clipEndTime = parseFloat(
+        parseFloat(req.body.clipStartTime) + parseFloat(clip.clip_duration)
+      ).toFixed(2);
+      return clipEndTime;
+    })
+    .then((clipEndTime) => {
+      // update both start & end time based on clip_duration
+      Audio_Clips.update(
+        {
+          clip_start_time: req.body.clipStartTime,
+          clip_end_time: clipEndTime,
+        },
+        {
+          where: {
+            clip_id: req.params.clipId,
+          },
+        }
+      )
+        .then((data) => {
+          return res.status(200).send(data);
+        })
+        .catch((err) => {
+          console.log(err);
+          return res.status(500).send(err);
         });
-      }
     })
     .catch((err) => {
       console.log(err);
-      return res.send(err);
+      return res.status(500).send(err);
     });
 };
 
