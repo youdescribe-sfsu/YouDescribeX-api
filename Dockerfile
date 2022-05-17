@@ -1,6 +1,6 @@
 FROM node:14
 
-WORKDIR /home
+WORKDIR /home/ydx-api
 COPY ./ ./
 
 RUN apt-get update && \
