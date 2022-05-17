@@ -14,7 +14,7 @@ app.use(cors());
 app.use(express.json());
 
 // to server static files - audio files
-app.use(express.static(path.join(__dirname, 'public')));
+app.use('/api/static', express.static(path.join(__dirname, 'public')));
 
 port = process.env.PORT;
 
