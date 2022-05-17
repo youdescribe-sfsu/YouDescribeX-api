@@ -16,7 +16,7 @@ deploy job:
         - master
     stage: deploy
     tags:
-        - dev
+        - ydx
     script:
         - docker build -t "${CI_PROJECT_NAME}:${CI_COMMIT_REF_NAME}-1.${CI_JOB_ID}" .
         - docker stop ${CI_PROJECT_NAME}
