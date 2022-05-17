@@ -12,6 +12,7 @@ cache:
     - node_modules/
 
 deploy job:
+
     only:
         - master
     stage: deploy
