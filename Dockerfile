@@ -2,7 +2,7 @@ FROM node:14
 
 WORKDIR /home/ydx
 COPY ./ ./
-COPY /creds/* ./
+COPY /creds ./
 
 RUN npm install
 
