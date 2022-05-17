@@ -21,4 +21,4 @@ deploy job:
         - docker build -t "${CI_PROJECT_NAME}:${CI_COMMIT_REF_NAME}-1.${CI_JOB_ID}" .
         - docker stop ${CI_PROJECT_NAME}
         - docker rm ${CI_PROJECT_NAME}
-        - docker run -v /mnt/ebs/ydx:/public/audio -v /creds:/home/creds --name ${CI_PROJECT_NAME} --add-host host.docker.internal:host-gateway -d -p 0.0.0.0:4000:4000 ${CI_PROJECT_NAME}:${CI_COMMIT_REF_NAME}-1.${CI_JOB_ID}
+        - docker run -v /mnt/ebs/ydx:/public/audio -v /creds:/home/creds --name ${CI_PROJECT_NAME}  --network=host -d -p 0.0.0.0:4000:4000 ${CI_PROJECT_NAME}:${CI_COMMIT_REF_NAME}-1.${CI_JOB_ID}
