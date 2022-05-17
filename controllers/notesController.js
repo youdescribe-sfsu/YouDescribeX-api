@@ -13,12 +13,12 @@ exports.postNoteByAdId = async (req, res) => {
       AudioDescriptionAdId: req.body.adId,
     })
       .then((note) => {
-        console.log(note);
-        res.send(note);
+        // console.log(note);
+        res.status(200).send(note);
       })
       .catch((err) => {
         console.log(err);
-        return res.send(err);
+        return res.status(500).send(err);
       });
   } else {
     // update the note if there is noteId is mentioned
@@ -34,12 +34,12 @@ exports.postNoteByAdId = async (req, res) => {
     )
       .then(([count, note]) => {
         // returns the number of affected rows & actual data values
-        console.log(note);
-        res.send(note);
+        // console.log(note);
+        res.status(200).send(note);
       })
       .catch((err) => {
         console.log(err);
-        return res.send(err);
+        return res.status(500).send(err);
       });
   }
 };
