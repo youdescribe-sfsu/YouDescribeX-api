@@ -12,9 +12,8 @@ cache:
     - node_modules/
 
 deploy job:
-
     only:
-        - master
+        - main
     stage: deploy
     tags:
         - ydx
