@@ -159,3 +159,24 @@ exports.updateAudioClipDescription = async (req, res) => {
       });
   }
 };
+
+//POST Requests
+// add a new clip
+exports.addNewAudioClip = async (req, res) => {
+  Audio_Clips.create({
+    clip_title: req.body.newACTitle,
+    description_type: req.body.newACType,
+    description_text: req.body.newACDescriptionText,
+    playback_type: req.body.newACPlaybackType,
+    clip_start_time: req.body.newACStartTime,
+    is_recorded: req.body.isRecorded,
+    AudioDescriptionAdId: req.params.adId,
+  })
+    .then((clip) => {
+      return res.status(200).send(clip);
+    })
+    .catch((err) => {
+      console.log(err);
+      return res.status(500).send(err);
+    });
+};

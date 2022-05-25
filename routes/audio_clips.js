@@ -36,4 +36,9 @@ router.put(
   '/update-clip-description/:clipId',
   audioClipsController.updateAudioClipDescription
 );
+
+//POST Requests
+// add a new clip
+router.post('/add-new-clip/:adId', audioClipsController.addNewAudioClip);
+
 module.exports = router;
