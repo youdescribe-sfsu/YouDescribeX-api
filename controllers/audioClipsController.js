@@ -180,3 +180,22 @@ exports.addNewAudioClip = async (req, res) => {
       return res.status(500).send(err);
     });
 };
+
+// DELETE Requests
+// delete a clip based on clipId
+exports.deleteAudioClip = async (req, res) => {
+  console.log(req.params.clipId);
+  Audio_Clips.destroy({
+    where: {
+      clip_id: req.params.clipId,
+    },
+  })
+    .then((clip) => {
+      console.log(clip);
+      return res.status(200).send('Clip Deleted Successfully');
+    })
+    .catch((err) => {
+      console.log(err);
+      return res.status(500).send(err);
+    });
+};
