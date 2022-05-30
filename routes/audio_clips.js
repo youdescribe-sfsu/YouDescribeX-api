@@ -41,4 +41,8 @@ router.put(
 // add a new clip
 router.post('/add-new-clip/:adId', audioClipsController.addNewAudioClip);
 
+// DELETE Requests
+// delete a clip based on clipId
+router.delete('/delete-clip/:clipId', audioClipsController.deleteAudioClip);
+
 module.exports = router;
