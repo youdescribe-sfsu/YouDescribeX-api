@@ -6,7 +6,7 @@ const analyzePlaybackType = require('./analyzePlaybackType');
 const getAudioDuration = require('../processors/getAudioDuration');
 
 // to update clip_audio_path, clip_duration, clip_end_time columns of Audio_Clips Table
-const updateDataInDB = async (data) => {
+const updateClipDataInDB = async (data) => {
   // check if there is an error in text to speech generation
   if (!data.textToSpeechOutput.status) {
     let updateStatus = {
@@ -102,4 +102,4 @@ const updateDataInDB = async (data) => {
   }
 };
 
-module.exports = updateDataInDB;
+module.exports = updateClipDataInDB;
