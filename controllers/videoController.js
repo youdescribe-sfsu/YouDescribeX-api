@@ -10,10 +10,10 @@ exports.getVideobyYoutubeId = async (req, res) => {
     },
   })
     .then((videos) => {
-      // console.log(videos);
-      return res.send(videos);
+      return res.status(200).send(videos);
     })
     .catch((err) => {
       console.log(err);
+      return res.status(500).send(err);
     });
 };
