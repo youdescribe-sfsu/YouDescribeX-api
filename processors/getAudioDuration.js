@@ -1,20 +1,21 @@
-const { getAudioDurationInSeconds } = require('get-audio-duration');
+const getMP3Duration = require('get-mp3-duration');
+const fs = require('fs');
 
 const getAudioDuration = async (filepath) => {
   const path = filepath.replace('.', './public');
-  return await getAudioDurationInSeconds(path)
-    .then((duration) => {
-      return {
-        message: 'Success',
-        data: duration,
-      };
-    })
-    .catch((err) => {
-      return {
-        message: 'Error in Getting Audio Duration!! Please try again',
-        data: null,
-      };
-    });
+  try {
+    const buffer = fs.readFileSync(path);
+    const duration = parseFloat(getMP3Duration(buffer) / 1000);
+    return {
+      message: 'Success',
+      data: duration,
+    };
+  } catch (err) {
+    return {
+      message: 'Error in Getting Audio Duration!! Please try again',
+      data: null,
+    };
+  }
 };
 
 module.exports = getAudioDuration;
