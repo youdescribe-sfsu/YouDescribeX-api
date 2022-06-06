@@ -8,6 +8,7 @@ const deleteOldAudioFile = require('../audioClipHelperFunctions/deleteOldAudioFi
 const getOldAudioFilePath = require('../audioClipHelperFunctions/getOldAudioFilePath'); // get the old audioPath in the db
 const getVideoFromYoutubeId = require('../audioClipHelperFunctions/getVideoFromYoutubeId'); // get the video id by youtubeId
 const analyzePlaybackType = require('../audioClipHelperFunctions/analyzePlaybackType');
+const getClipStartTimebyId = require('../audioClipHelperFunctions/getClipStartTimebyId');
 
 // db processing is done here using sequelize models
 
@@ -162,67 +163,78 @@ exports.updateAudioClipDescription = async (req, res) => {
             });
           } else {
             let videoId = getVideoIdStatus.data;
-
-            // analyze clip playback type from dialog timestamp data
-            console.log(
-              'Analyzing PlaybackType Based on Dialog Timestamp Data'
-            );
-            let playbackTypeStatus = await analyzePlaybackType(
-              req.params.clipId,
-              updatedClipEndTime,
-              videoId
+            // getClipStartTimebyId
+            let getClipStartTimeStatus = await getClipStartTimebyId(
+              req.params.clipId
             );
             // check if the returned data is null - an error in analyzing Playback type
-            if (playbackTypeStatus.data === null) {
-              return (updateStatus = {
-                clip_id: data.clip_id,
-                message: playbackTypeStatus.message,
+            if (getClipStartTimeStatus.data === null) {
+              return res.status(500).send({
+                message: getClipStartTimeStatus.message,
               });
             } else {
-              // Clip Playback Type is returned
-              const playbackType = playbackTypeStatus.data;
+              let clipStartTime = getClipStartTimeStatus.data;
 
-              // update the path of the audio file & the description text for the audio clip in the db
-              Audio_Clips.update(
-                {
-                  clip_audio_path: response.filepath,
-                  description_text:
-                    req.body.clipDescriptionText || clip.description_text,
-                  clip_duration: parseFloat(updatedAudioDuration),
-                  clip_end_time: parseFloat(updatedClipEndTime),
-                  playback_type: playbackType,
-                },
-                {
-                  where: {
-                    clip_id: req.params.clipId,
-                  },
-                }
-              )
-                .then(async (clip) => {
-                  console.log(
-                    'Updated Clip Audio Path, Clip Description Text, Clip Duration, Clip End Time'
-                  );
-                  // wait until the old file gets deleted
-                  let deleteOldAudioFileStatus = await deleteOldAudioFile(
-                    old_audio_path
-                  );
-                  // await deleteOldAudioFile(old_audio_path);
-                  if (deleteOldAudioFileStatus) {
-                    return res.status(200).send({
-                      message: 'Success OK',
-                    });
-                  } else {
-                    return res.status(500).send({
-                      message: 'Problem Saving Audio!! Please try again',
-                    });
-                  }
-                })
-                .catch((err) => {
-                  // console.log(err);
-                  return res.status(500).send({
-                    message: 'Server Error!! Please try again',
-                  }); // send error message
+              // analyze clip playback type from dialog timestamp data
+              console.log(
+                'Analyzing PlaybackType Based on Dialog Timestamp Data'
+              );
+              let playbackTypeStatus = await analyzePlaybackType(
+                clipStartTime,
+                updatedClipEndTime,
+                videoId
+              );
+              // check if the returned data is null - an error in analyzing Playback type
+              if (playbackTypeStatus.data === null) {
+                return res.status(500).send({
+                  message: playbackTypeStatus.message,
                 });
+              } else {
+                // Clip Playback Type is returned
+                const playbackType = playbackTypeStatus.data;
+
+                // update the path of the audio file & the description text for the audio clip in the db
+                Audio_Clips.update(
+                  {
+                    clip_audio_path: response.filepath,
+                    description_text:
+                      req.body.clipDescriptionText || clip.description_text,
+                    clip_duration: parseFloat(updatedAudioDuration),
+                    clip_end_time: parseFloat(updatedClipEndTime),
+                    playback_type: playbackType,
+                  },
+                  {
+                    where: {
+                      clip_id: req.params.clipId,
+                    },
+                  }
+                )
+                  .then(async (clip) => {
+                    console.log(
+                      'Updated Clip Audio Path, Clip Description Text, Clip Duration, Clip End Time'
+                    );
+                    // wait until the old file gets deleted
+                    let deleteOldAudioFileStatus = await deleteOldAudioFile(
+                      old_audio_path
+                    );
+                    // await deleteOldAudioFile(old_audio_path);
+                    if (deleteOldAudioFileStatus) {
+                      return res.status(200).send({
+                        message: 'Success OK',
+                      });
+                    } else {
+                      return res.status(500).send({
+                        message: 'Problem Saving Audio!! Please try again',
+                      });
+                    }
+                  })
+                  .catch((err) => {
+                    // console.log(err);
+                    return res.status(500).send({
+                      message: 'Server Error!! Please try again',
+                    }); // send error message
+                  });
+              }
             }
           }
         }
@@ -235,13 +247,16 @@ exports.updateAudioClipDescription = async (req, res) => {
 // add a new clip
 exports.addNewAudioClip = async (req, res) => {
   // recorded AudioClip
-  if (req.body.isRecorded) {
+  if (req.file && req.body.isRecorded) {
     // get new clip audio path, calculate duration & endtime and playbackType
-    var clipAudioPath = String(req.file.path)
+    var newClipAudioFilePath = String(req.file.path)
       .split('\\')
       .join('/')
       .replace('public', '.');
-  } else {
+  }
+  // New Audio Clip with Description Text (isRecorded = false)
+  else {
+    console.log('Converting Text to Speech...');
     // process TexttoSpeech for the new description text
     let response = await generateMp3forDescriptionText(
       req.body.userId,
@@ -255,33 +270,71 @@ exports.addNewAudioClip = async (req, res) => {
         message: 'Unable to generate Text to Speech!! Please try again',
       }); // send error message
     } else {
-      // calculate audio duration
-      let updatedAudioDuration = await getAudioDuration(response.filepath);
-      // calculate audio clip end time
-      let updatedClipEndTime = await calculateClipEndTime(
-        req.params.clipId,
-        updatedAudioDuration
-      );
-      var clipAudioPath = response.filepath;
+      var newClipAudioFilePath = response.filepath;
     }
   }
-
-  // Audio_Clips.create({
-  //   clip_title: req.body.newACTitle,
-  //   description_type: req.body.newACType,
-  //   description_text: req.body.newACDescriptionText,
-  //   playback_type: req.body.newACPlaybackType,
-  //   clip_start_time: req.body.newACStartTime,
-  //   is_recorded: req.body.isRecorded,
-  //   AudioDescriptionAdId: req.params.adId,
-  // })
-  //   .then((clip) => {
-  //     return res.status(200).send(clip);
-  //   })
-  //   .catch((err) => {
-  //     console.log(err);
-  //     return res.status(500).send(err);
-  //   });
+  // calculate audio duration
+  console.log('Generating Audio Duration');
+  let clipDurationStatus = await getAudioDuration(newClipAudioFilePath);
+  // check if the returned data is null - an error in generating Audio Duration
+  if (clipDurationStatus.data === null) {
+    return res.status(500).send({
+      message: clipDurationStatus.message,
+    });
+  } else {
+    // Audio Duration generation successful
+    var newAudioDuration = clipDurationStatus.data;
+    // calculate audio clip end time
+    console.log('Calculating Audio Clip End Time');
+    // Clip End Time Calculation based on Audio Duration & Start Time
+    var newClipEndTime = parseFloat(
+      parseFloat(req.body.newACStartTime) + parseFloat(newAudioDuration)
+    ).toFixed(2);
+    // get video_id from youtubeVideoID
+    let getVideoIdStatus = await getVideoFromYoutubeId(req.body.youtubeVideoId);
+    if (getVideoIdStatus.data === null) {
+      return res.status(500).send({
+        message: getVideoIdStatus.message,
+      });
+    } else {
+      let videoId = getVideoIdStatus.data;
+      // analyze clip playback type from dialog timestamp data
+      console.log('Analyzing PlaybackType Based on Dialog Timestamp Data');
+      let playbackTypeStatus = await analyzePlaybackType(
+        req.body.newACStartTime,
+        newClipEndTime,
+        videoId
+      );
+      // check if the returned data is null - an error in analyzing Playback type
+      if (playbackTypeStatus.data === null) {
+        return res.status(500).send({
+          message: playbackTypeStatus.message,
+        });
+      } else {
+        // Clip Playback Type is returned
+        var newPlaybackType = playbackTypeStatus.data;
+        Audio_Clips.create({
+          clip_title: req.body.newACTitle,
+          description_type: req.body.newACType,
+          description_text: req.body.newACDescriptionText,
+          playback_type: newPlaybackType,
+          clip_start_time: req.body.newACStartTime,
+          clip_end_time: newClipEndTime,
+          clip_duration: newAudioDuration,
+          clip_audio_path: newClipAudioFilePath,
+          is_recorded: req.body.isRecorded,
+          AudioDescriptionAdId: req.params.adId,
+        })
+          .then((clip) => {
+            return res.status(200).send(clip);
+          })
+          .catch((err) => {
+            console.log(err);
+            return res.status(500).send(err);
+          });
+      }
+    }
+  }
 };
 
 // DELETE Requests
