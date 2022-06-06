@@ -3,76 +3,60 @@ const Dialog_Timestamps = require('../models/Dialog_Timestamps');
 const { Op } = require('sequelize');
 
 // analyze clip playback type from dialog timestamp data
-const analyzePlaybackType = async (clipId, clipEndTime, videoId) => {
-  return await Audio_Clips.findOne({
+const analyzePlaybackType = async (clipStartTime, clipEndTime, videoId) => {
+  return await Dialog_Timestamps.findAll({
+    //   executes the following condition
+    //   WHERE ("dialog_start_time" BETWEEN clipStartTime AND clipEndTime
+    // OR "dialog_end_time" BETWEEN clipStartTime AND clipEndTime)
+    // AND "VideoVideoId" =  videoId;
     where: {
-      clip_id: clipId,
-    },
-    attributes: ['clip_start_time'],
-  })
-    .then(async (clip) => {
-      const clipStartTime = clip.clip_start_time;
-      return await Dialog_Timestamps.findAll({
-        //   executes the following condition
-        //   WHERE ("dialog_start_time" BETWEEN clipStartTime AND clipEndTime
-        // OR "dialog_end_time" BETWEEN clipStartTime AND clipEndTime)
-        // AND "VideoVideoId" =  videoId;
-        where: {
-          VideoVideoId: videoId,
-          [Op.or]: [
-            {
-              dialog_start_time: {
-                [Op.between]: [clipStartTime, clipEndTime],
-              },
-            },
-            {
-              dialog_end_time: {
-                [Op.between]: [clipStartTime, clipEndTime],
-              },
-            },
-          ],
+      VideoVideoId: videoId,
+      [Op.or]: [
+        {
+          dialog_start_time: {
+            [Op.between]: [clipStartTime, clipEndTime],
+          },
         },
-        // both of these conditions should work
-        // WHERE ("dialog_start_time" <= clipStartTime
-        // AND "dialog_end_time" >= clipEndTime)
-        // AND "VideoVideoId" =  videoId;
-        // where: {
-        //    VideoVideoId: videoId,
-        //   [Op.and]: [
-        //     {
-        //       dialog_start_time: {
-        //         [Op.lte]: [clipEndTime],
-        //       },
-        //     },
-        //     {
-        //       dialog_end_time: {
-        //         [Op.gte]: [clipStartTime],
-        //       },
-        //     },
-        //   ],
-        // },
-        attributes: ['dialog_start_time', 'dialog_end_time'],
-      }).then((dialog) => {
-        if (dialog.length === 0) {
-          return {
-            message: 'Success!',
-            data: 'inline',
-          };
-        } else {
-          return {
-            message: 'Success!',
-            data: 'extended',
-          };
-        }
-      });
-    })
-    .catch((err) => {
-      console.log(err);
-      return {
-        message:
-          'Unable to connect to DB - Analyze Playback Type!! Please try again',
-        data: null,
-      }; // send error message
+        {
+          dialog_end_time: {
+            [Op.between]: [clipStartTime, clipEndTime],
+          },
+        },
+      ],
+    },
+    // both of these conditions should work
+    // WHERE ("dialog_start_time" <= clipStartTime
+    // AND "dialog_end_time" >= clipEndTime)
+    // AND "VideoVideoId" =  videoId;
+    // where: {
+    //    VideoVideoId: videoId,
+    //   [Op.and]: [
+    //     {
+    //       dialog_start_time: {
+    //         [Op.lte]: [clipEndTime],
+    //       },
+    //     },
+    //     {
+    //       dialog_end_time: {
+    //         [Op.gte]: [clipStartTime],
+    //       },
+    //     },
+    //   ],
+    // },
+    attributes: ['dialog_start_time', 'dialog_end_time'],
+  })
+    .then((dialog) => {
+      if (dialog.length === 0) {
+        return {
+          message: 'Success!',
+          data: 'inline',
+        };
+      } else {
+        return {
+          message: 'Success!',
+          data: 'extended',
+        };
+      }
     })
     .catch((err) => {
       console.log(err);
