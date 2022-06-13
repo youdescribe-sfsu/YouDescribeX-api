@@ -6,43 +6,24 @@ const { Op } = require('sequelize');
 const analyzePlaybackType = async (clipStartTime, clipEndTime, videoId) => {
   return await Dialog_Timestamps.findAll({
     //   executes the following condition
-    //   WHERE ("dialog_start_time" BETWEEN clipStartTime AND clipEndTime
-    // OR "dialog_end_time" BETWEEN clipStartTime AND clipEndTime)
+    // WHERE ("dialog_start_time" <= clipStartTime
+    // AND "dialog_end_time" >= clipEndTime)
     // AND "VideoVideoId" =  videoId;
     where: {
       VideoVideoId: videoId,
-      [Op.or]: [
+      [Op.and]: [
         {
           dialog_start_time: {
-            [Op.between]: [clipStartTime, clipEndTime],
+            [Op.lte]: [clipEndTime],
           },
         },
         {
           dialog_end_time: {
-            [Op.between]: [clipStartTime, clipEndTime],
+            [Op.gte]: [clipStartTime],
           },
         },
       ],
     },
-    // both of these conditions should work
-    // WHERE ("dialog_start_time" <= clipStartTime
-    // AND "dialog_end_time" >= clipEndTime)
-    // AND "VideoVideoId" =  videoId;
-    // where: {
-    //    VideoVideoId: videoId,
-    //   [Op.and]: [
-    //     {
-    //       dialog_start_time: {
-    //         [Op.lte]: [clipEndTime],
-    //       },
-    //     },
-    //     {
-    //       dialog_end_time: {
-    //         [Op.gte]: [clipStartTime],
-    //       },
-    //     },
-    //   ],
-    // },
     attributes: ['dialog_start_time', 'dialog_end_time'],
   })
     .then((dialog) => {
