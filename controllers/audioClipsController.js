@@ -326,7 +326,11 @@ exports.addNewAudioClip = async (req, res) => {
           AudioDescriptionAdId: req.params.adId,
         })
           .then((clip) => {
-            return res.status(200).send(clip);
+            const playBackTypeMsg =
+              newPlaybackType === req.body.newACPlaybackType
+                ? ''
+                : `Note: The playback type of the new clip is modified to ${newPlaybackType}`;
+            return res.status(200).send(playBackTypeMsg);
           })
           .catch((err) => {
             console.log(err);
