@@ -243,6 +243,114 @@ exports.updateAudioClipDescription = async (req, res) => {
   }
 };
 
+// update clip audio path for record & replace
+exports.updateClipAudioPath = async (req, res) => {
+  if (req.file) {
+    console.log(req.file.path);
+    // get new clip audio path, calculate duration & endtime and playbackType
+    const clipAudioFilePath = String(req.file.path)
+      .split('\\')
+      .join('/')
+      .replace('public', '.');
+    // calculate audio duration
+    console.log('Generating Audio Duration');
+    let clipDurationStatus = await getAudioDuration(clipAudioFilePath);
+    // check if the returned data is null - an error in generating Audio Duration
+    if (clipDurationStatus.data === null) {
+      return res.status(500).send({
+        message: clipDurationStatus.message,
+      });
+    } else {
+      // Audio Duration generation successful
+      var newAudioDuration = clipDurationStatus.data;
+      // calculate audio clip end time
+      console.log('Calculating Audio Clip End Time');
+      // Clip End Time Calculation based on Audio Duration & Start Time
+      var newClipEndTime = parseFloat(
+        parseFloat(req.body.clipStartTime) + parseFloat(newAudioDuration)
+      ).toFixed(2);
+      // get video_id from youtubeVideoID
+      let getVideoIdStatus = await getVideoFromYoutubeId(
+        req.body.youtubeVideoId
+      );
+      if (getVideoIdStatus.data === null) {
+        return res.status(500).send({
+          message: getVideoIdStatus.message,
+        });
+      } else {
+        let videoId = getVideoIdStatus.data;
+        // analyze clip playback type from dialog timestamp data
+        console.log('Analyzing PlaybackType Based on Dialog Timestamp Data');
+        let playbackTypeStatus = await analyzePlaybackType(
+          req.body.clipStartTime,
+          newClipEndTime,
+          videoId
+        );
+        // check if the returned data is null - an error in analyzing Playback type
+        if (playbackTypeStatus.data === null) {
+          return res.status(500).send({
+            message: playbackTypeStatus.message,
+          });
+        } else {
+          // Clip Playback Type is returned
+          var newPlaybackType = playbackTypeStatus.data;
+
+          // find and delete the old audio file
+          console.log('Finding Old Audio Path');
+          // find old audioPath in the db
+          let oldAudioFilePathStatus = await getOldAudioFilePath(
+            req.params.clipId
+          );
+          if (oldAudioFilePathStatus.data === null) {
+            return res.status(500).send({
+              message: oldAudioFilePathStatus.message,
+            });
+          } else {
+            // old audio path is returned successfully
+            let old_audio_path = oldAudioFilePathStatus.data;
+            // wait until the old file gets deleted
+            let deleteOldAudioFileStatus = await deleteOldAudioFile(
+              old_audio_path
+            );
+            if (!deleteOldAudioFileStatus) {
+              return res.status(500).send({
+                message: 'Problem Saving Audio!! Please try again',
+              });
+            } else {
+              Audio_Clips.update(
+                {
+                  playback_type: newPlaybackType,
+                  clip_end_time: newClipEndTime,
+                  clip_duration: newAudioDuration,
+                  clip_audio_path: clipAudioFilePath,
+                  is_recorded: true,
+                  description_text: '',
+                },
+                {
+                  where: {
+                    clip_id: req.params.clipId,
+                  },
+                }
+              )
+                .then((clip) => {
+                  return res.status(200).send(clip);
+                })
+                .catch((err) => {
+                  console.log(err);
+                  return res.status(500).send(err);
+                });
+            }
+          }
+        }
+      }
+    }
+  } else {
+    return res.status(400).send({
+      message: 'No Recording to Upload',
+    });
+  }
+};
+
 //POST Requests
 // add a new clip
 exports.addNewAudioClip = async (req, res) => {

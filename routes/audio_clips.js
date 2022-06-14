@@ -39,6 +39,13 @@ router.put(
   audioClipsController.updateAudioClipDescription
 );
 
+// update clip audio path for record & replace
+router.put(
+  '/record-replace-clip-audio/:clipId',
+  upload.single('file'),
+  audioClipsController.updateClipAudioPath
+);
+
 //POST Requests
 // add a new clip
 router.post(
