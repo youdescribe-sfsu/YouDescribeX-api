@@ -439,18 +439,38 @@ exports.addNewAudioClip = async (req, res) => {
 // DELETE Requests
 // delete a clip based on clipId
 exports.deleteAudioClip = async (req, res) => {
-  console.log(req.params.clipId);
-  Audio_Clips.destroy({
-    where: {
-      clip_id: req.params.clipId,
-    },
-  })
-    .then((clip) => {
-      console.log(clip);
-      return res.status(200).send('Clip Deleted Successfully');
-    })
-    .catch((err) => {
-      console.log(err);
-      return res.status(500).send(err);
+  // find and delete the old audio file
+  console.log('Finding Old Audio Path');
+  // find old audioPath in the db
+  let oldAudioFilePathStatus = await getOldAudioFilePath(req.params.clipId);
+  if (oldAudioFilePathStatus.data === null) {
+    return res.status(500).send({
+      message: oldAudioFilePathStatus.message,
     });
+  } else {
+    // old audio path is returned successfully
+    let old_audio_path = oldAudioFilePathStatus.data;
+    // wait until the old file gets deleted
+    let deleteOldAudioFileStatus = await deleteOldAudioFile(old_audio_path);
+    if (!deleteOldAudioFileStatus) {
+      return res.status(500).send({
+        message: 'Problem Saving Audio!! Please try again',
+      });
+    } else {
+      // delete clip
+      Audio_Clips.destroy({
+        where: {
+          clip_id: req.params.clipId,
+        },
+      })
+        .then((clip) => {
+          console.log(clip);
+          return res.status(200).send('Clip Deleted Successfully');
+        })
+        .catch((err) => {
+          console.log(err);
+          return res.status(500).send(err);
+        });
+    }
+  }
 };
