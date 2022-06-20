@@ -66,7 +66,9 @@ const updateClipDataInDB = async (data) => {
           let playbackTypeStatus = await analyzePlaybackType(
             clipStartTime,
             clipEndTime,
-            data.video_id
+            data.video_id,
+            data.ad_id,
+            data.clip_id
           );
           // check if the returned data is null - an error in analyzing Playback type
           if (playbackTypeStatus.data === null) {
@@ -90,6 +92,7 @@ const updateClipDataInDB = async (data) => {
                 where: {
                   clip_id: data.clip_id,
                 },
+                // logging: false,
               }
             )
               .then(() => {
