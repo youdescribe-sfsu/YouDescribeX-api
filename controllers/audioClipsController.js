@@ -182,7 +182,9 @@ exports.updateAudioClipDescription = async (req, res) => {
               let playbackTypeStatus = await analyzePlaybackType(
                 clipStartTime,
                 updatedClipEndTime,
-                videoId
+                videoId,
+                req.body.audioDescriptionId,
+                req.params.clipId
               );
               // check if the returned data is null - an error in analyzing Playback type
               if (playbackTypeStatus.data === null) {
@@ -271,7 +273,9 @@ exports.updateClipAudioPath = async (req, res) => {
       let playbackTypeStatus = await analyzePlaybackType(
         req.body.clipStartTime,
         newClipEndTime,
-        videoId
+        videoId,
+        req.body.audioDescriptionId,
+        req.params.clipId
       );
       // check if the returned data is null - an error in analyzing Playback type
       if (playbackTypeStatus.data === null) {
@@ -399,7 +403,9 @@ exports.addNewAudioClip = async (req, res) => {
     let playbackTypeStatus = await analyzePlaybackType(
       req.body.newACStartTime,
       newClipEndTime,
-      videoId
+      videoId,
+      req.params.adId,
+      null
     );
     // check if the returned data is null - an error in analyzing Playback type
     if (playbackTypeStatus.data === null) {

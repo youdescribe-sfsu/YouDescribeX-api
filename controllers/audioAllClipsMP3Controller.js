@@ -76,6 +76,7 @@ exports.generateMP3ForAllClipsInDB = async (req, res) => {
             ),
             clip_id: desc.clip_id,
             video_id: desc.video_id,
+            ad_id: req.params.adId,
           };
           statusData.push(data);
         })
