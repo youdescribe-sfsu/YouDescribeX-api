@@ -12,7 +12,9 @@ const getVideoFromYoutubeId = async (youtubeVideoID) => {
     })
     .catch((err) => {
       return {
-        message: 'Error Connecting to DB!! Please try again.',
+        message:
+          'Error Connecting to DB!! Please try again. getVideoFromYoutubeId ' +
+          err,
         data: null,
       };
     });
