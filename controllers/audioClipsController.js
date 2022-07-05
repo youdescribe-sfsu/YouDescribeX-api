@@ -315,7 +315,7 @@ exports.updateClipAudioPath = async (req, res) => {
                 clip_duration: recordedClipDuration,
                 clip_audio_path: clipAudioFilePath,
                 is_recorded: true,
-                description_text: '',
+                description_text: req.body.clipDescriptionText,
               },
               {
                 where: {
