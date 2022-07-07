@@ -72,26 +72,58 @@ exports.updateAudioClipStartTime = async (req, res) => {
       ).toFixed(2);
       return clipEndTime;
     })
-    .then((clipEndTime) => {
-      // update both start & end time based on clip_duration
-      Audio_Clips.update(
-        {
-          clip_start_time: req.body.clipStartTime,
-          clip_end_time: clipEndTime,
-        },
-        {
-          where: {
-            clip_id: req.params.clipId,
-          },
-        }
-      )
-        .then((data) => {
-          return res.status(200).send(data);
-        })
-        .catch((err) => {
-          console.log(err);
-          return res.status(500).send(err);
+    .then(async (clipEndTime) => {
+      let getVideoIdStatus = await getVideoFromYoutubeId(
+        req.body.youtubeVideoId
+      );
+      if (getVideoIdStatus.data === null) {
+        return res.status(500).send({
+          message: getVideoIdStatus.message,
         });
+      } else {
+        let videoId = getVideoIdStatus.data;
+        // analyze clip playback type from dialog timestamp data
+        console.log(
+          'Analyzing PlaybackType Based on Dialog Timestamp/Audio Clip Data'
+        );
+        let playbackTypeStatus = await analyzePlaybackType(
+          req.body.clipStartTime,
+          clipEndTime,
+          videoId,
+          req.body.audioDescriptionId,
+          req.params.clipId
+        );
+        // check if the returned data is null - an error in analyzing Playback type
+        if (playbackTypeStatus.data === null) {
+          return res.status(500).send({
+            message: playbackTypeStatus.message,
+          });
+        } else {
+          // Clip Playback Type is returned
+          var newPlaybackType = playbackTypeStatus.data;
+
+          // update both start & end time based on clip_duration
+          Audio_Clips.update(
+            {
+              clip_start_time: req.body.clipStartTime,
+              clip_end_time: clipEndTime,
+              playback_type: newPlaybackType,
+            },
+            {
+              where: {
+                clip_id: req.params.clipId,
+              },
+            }
+          )
+            .then((data) => {
+              return res.status(200).send(data);
+            })
+            .catch((err) => {
+              console.log(err);
+              return res.status(500).send(err);
+            });
+        }
+      }
     })
     .catch((err) => {
       console.log(err);
