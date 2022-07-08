@@ -68,6 +68,7 @@ const analyzePlaybackType = async (
               },
               {
                 clip_id: {
+                  // Not considering the clipId that you want to insert/update
                   [Op.not]: clipId === null ? null : [clipId],
                 },
               },

@@ -12,7 +12,7 @@ const getAIUserId = async () => {
     })
     .catch((err) => {
       return {
-        message: 'Error Connecting to DB!! Please try again.',
+        message: `Error Connecting to DB - getAIUserId!! Please try again. ${err}`,
         data: null,
       };
     });

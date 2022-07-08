@@ -15,7 +15,7 @@ const getOldAudioFilePath = async (clipId) => {
     })
     .catch((err) => {
       return {
-        message: 'Unable to connect to DB!! Please try again',
+        message: `Unable to connect to DB - getOldAudioFilePath!! Please try again ${err}`,
         data: null,
       }; // send error message
     });

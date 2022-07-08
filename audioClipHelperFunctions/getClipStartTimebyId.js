@@ -15,8 +15,7 @@ const getClipStartTimebyId = async (clipId) => {
     })
     .catch((err) => {
       return {
-        message:
-          'Unable to connect to DB - getClipStartTimebyId!! Please try again',
+        message: `Unable to connect to DB - getClipStartTimebyId!! Please try again ${err}`,
         data: null,
       }; // send error message
     });

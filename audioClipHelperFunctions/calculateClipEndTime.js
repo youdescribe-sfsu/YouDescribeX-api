@@ -18,8 +18,7 @@ const calculateClipEndTime = async (clipId, audioDuration) => {
     })
     .catch((err) => {
       return {
-        message:
-          'Unable to connect to DB - Calculate End Time!! Please try again',
+        message: `Error Connecting to DB - Calculate End Time!! Please try again. ${err}`,
         data: null,
       }; // send error message
     });
