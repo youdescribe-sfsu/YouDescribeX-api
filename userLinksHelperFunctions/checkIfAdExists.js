@@ -20,7 +20,7 @@ const checkIfAdExists = async (userId, videoId) => {
     })
     .catch((err) => {
       return {
-        message: 'Error Connecting to DB!! Please try again.',
+        message: `Error Connecting to DB - checkIfAdExists!! Please try again. ${err}`,
         data: null,
       };
     });

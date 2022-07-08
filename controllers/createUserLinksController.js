@@ -53,7 +53,6 @@ exports.createNewUserAd = async (req, res) => {
         });
       } else {
         let AIUserId = getAIUserIdStatus.data;
-
         // fetch Audio Description & Audio Clip Data for AI user to copy for the new user
         await Audio_Descriptions.findOne({
           where: {

@@ -104,7 +104,7 @@ const updateClipDataInDB = async (data) => {
                 console.log(err);
                 let status = {
                   clip_id: data.clip_id,
-                  message: 'Unable to Update DB!! Please try again',
+                  message: 'Unable to Update DB !! Please try again' + err,
                 };
                 return status;
                 // return the error msg with the clip_id
