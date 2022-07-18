@@ -1,7 +1,7 @@
 const Audio_Clips = require('../models/Audio_Clips');
 // import helper files
 const calculateClipEndTime = require('./calculateClipEndTime');
-const analyzePlaybackType = require('./analyzePlaybackType');
+const analyzeOverlapsAndAdjust = require('./overlapAnalysisHelperFunctions/analyzeOverlapsAndAdjust');
 const getClipStartTimebyId = require('./getClipStartTimebyId');
 // import processor files
 const getAudioDuration = require('../processors/getAudioDuration');
@@ -10,16 +10,13 @@ const getAudioDuration = require('../processors/getAudioDuration');
 const updateClipDataInDB = async (data) => {
   // check if there is an error in text to speech generation
   if (!data.textToSpeechOutput.status) {
-    let updateStatus = {
+    return {
       clip_id: data.clip_id,
       message: 'Unable to generate Text to Speech!! Please try again',
     };
-    return updateStatus;
   }
   // text to speech generation is successful
   else {
-    let updateStatus;
-
     // calculate audio duration
     console.log('Generating Audio Duration');
     let clipDurationStatus = await getAudioDuration(
@@ -27,10 +24,10 @@ const updateClipDataInDB = async (data) => {
     );
     // check if the returned data is null - an error in generating Audio Duration
     if (clipDurationStatus.data === null) {
-      return (updateStatus = {
+      return {
         clip_id: data.clip_id,
         message: clipDurationStatus.message,
-      });
+      };
     } else {
       // Audio Duration generation successful
       const clipDuration = clipDurationStatus.data;
@@ -43,75 +40,90 @@ const updateClipDataInDB = async (data) => {
       );
       // check if the returned data is null - an error in calculating Clip End Time
       if (clipEndTimeStatus.data === null) {
-        return (updateStatus = {
+        return {
           clip_id: data.clip_id,
           message: clipEndTimeStatus.message,
-        });
+        };
       } else {
         // Clip End Time Calculation Successful
         const clipEndTime = clipEndTimeStatus.data;
 
-        // getClipStartTimebyId
-        let getClipStartTimeStatus = await getClipStartTimebyId(data.clip_id);
-        // check if the returned data is null - an error in analyzing Playback type
-        if (getClipStartTimeStatus.data === null) {
-          return (updateStatus = {
-            clip_id: data.clip_id,
-            message: getClipStartTimeStatus.message,
-          });
-        } else {
-          let clipStartTime = getClipStartTimeStatus.data;
-          // analyze clip playback type from dialog timestamp data
-          console.log('Analyzing PlaybackType Based on Dialog Timestamp Data');
-          let playbackTypeStatus = await analyzePlaybackType(
-            clipStartTime,
-            clipEndTime,
-            data.video_id,
-            data.ad_id,
-            data.clip_id
-          );
-          // check if the returned data is null - an error in analyzing Playback type
-          if (playbackTypeStatus.data === null) {
-            return (updateStatus = {
+        // update the path of the audio file, duration, end time of the audio clip in the db
+        return await Audio_Clips.update(
+          {
+            clip_audio_path: data.textToSpeechOutput.filepath,
+            clip_duration: parseFloat(clipDuration),
+            clip_end_time: parseFloat(clipEndTime),
+          },
+          {
+            where: {
               clip_id: data.clip_id,
-              message: playbackTypeStatus.message,
-            });
-          } else {
-            // Clip Playback Type is returned
-            const playbackType = playbackTypeStatus.data;
-
-            // update the path of the audio file, duration, end time & playback type of the audio clip in the db
-            let updateStatus = await Audio_Clips.update(
-              {
-                clip_audio_path: data.textToSpeechOutput.filepath,
-                clip_duration: parseFloat(clipDuration),
-                clip_end_time: parseFloat(clipEndTime),
-                playback_type: playbackType,
-              },
-              {
-                where: {
-                  clip_id: data.clip_id,
-                },
-                // logging: false,
-              }
-            )
-              .then(() => {
-                let status = { clip_id: data.clip_id, message: 'Success OK' };
-                return status;
-                // return the success msg with the clip_id
-              })
-              .catch((err) => {
-                console.log(err);
-                let status = {
-                  clip_id: data.clip_id,
-                  message: 'Unable to Update DB !! Please try again' + err,
-                };
-                return status;
-                // return the error msg with the clip_id
-              });
-            return updateStatus;
+            },
+            // logging: false,
           }
-        }
+        )
+          .then(async () => {
+            // return { clip_id: data.clip_id, message: 'Success OK' };
+            // return the success msg with the clip_id
+
+            // try to analyze playback type/overlaps here
+            // getClipStartTimebyId
+            let getClipStartTimeStatus = await getClipStartTimebyId(
+              data.clip_id
+            );
+            // check if the returned data is null - an error in analyzing Playback type
+            if (getClipStartTimeStatus.data === null) {
+              return {
+                clip_id: data.clip_id,
+                message: getClipStartTimeStatus.message,
+              };
+            } else {
+              let clipStartTime = getClipStartTimeStatus.data;
+
+              // analyze clip playback type & Start Time from dialog timestamp & Audio Clips data
+              console.log(
+                'Analyzing clip playback type & Start Time from dialog timestamp & Audio Clips data'
+              );
+              let analysisStatus = await analyzeOverlapsAndAdjust(
+                clipStartTime,
+                clipEndTime,
+                data.video_id,
+                data.ad_id,
+                data.clip_id,
+                data.description_type,
+                data.video_length
+              );
+              // check if the returned data is null - an error in analyzing Playback type / Start Time
+              if (analysisStatus.data === null) {
+                return {
+                  clip_id: data.clip_id,
+                  message: analysisStatus.message,
+                };
+              }
+              // audio clips are processed
+              else {
+                // const playbackType = analysisStatus.data.playbackType;
+                // const clipStartTime = analysisStatus.data.clipStartTime;
+                // const clipEndTime = analysisStatus.data.clipEndTime;
+                return {
+                  clip_id: data.clip_id,
+                  message: analysisStatus.message,
+                  data: analysisStatus.data,
+                  // playbackType: playbackType,
+                  // clipStartTime: clipStartTime,
+                  // clipEndTime: clipEndTime,
+                };
+              }
+            }
+          })
+          .catch((err) => {
+            console.log(err);
+            return {
+              clip_id: data.clip_id,
+              message: 'Unable to Update DB !! Please try again' + err,
+            };
+            // return the error msg with the clip_id
+          });
       }
     }
   }

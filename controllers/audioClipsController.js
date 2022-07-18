@@ -7,7 +7,7 @@ const calculateClipEndTime = require('../audioClipHelperFunctions/calculateClipE
 const deleteOldAudioFile = require('../audioClipHelperFunctions/deleteOldAudioFile'); // delete the old audio file from the local system
 const getOldAudioFilePath = require('../audioClipHelperFunctions/getOldAudioFilePath'); // get the old audioPath in the db
 const getVideoFromYoutubeId = require('../audioClipHelperFunctions/getVideoFromYoutubeId'); // get the video id by youtubeId
-const analyzePlaybackType = require('../audioClipHelperFunctions/analyzePlaybackType');
+const analyzePlaybackType = require('../audioClipHelperFunctions/overlapAnalysisHelperFunctions/analyzePlaybackType');
 const getClipStartTimebyId = require('../audioClipHelperFunctions/getClipStartTimebyId');
 
 // db processing is done here using sequelize models

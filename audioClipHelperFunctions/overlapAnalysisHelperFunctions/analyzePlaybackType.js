@@ -1,5 +1,5 @@
-const Audio_Clips = require('../models/Audio_Clips');
-const Dialog_Timestamps = require('../models/Dialog_Timestamps');
+const Audio_Clips = require('../../models/Audio_Clips');
+const Dialog_Timestamps = require('../../models/Dialog_Timestamps');
 const { Op } = require('sequelize');
 
 // analyze clip playback type from dialog timestamp data
@@ -11,7 +11,7 @@ const analyzePlaybackType = async (
   clipId
 ) => {
   return await Dialog_Timestamps.findAll({
-    //   executes the following condition
+    // executes the following condition
     // WHERE ("dialog_start_time" <= clipEndTime
     // AND "dialog_end_time" >= clipStartTime)
     // AND "VideoVideoId" =  videoId;
