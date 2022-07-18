@@ -14,8 +14,8 @@
 
 > Not used in FrontEnd Repo
 
-*API to generate mp3 files for all the description texts in the Audio_Clips table - based on AudioDescriptionID*
-* <http://localhost:4000/api/audio-clips/generateMp3ForAllClipsInDB/:adId>
+*API to process all audio clips, generate Text to Speech, analyze start times & playback types in the Audio_Clips table - based on AudioDescriptionID*
+* <http://localhost:4000/api/audio-clips/preProcessAllClipsInDB/:adId>
 
 <font color='cyan'>**PUT Routes:**</font>
 

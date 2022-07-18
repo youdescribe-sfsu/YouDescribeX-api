@@ -7,10 +7,10 @@ const upload = require('../processors/audioFileProcessor'); // import the multer
 router.use(express.json());
 router.use(express.urlencoded({ extended: true }));
 
-// route to generate mp3 files for all audio clips in the db - based on video id
+// route to pre process all audio clips in the db - based on video id
 router.get(
-  '/generateMp3ForAllClipsInDB/:adId',
-  audioAllClipsMP3Controller.generateMP3ForAllClipsInDB
+  '/preProcessAllClipsInDB/:adId',
+  audioAllClipsMP3Controller.preProcessAllClipsInDB
 );
 
 // Routes - send request to controller where db processing is done
