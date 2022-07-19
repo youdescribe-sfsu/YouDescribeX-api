@@ -5,6 +5,7 @@ const analyzeOverlapsAndAdjust = require('./overlapAnalysisHelperFunctions/analy
 const getClipStartTimebyId = require('./getClipStartTimebyId');
 // import processor files
 const getAudioDuration = require('../processors/getAudioDuration');
+const updatePlaybackAndTimes = require('./overlapAnalysisHelperFunctions/updatePlaybackAndTimes');
 
 // to update clip_audio_path, clip_duration, clip_end_time columns of Audio_Clips Table
 const updateClipDataInDB = async (data) => {
@@ -63,9 +64,6 @@ const updateClipDataInDB = async (data) => {
           }
         )
           .then(async () => {
-            // return { clip_id: data.clip_id, message: 'Success OK' };
-            // return the success msg with the clip_id
-
             // try to analyze playback type/overlaps here
             // getClipStartTimebyId
             let getClipStartTimeStatus = await getClipStartTimebyId(
@@ -102,16 +100,21 @@ const updateClipDataInDB = async (data) => {
               }
               // audio clips are processed
               else {
-                // const playbackType = analysisStatus.data.playbackType;
-                // const clipStartTime = analysisStatus.data.clipStartTime;
-                // const clipEndTime = analysisStatus.data.clipEndTime;
+                const playbackType = analysisStatus.data.playbackType;
+                const clipStartTime = analysisStatus.data.clipStartTime;
+                const clipEndTime = analysisStatus.data.clipEndTime;
+
+                const updateStatus = await updatePlaybackAndTimes(
+                  data.clip_id,
+                  playbackType,
+                  clipStartTime,
+                  clipEndTime
+                );
                 return {
                   clip_id: data.clip_id,
                   message: analysisStatus.message,
                   data: analysisStatus.data,
-                  // playbackType: playbackType,
-                  // clipStartTime: clipStartTime,
-                  // clipEndTime: clipEndTime,
+                  updateStatus: updateStatus,
                 };
               }
             }
