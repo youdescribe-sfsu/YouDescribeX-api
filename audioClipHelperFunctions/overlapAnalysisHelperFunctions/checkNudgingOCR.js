@@ -77,9 +77,10 @@ const checkNudgingOCR = async (
       return {
         message: 'Overlaps exist even if start & end times are decremented',
         data: {
-          decrementStatus,
-          startTime: clipStartTime,
-          endTime: clipEndTime,
+          incrementStatus: incrementStatus,
+          decrementStatus: decrementStatus,
+          clipStartTime: clipStartTime,
+          clipEndTime: clipEndTime,
           playbackType: 'extended',
         },
       };
@@ -87,9 +88,10 @@ const checkNudgingOCR = async (
       return {
         message: 'Overlaps do not exist if start & end times are decremented',
         data: {
-          decrementStatus,
-          startTime: decrementedStartTime,
-          endTime: decrementedEndTime,
+          incrementStatus: incrementStatus,
+          decrementStatus: decrementStatus,
+          clipStartTime: decrementedStartTime,
+          clipEndTime: decrementedEndTime,
           playbackType: 'inline',
         },
       };
@@ -101,9 +103,10 @@ const checkNudgingOCR = async (
       return {
         message: 'Overlaps exist even if start & end times are incremented',
         data: {
-          incrementStatus,
-          startTime: clipStartTime,
-          endTime: clipEndTime,
+          incrementStatus: incrementStatus,
+          decrementStatus: decrementStatus,
+          clipStartTime: clipStartTime,
+          clipEndTime: clipEndTime,
           playbackType: 'extended',
         },
       };
@@ -111,9 +114,10 @@ const checkNudgingOCR = async (
       return {
         message: 'Overlaps do not exist if start & end times are incremented',
         data: {
-          incrementStatus,
-          startTime: incrementedStartTime,
-          endTime: incrementedEndTime,
+          incrementStatus: incrementStatus,
+          decrementStatus: decrementStatus,
+          clipStartTime: incrementedStartTime,
+          clipEndTime: incrementedEndTime,
           playbackType: 'inline',
         },
       };
@@ -127,10 +131,10 @@ const checkNudgingOCR = async (
         message:
           'Overlaps exist even if start & end times are incremented/decremented',
         data: {
-          incrementStatus,
-          decrementStatus,
-          startTime: clipStartTime,
-          endTime: clipEndTime,
+          incrementStatus: incrementStatus,
+          decrementStatus: decrementStatus,
+          clipStartTime: clipStartTime,
+          clipEndTime: clipEndTime,
           playbackType: 'extended',
         },
       };
@@ -140,10 +144,10 @@ const checkNudgingOCR = async (
       return {
         message: 'Overlaps do not exist if start & end times are decremented',
         data: {
-          incrementStatus,
-          decrementStatus,
-          startTime: decrementedStartTime,
-          endTime: decrementedEndTime,
+          incrementStatus: incrementStatus,
+          decrementStatus: decrementStatus,
+          clipStartTime: decrementedStartTime,
+          clipEndTime: decrementedEndTime,
           playbackType: 'inline',
         },
       };
@@ -153,10 +157,10 @@ const checkNudgingOCR = async (
       return {
         message: 'Overlaps do not exist if start & end times are incremented',
         data: {
-          incrementStatus,
-          decrementStatus,
-          startTime: incrementedStartTime,
-          endTime: incrementedEndTime,
+          incrementStatus: incrementStatus,
+          decrementStatus: decrementStatus,
+          clipStartTime: incrementedStartTime,
+          clipEndTime: incrementedEndTime,
           playbackType: 'inline',
         },
       };
@@ -168,10 +172,10 @@ const checkNudgingOCR = async (
         message:
           'Overlaps do not exist if start & end times are incremented/decremented.',
         data: {
-          incrementStatus,
-          decrementStatus,
-          startTime: incrementedStartTime,
-          endTime: incrementedEndTime,
+          incrementStatus: incrementStatus,
+          decrementStatus: decrementStatus,
+          clipStartTime: incrementedStartTime,
+          clipEndTime: incrementedEndTime,
           playbackType: 'inline',
         },
       };

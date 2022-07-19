@@ -9,7 +9,9 @@ const checkForGaps = async (
   return {
     message: 'Overlaps Exist - NonOCR',
     data: {
-      descriptionType: 'inline',
+      playbackType: 'inline',
+      clipStartTime: clipStartTime,
+      clipEndTime: clipEndTime,
     },
   };
 };
