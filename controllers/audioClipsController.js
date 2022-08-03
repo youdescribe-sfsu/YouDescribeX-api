@@ -433,7 +433,7 @@ exports.addNewAudioClip = async (req, res) => {
     // analyze clip playback type from dialog timestamp data
     console.log('Analyzing PlaybackType Based on Dialog Timestamp Data');
     let playbackTypeStatus = await analyzePlaybackType(
-      req.body.newACStartTime,
+      parseFloat(req.body.newACStartTime).toFixed(2),
       newClipEndTime,
       videoId,
       req.params.adId,
@@ -452,7 +452,7 @@ exports.addNewAudioClip = async (req, res) => {
         description_type: req.body.newACType,
         description_text: req.body.newACDescriptionText,
         playback_type: newPlaybackType,
-        clip_start_time: req.body.newACStartTime,
+        clip_start_time: parseFloat(req.body.newACStartTime).toFixed(2),
         clip_end_time: newClipEndTime,
         clip_duration: newAudioDuration,
         clip_audio_path: newClipAudioFilePath,

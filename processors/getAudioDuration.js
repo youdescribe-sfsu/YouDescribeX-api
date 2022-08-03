@@ -5,7 +5,7 @@ const getAudioDuration = async (filepath) => {
   const path = filepath.replace('.', './public');
   try {
     const buffer = fs.readFileSync(path);
-    const duration = parseFloat(getMP3Duration(buffer) / 1000);
+    const duration = parseFloat(getMP3Duration(buffer) / 1000).toFixed(2);
     return {
       message: 'Success',
       data: duration,
