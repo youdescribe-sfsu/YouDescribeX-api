@@ -11,4 +11,10 @@ router.get(
   audioDescriptionsController.getUserAudioDescriptionData
 );
 
+// delete all audio files of a user-ad based on youtubeVideoId
+router.delete(
+  '/delete-user-ad-audios/:youtubeVideoId&:userId',
+  audioDescriptionsController.deleteUserADAudios
+);
+
 module.exports = router;

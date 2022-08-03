@@ -128,6 +128,10 @@ axios
 axios
   .delete(`/api/audio-clips/delete-clip/${clip_id}`)
 ```
+* *API to delete User Audio Files - based on YoutubeVideoID & User ID*
+```
+http://ydx-youdescribe.org/api/audio-descriptions/delete-user-ad-audios/${youtubeVideoId}&${user_id}
+```
 
 <font color='cyan'>**Developer Notes:**</font>
 1) Sequelize Lazy Loading Example:

@@ -100,7 +100,7 @@ exports.createNewUserAd = async (req, res) => {
                       });
                   }
                   return res.status(200).send({
-                    message: `Success OK!! Use http://localhost:4000/api/audio-clips/generateMp3ForAllClipsInDB/${ad.ad_id} to generate audio files for the new Audio Description.`,
+                    message: `Success OK!! Use https://ydx.youdescribe.org/api/audio-clips/generateMp3ForAllClipsInDB/${ad.ad_id} to generate audio files for the new Audio Description.`,
                   });
                 })
                 .catch((err) => {
