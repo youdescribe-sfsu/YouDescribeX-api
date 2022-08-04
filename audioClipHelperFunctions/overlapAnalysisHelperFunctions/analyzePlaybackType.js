@@ -36,7 +36,7 @@ const analyzePlaybackType = async (
     .then(async (dialog) => {
       if (dialog.length !== 0) {
         return {
-          message: 'Success!',
+          message: 'Success - extended!',
           data: 'extended',
         };
       } else {
@@ -78,13 +78,13 @@ const analyzePlaybackType = async (
           .then((overlappingClip) => {
             if (overlappingClip.length === 0) {
               return {
-                message: 'Success!',
+                message: 'Success - inline!',
                 data: 'inline',
               };
             } else {
               return {
-                message: 'Success!',
-                data: 'extended',
+                message: 'Success - extended!',
+                data: overlappingClip,
               };
             }
           })

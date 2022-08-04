@@ -9,7 +9,7 @@ const updateClipDataInDB = require('../audioClipHelperFunctions/updateClipDataIn
 const nudgeStartTimeIfZero = require('../audioClipHelperFunctions/nudgeStartTimeIfZero');
 
 // process all audio clips, generate Text to Speech, analyze start times & playback types
-exports.preProcessAllClipsInDB = async (req, res) => {
+exports.processAllClipsInDB = async (req, res) => {
   // generate mp3 for all audio clips - given audio description ID as a parameter
   console.log(
     'Fetching Audio Video Data from Audio_Clips, Audio_Descriptions, Videos'
@@ -43,7 +43,7 @@ exports.preProcessAllClipsInDB = async (req, res) => {
       }
       // proceed only if audioclips exist
       else {
-        // add 1 second to the start time of the audio clips which start at 0sec (rounded)
+        // add 1 second to the start time of the audio clips which start at 0sec (rounded - floor)
         let nudgeStatus = await nudgeStartTimeIfZero(ADAudioClips);
         // error while nudging start time
         if (nudgeStatus.data === null) {
