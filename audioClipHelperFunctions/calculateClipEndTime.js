@@ -9,11 +9,12 @@ const calculateClipEndTime = async (clipId, audioDuration) => {
   })
     .then((clip) => {
       const clipEndTime = parseFloat(
-        parseFloat(clip.clip_start_time) + parseFloat(audioDuration)
-      );
+        parseFloat(clip.clip_start_time).toFixed(2) +
+          parseFloat(audioDuration).toFixed(2)
+      ).toFixed(2);
       return {
         message: 'Success',
-        data: clipEndTime.toFixed(2),
+        data: clipEndTime,
       };
     })
     .catch((err) => {

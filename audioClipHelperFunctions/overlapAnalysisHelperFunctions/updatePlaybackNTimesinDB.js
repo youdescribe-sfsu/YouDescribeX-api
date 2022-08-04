@@ -1,6 +1,6 @@
 const Audio_Clips = require('../../models/Audio_Clips');
 
-const updatePlaybackAndTimes = async (
+const updatePlaybackNTimesinDB = async (
   clipId,
   playbackType,
   clipStartTime,
@@ -34,4 +34,4 @@ const updatePlaybackAndTimes = async (
     });
 };
 
-module.exports = updatePlaybackAndTimes;
+module.exports = updatePlaybackNTimesinDB;
