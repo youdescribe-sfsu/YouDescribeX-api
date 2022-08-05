@@ -91,6 +91,7 @@ const updateClipDataInDB = async (data) => {
 
               return {
                 clip_id: data.clip_id,
+                clip_start_time: clipStartTime,
                 message: analysisStatus.message,
                 playbackType: analysisStatus.data,
               };
