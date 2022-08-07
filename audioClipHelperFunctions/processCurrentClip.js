@@ -1,13 +1,13 @@
 const Audio_Clips = require('../models/Audio_Clips');
 // import helper files
-const analyzePlaybackType = require('./overlapAnalysisHelperFunctions/analyzePlaybackType');
+const analyzePlaybackType = require('./analyzePlaybackType');
 const getClipStartTimebyId = require('./getClipStartTimebyId');
 // import processor files
 const getAudioDuration = require('../processors/getAudioDuration');
-const updatePlaybackAndTimes = require('./overlapAnalysisHelperFunctions/updatePlaybackNTimesinDB');
+const updatePlaybackinDB = require('./updatePlaybackinDB');
 
 // to update clip_audio_path, clip_duration, clip_end_time columns of Audio_Clips Table
-const updateClipDataInDB = async (data) => {
+const processCurrentClip = async (data) => {
   // check if there is an error in text to speech generation
   if (!data.textToSpeechOutput.status) {
     return {
@@ -71,7 +71,8 @@ const updateClipDataInDB = async (data) => {
               clipEndTime,
               data.video_id,
               data.ad_id,
-              data.clip_id
+              data.clip_id,
+              true // passing true as this is processing all audio clips at once
             );
             // check if the returned data is null - an error in analyzing Playback type
             if (analysisStatus.data === null) {
@@ -80,21 +81,25 @@ const updateClipDataInDB = async (data) => {
                 message: analysisStatus.message,
               };
             } else {
-              // dialog Timestamps
-              // c43d7da2-a07c-4fc7-b1fa-bc7bfcd26a03
-              // 56f1d8dd-12f2-4263-a18f-6951a8d646ff
-              // 535d63b9-5768-4524-b03d-8034c3ede36a
+              const playbackType = analysisStatus.data;
 
-              // Audio Clips
-              // 8cf2109d-33e2-4210-b83e-e1fe68da273d
-              // a81a0c2c-549b-44cb-82d0-43f7acb2885f
-
-              return {
-                clip_id: data.clip_id,
-                clip_start_time: clipStartTime,
-                message: analysisStatus.message,
-                playbackType: analysisStatus.data,
-              };
+              let updatePlaybackStatus = await updatePlaybackinDB(
+                data.clip_id,
+                playbackType
+              );
+              // check if the returned data is null - an error in updatingPlayback type
+              if (updatePlaybackStatus.data === null) {
+                return {
+                  clip_id: data.clip_id,
+                  message: updatePlaybackStatus.message,
+                };
+              } else {
+                return {
+                  clip_id: data.clip_id,
+                  message: 'Success OK',
+                  playbackType: playbackType,
+                };
+              }
             }
           })
           .catch((err) => {
@@ -110,4 +115,4 @@ const updateClipDataInDB = async (data) => {
   }
 };
 
-module.exports = updateClipDataInDB;
+module.exports = processCurrentClip;
