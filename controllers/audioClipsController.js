@@ -227,6 +227,7 @@ exports.updateAudioClipDescription = async (req, res) => {
                   clip_duration: parseFloat(updatedAudioDuration).toFixed(2),
                   clip_end_time: updatedClipEndTime,
                   playback_type: playbackType,
+                  is_recorded: false, // since the description is modified, it is not a recorded audio clip
                 },
                 {
                   where: {
