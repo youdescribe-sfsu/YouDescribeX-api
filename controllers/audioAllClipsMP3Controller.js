@@ -5,7 +5,7 @@ const Videos = require('../models/Videos');
 // import processor files
 const generateMp3forDescriptionText = require('../processors/textToSpeech');
 // import Audio Clip helper files
-const updateClipDataInDB = require('../audioClipHelperFunctions/updateClipDataInDB'); // to update clip_audio_path, clip_duration, clip_end_time columns of Audio_Clips Table
+const processCurrentClip = require('../audioClipHelperFunctions/processCurrentClip'); // to update clip_audio_path, clip_duration, clip_end_time columns of Audio_Clips Table
 const nudgeStartTimeIfZero = require('../audioClipHelperFunctions/nudgeStartTimeIfZero');
 
 // process all audio clips, generate Text to Speech, analyze start times & playback types
@@ -104,7 +104,7 @@ exports.processAllClipsInDB = async (req, res) => {
           statusData.map(async (data) => {
             console.log('Yet to update data in DB');
             // to update clip_audio_path, clip_duration, clip_end_time columns of Audio_Clips Table
-            let updateStatus = await updateClipDataInDB(data);
+            let updateStatus = await processCurrentClip(data);
             // get the status message and push it to an array
             updateStatusOfAllClips.push(updateStatus);
           })

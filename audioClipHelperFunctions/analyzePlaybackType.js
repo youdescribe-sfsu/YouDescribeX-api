@@ -1,5 +1,5 @@
-const Audio_Clips = require('../../models/Audio_Clips');
-const Dialog_Timestamps = require('../../models/Dialog_Timestamps');
+const Audio_Clips = require('../models/Audio_Clips');
+const Dialog_Timestamps = require('../models/Dialog_Timestamps');
 const { Op } = require('sequelize');
 
 // analyze clip playback type from dialog timestamp data
@@ -8,7 +8,8 @@ const analyzePlaybackType = async (
   currentClipEndTime,
   videoId,
   adId,
-  clipId
+  clipId,
+  processingAllClips
 ) => {
   return await Dialog_Timestamps.findAll({
     // executes the following condition
@@ -83,32 +84,44 @@ const analyzePlaybackType = async (
                 data: 'inline',
               };
             } else {
-              // checking if there are overlapping clips after the current clip,
-              // if yes mark it as extended, if no mark it as inline
-              let countOfClipsAfter = 0;
-              overlappingClips.forEach((clip) => {
-                // check by comparing start times
-                if (clip.clip_start_time > currentClipStartTime) {
-                  console.log('************ GREATER ********');
-                  console.log(currentClipStartTime);
-                  console.log(clip.clip_start_time);
-                  countOfClipsAfter++;
-                } else {
-                  console.log('************ LESSER ********');
-                  console.log(currentClipStartTime);
-                  console.log(clip.clip_start_time);
+              // checking if all clips are processed at once using the route /processAllClipsInDB/:adId.
+              // If yes, execute a simple check
+              if (processingAllClips) {
+                // Strategy Used: - Can be modified / optimized later
+                // When sorted based on Start Time, If two clips are overlapping with each other,
+                // the first one is marked as extended and the second one is marked as inline.
+                // since marking first as extended will not have any impact on the overlaps of the second, because, the video pauses while playing the extended clip
+
+                // checking if there are overlapping clips after the current clip,
+                // if yes mark it as extended, if no mark it as inline
+                let countOfClipsAfter = 0;
+                overlappingClips.forEach((clip) => {
+                  // check by comparing start times
+                  if (clip.clip_start_time > currentClipStartTime) {
+                    countOfClipsAfter++; // increment the count
+                  }
+                });
+                // there are overlapping clips after the current clip.
+                if (countOfClipsAfter > 0) {
+                  return {
+                    message: 'Success - extended!',
+                    data: 'extended',
+                  };
                 }
-              });
-              console.log(countOfClipsAfter);
-              if (countOfClipsAfter > 0) {
+                // NO overlapping clips after the current clip.
+                else {
+                  return {
+                    message: 'Success - inline!',
+                    data: 'inline',
+                  };
+                }
+              }
+              // If no, mark it as extended when there are overlapping clips
+              // can be optimized later
+              else {
                 return {
                   message: 'Success - extended!',
                   data: 'extended',
-                };
-              } else {
-                return {
-                  message: 'Success - inline!',
-                  data: 'inline',
                 };
               }
             }
