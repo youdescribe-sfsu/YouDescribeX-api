@@ -1,24 +1,24 @@
-// get the old audioPath in the db
 const Audio_Clips = require('../models/Audio_Clips');
-const getOldAudioFilePath = async (clipId) => {
+// get Clip Start Time
+const getClipStartTimebyId = async (clipId) => {
   return Audio_Clips.findOne({
     where: {
       clip_id: clipId,
     },
-    attributes: ['clip_audio_path'],
+    attributes: ['clip_start_time'],
   })
     .then((clip) => {
       return {
         message: 'Success',
-        data: clip.clip_audio_path,
+        data: clip.clip_start_time.toFixed(2),
       };
     })
     .catch((err) => {
       return {
-        message: `Unable to connect to DB - getOldAudioFilePath!! Please try again ${err}`,
+        message: `Unable to connect to DB - getClipStartTimebyId!! Please try again ${err}`,
         data: null,
       }; // send error message
     });
 };
 
-module.exports = getOldAudioFilePath;
+module.exports = getClipStartTimebyId;

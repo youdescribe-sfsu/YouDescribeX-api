@@ -2,13 +2,15 @@ const express = require('express');
 const router = express.Router();
 const audioAllClipsMP3Controller = require('../controllers/audioAllClipsMP3Controller'); // generating mp3 for all AudioClips based on AdId
 const audioClipsController = require('../controllers/audioClipsController'); // handles routes for all other audioClip requests
+const upload = require('../processors/audioFileProcessor'); // import the multer audio processor
 
 router.use(express.json());
+router.use(express.urlencoded({ extended: true }));
 
-// route to generate mp3 files for all audio clips in the db - based on video id
+// route to process all audio clips in the db - based on video id
 router.get(
-  '/generateMp3ForAllClipsInDB/:adId',
-  audioAllClipsMP3Controller.generateMP3ForAllClipsInDB
+  '/processAllClipsInDB/:adId',
+  audioAllClipsMP3Controller.processAllClipsInDB
 );
 
 // Routes - send request to controller where db processing is done
@@ -36,4 +38,24 @@ router.put(
   '/update-clip-description/:clipId',
   audioClipsController.updateAudioClipDescription
 );
+
+// update clip audio path for record & replace
+router.put(
+  '/record-replace-clip-audio/:clipId',
+  upload.single('file'),
+  audioClipsController.updateClipAudioPath
+);
+
+//POST Requests
+// add a new clip
+router.post(
+  '/add-new-clip/:adId',
+  upload.single('file'),
+  audioClipsController.addNewAudioClip
+);
+
+// DELETE Requests
+// delete a clip based on clipId
+router.delete('/delete-clip/:clipId', audioClipsController.deleteAudioClip);
+
 module.exports = router;
