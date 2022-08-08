@@ -11,7 +11,7 @@ const Notes = db.define('Notes', {
   },
   notes_text: {
     allowNull: false,
-    type: Sequelize.STRING,
+    type: Sequelize.TEXT,
   },
 });
 
