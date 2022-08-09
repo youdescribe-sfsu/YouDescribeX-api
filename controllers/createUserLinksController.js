@@ -10,7 +10,7 @@ const checkIfAdExists = require('../userLinksHelperFunctions/checkIfAdExists');
 // add new user
 exports.addNewUser = async (req, res) => {
   Users.create({
-    is_ai: req.body.isAI,
+    is_ai: false,
     name: req.body.name,
     user_email: req.body.email,
   })
