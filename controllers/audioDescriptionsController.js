@@ -30,10 +30,11 @@ exports.getUserAudioDescriptionData = async (req, res) => {
   })
     .then((data) => {
       // console.log(data);
-      return res.send(data);
+      return res.status(200).send(data);
     })
     .catch((err) => {
       console.log(err);
+      return res.status(500).send(err.message);
     });
 };
 

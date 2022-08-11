@@ -10,9 +10,10 @@ exports.getVideoDialogTimestamps = async (req, res) => {
   })
     .then((VideoDialogTimestamps) => {
       // console.log(VideoDialogTimestamps);
-      return res.send(VideoDialogTimestamps);
+      return res.status(200).send(VideoDialogTimestamps);
     })
     .catch((err) => {
       console.log(err);
+      return res.status(500).send(err.message);
     });
 };
