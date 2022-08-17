@@ -30,7 +30,7 @@ exports.updateAudioClipTitle = async (req, res) => {
     })
     .catch((err) => {
       console.log(err);
-      return res.status(500).send(err);
+      return res.status(500).send(err.message);
     });
 };
 // update audio clip Playback Type - from inline to extended or vice versa - based on clip_id
