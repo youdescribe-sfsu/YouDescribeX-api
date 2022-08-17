@@ -4,18 +4,13 @@
 <font color='cyan'>**GET Routes:**</font>
 
 *API to get Dialog Timestamps for the video*
-* <http://localhost:4000/api/dialog-timestamps/get-video-dialog/:videoId>
+* <https://ydx.youdescribe.org/api/dialog-timestamps/get-video-dialog/:videoId>
 
 *API to get Video data for a youtube video*
-* <http://localhost:4000/api/videos/get-by-youtubeVideo/:youtubeVideoId>
+* <https://ydx.youdescribe.org/api/videos/get-by-youtubeVideo/:youtubeVideoId>
 
 *API to get audio descriptions & Audio Clips related to videoId & userId*
-* http://localhost:4000/api/audio-descriptions/get-user-ad/:videoId&:userId
-
-> Not used in FrontEnd Repo
-
-*API to process all audio clips, generate Text to Speech, analyze start times & playback types in the Audio_Clips table - based on AudioDescriptionID*
-* <http://localhost:4000/api/audio-clips/preProcessAllClipsInDB/:adId>
+* https://ydx.youdescribe.org/api/audio-descriptions/get-user-ad/:videoId&:userId
 
 <font color='cyan'>**PUT Routes:**</font>
 
@@ -99,35 +94,21 @@ axios
 * *API to post a new Note*
 ```
 axios
-  .post('http://localhost:4000/api/notes/post-note', {
+  .post('https://ydx.youdescribe.org/api/notes/post-note', {
     noteId: noteId,
     notes: currentNoteValue,
     adId: audioDescriptionId,
   })
 ```
-> Not used in FrontEnd Repo
-* *API to create a new user - give isAI, name, email in req.body*
-  * ```http://localhost:4000/api/create-user-links/add-new-user```
-
-<br />
-
-> Not used in FrontEnd Repo
-* *API to create new user Audio Description & Add Audio Clips - checks if there is AD with AI user ID*
-  * ```http://localhost:4000/api/create-user-links/create-new-user-ad```
-  ```
-  Example req.body: 
-  {
-      "userId" : "0571fa0e-32df-4aa7-bdeb-a97706f8135a",
-      "youtubeVideoId" : "usTc08X1b4I"
-  }
-  ```
 
 <font color='cyan'>**DELETE Routes:**</font>
+
 * *API to delete a Note*
 ```
 axios
   .delete(`/api/audio-clips/delete-clip/${clip_id}`)
 ```
+
 * *API to delete User Audio Files - based on YoutubeVideoID & User ID*
 ```
 http://ydx-youdescribe.org/api/audio-descriptions/delete-user-ad-audios/${youtubeVideoId}&${user_id}
@@ -158,3 +139,36 @@ Audio_Clips.findAll({
     ],
   })
 ```
+
+<font color='cyan'>**STEPS TO CREATE A USER LINK**</font>
+****
+
+> ***Step 1:** POST API to create a new user*
+  * ```https://ydx.youdescribe.org/api/create-user-links/add-new-user```
+  ``` 
+  body:
+    {
+        "name": "Bhavani Goruganthu",
+        "email": "test@gmail.com"
+    }
+  ```
+
+> ***Step 2:** POST API to create a user Audio Description & Add Audio Clips*
+  * ```https://ydx.youdescribe.org/api/create-user-links/create-new-user-ad```
+  ```
+  body: 
+  {
+      "userId" : "0571fa0e-32df-4aa7-bdeb-a97706f8135a",
+      "youtubeVideoId" : "usTc08X1b4I"
+  }
+  ```
+ * Click on the link & note down the AD ID returned in the response from Step 2. Use it in step no 3.
+
+<br>
+
+> ***Step 3:** GET API to process the audio clips of one Audio Description - generates Text to Speech, analyzes playback types in the Audio_Clips table - based on AudioDescriptionID*
+  * ```https://ydx.youdescribe.org/api/audio-clips/processAllClipsInDB/:adId```
+
+> ***Step 4:** Audio Clips have been Created. Use the below user link to test and share.*
+  * ```https://ydx.youdescribe.org/:youtubeVideoId/:userId```
+
