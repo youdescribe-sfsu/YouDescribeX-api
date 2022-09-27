@@ -35,27 +35,30 @@ exports.deleteVideoByUser = async (req, res) => {
           VideoVideoId: videos.video_id,
         }
       }).then(audioDescriptionData => {
-        Notes.destroy({
-          where: {
-            AudioDescriptionAdId: audioDescriptionData.ad_id
-          }
-        }).then(notesData => {
-          Audio_Clips.destroy({
+        if (!audioDescriptionData) {
+          return res.status(404).send({message: "Audio Description not found with id " + req.params.video_id});
+        } else {
+          Notes.destroy({
             where: {
               AudioDescriptionAdId: audioDescriptionData.ad_id
             }
-          }).then(audioClipsData => {
-            Audio_Descriptions.destroy({
+          }).then(notesData => {
+            Audio_Clips.destroy({
               where: {
-                UserUserId: req.params.userId,
-                VideoVideoId: videos.video_id,
+                AudioDescriptionAdId: audioDescriptionData.ad_id
               }
-            }).then(audioDescriptionData => {
-
-              return res.status(200).send({ notesData, audioClipsData, audioDescriptionData, videosData });
+            }).then(audioClipsData => {
+              Audio_Descriptions.destroy({
+                where: {
+                  UserUserId: req.params.userId,
+                  VideoVideoId: videos.video_id,
+                }
+              }).then(audioDescriptionData => {
+                return res.status(200).send({ notesData, audioClipsData, audioDescriptionData });
+              })
             })
           })
-        })
+        }
       })
     })
     .catch((err) => {
