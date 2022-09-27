@@ -114,6 +114,11 @@ axios
 http://ydx-youdescribe.org/api/audio-descriptions/delete-user-ad-audios/${youtubeVideoId}&${user_id}
 ```
 
+* *API to delete Video - based on YoutubeVideoID & User ID*
+```
+http://ydx-youdescribe.org/api/videos/delete-video/${youtubeVideoId}/${user_id}
+```
+
 <font color='cyan'>**Developer Notes:**</font>
 1) Sequelize Lazy Loading Example:
 ```
