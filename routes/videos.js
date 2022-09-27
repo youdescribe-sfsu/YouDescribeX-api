@@ -9,5 +9,6 @@ router.get(
   '/get-by-youtubeVideo/:youtubeId',
   videoController.getVideobyYoutubeId
 );
+router.delete('/delete-video/:youtubeId/:userId', videoController.deleteVideoByUser);
 
 module.exports = router;

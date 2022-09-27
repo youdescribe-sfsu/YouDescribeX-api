@@ -17,7 +17,7 @@ app.use(express.json());
 // to server static files - audio files
 app.use('/api/static', express.static(path.join(__dirname, 'public')));
 
-port = process.env.PORT;
+port = process.env.PORT || 4000;
 
 //User Routes
 app.use('/api/users', users);
