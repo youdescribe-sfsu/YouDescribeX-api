@@ -13,7 +13,7 @@ const db = new Sequelize(
 
 // Test DB connection
 db.authenticate()
-  .then(() => console.log('Connected to YDXAI Database'))
+   .then(() => console.log('Connected to YDX Database'))
   .then(() => {
     // db.sync({ alter: true })
     db.sync({ logging: false })
