@@ -25,7 +25,7 @@ const Participants = db.define('Participants', {
     allowNull: false,
     type: Sequelize.UUID,
   },
-  user_id_with_AI: {
+  user_id_without_AI: {
     allowNull: false,
     type: Sequelize.UUID,
   },
