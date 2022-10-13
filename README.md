@@ -177,3 +177,26 @@ Audio_Clips.findAll({
 > ***Step 4:** Audio Clips have been Created. Use the below user link to test and share.*
   * ```https://ydx.youdescribe.org/:youtubeVideoId/:userId```
 
+<font color='cyan'>**STEPS TO CREATE A USER STUDY PARTICIPANT LINK**</font>
+****
+
+> ***Step 1:** Follow all the steps to create two user links for two conditions with the same video ID*
+
+> ***Step 2:** POST API to create a new participant*
+  * ```https://ydx.youdescribe.org/api/create-participant-links/add-new-participant```
+  ``` 
+  body:
+    {
+       "name": "Hirva Patel",
+        "email": "hirva@gmail.com",
+        "youtubeVideoId" : "usTc08X1b4I",
+        "userIdWithAi" : "a701a6e7-25ed-4b7f-babb-6a679ace426c",
+        "userIdWithoutAi" : "a701a6e7-25ed-4b7f-babb-6a679ace426c"
+    }
+  ```
+ * From the first step note the youtubeVideoId and user ids for both the conditions and use it in step 2.
+
+> ***Step 3:** Delete the GPU pipeline data for the user without AI condition.*
+  
+ > ***Step 4:** Participant link has been Created. Use the below user link to test and share.*
+  * ```https://ydx.youdescribe.org/userstudy/:participant_id```
