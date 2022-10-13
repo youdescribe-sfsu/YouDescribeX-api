@@ -101,7 +101,7 @@ exports.createNewUserAd = async (req, res) => {
                   }
                   return res.status(200).send({
                     message: `Success OK!! Use https://ydx.youdescribe.org/api/audio-clips/processAllClipsInDB/${ad.ad_id} to generate audio files for the new Audio Description.`,
-                    url:`http://3.101.130.10:4000/api/audio-clips/processAllClipsInDB/${ad.ad_id}`
+                    url:`https://ydx.youdescribe.org/api/audio-clips/processAllClipsInDB/${ad.ad_id}`
                   });
                 })
                 .catch((err) => {
