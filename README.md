@@ -180,7 +180,7 @@ Audio_Clips.findAll({
 <font color='cyan'>**STEPS TO CREATE A USER STUDY PARTICIPANT LINK**</font>
 ****
 
-> ***Step 1:** Follow all the steps to create two user links for two conditions with the same video ID*
+> ***Step 1:** Follow all the steps to create two user links for two conditions with the given video ID*
 
 > ***Step 2:** POST API to create a new participant*
   * ```https://ydx.youdescribe.org/api/create-participant-links/add-new-participant```
