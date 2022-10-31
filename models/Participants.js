@@ -17,7 +17,11 @@ const Participants = db.define('Participants', {
     allowNull: true,
     type: Sequelize.STRING,
   },
-  youtube_video_id: {
+  youtube_video_id_with_AI: {
+    allowNull: false,
+    type: Sequelize.STRING,
+  },
+  youtube_video_id_without_AI: {
     allowNull: false,
     type: Sequelize.STRING,
   },

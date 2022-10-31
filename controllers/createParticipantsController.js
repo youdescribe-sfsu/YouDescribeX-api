@@ -13,7 +13,8 @@ exports.addNewParticipant = async (req, res) => {
   Participants.create({
     participant_name: req.body.name,
     participant_email: req.body.email,
-    youtube_video_id: req.body.youtubeVideoId,
+    youtube_video_id_with_AI: req.body.youtubeVideoIdWithAi,
+    youtube_video_id_without_AI: req.body.youtubeVideoIdWithoutAi,
     user_id_with_AI: req.body.userIdWithAi,
     user_id_without_AI: req.body.userIdWithoutAi,
   })

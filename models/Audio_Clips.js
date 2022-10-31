@@ -19,7 +19,7 @@ const Audio_Clips = db.define('Audio_Clips', {
   },
   description_text: {
     allowNull: false,
-    type: Sequelize.STRING,
+    type: Sequelize.TEXT,
   },
   playback_type: {
     allowNull: false,
