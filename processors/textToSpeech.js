@@ -36,7 +36,7 @@ const generateMp3forDescriptionText = async (
         ssmlGender: 'NEUTRAL',
       },
       // select the type of audio encoding
-      audioConfig: { audioEncoding: 'MP3', speakingRate: 1.5 },
+      audioConfig: { audioEncoding: 'MP3', speakingRate: 1.25 },
     };
     // Performs the text-to-speech request
     const [response] = await client.synthesizeSpeech(request);
