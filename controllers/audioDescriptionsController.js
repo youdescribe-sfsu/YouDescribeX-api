@@ -74,12 +74,18 @@ exports.newAiDescription = async (req, res) => {
   const dialog = req.body.dialogue_timestamps;
 
   const audio_clips = req.body.audio_clips;
-
+  const aiUserId = req.body.aiUserId || 'db72cc2a-b054-4b00-9f85-851b45649be0';
+  console.log(req.body);
   const aiuser = await Users.findOne({
     where: {
-      user_id: 'db72cc2a-b054-4b00-9f85-851b45649be0', // AI User ID
+      user_id: aiUserId, // AI User ID
     },
-  }).catch((e) => {});
+  }).catch((e) => {
+    console.log("-----------------");
+    console.log(e)
+  });
+  
+  console.log(aiuser)
   let vid = await Videos.findOne({
     where: { youtube_video_id: req.body.youtube_id },
   });

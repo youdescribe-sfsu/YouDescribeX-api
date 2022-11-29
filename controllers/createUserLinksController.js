@@ -5,6 +5,25 @@ const getAIUserId = require('../userLinksHelperFunctions/getAIUserId');
 const getVideoFromYoutubeId = require('../audioClipHelperFunctions/getVideoFromYoutubeId'); // get the video id by youtubeId
 const checkIfAdExists = require('../userLinksHelperFunctions/checkIfAdExists');
 
+
+// Helper Function to check if AI User exists
+const checkIfAIUserExists = async (userId) => {
+  return Users.findOne({
+    where: {
+      user_id: userId,
+    },
+  })
+    .then((user) => {
+      return { message: 'Success', data: user };
+    })
+    .catch((err) => {
+      return {
+        message: `Error Connecting to DB - checkIfAIUserExists!! Please try again. ${err}`,
+        data: null,
+      };
+    });
+};
+
 // db processing is done here using sequelize models
 
 // add new user
@@ -44,15 +63,19 @@ exports.createNewUserAd = async (req, res) => {
       });
     } else {
       // No AD exists.. So We can create one
-
+      const aiUserId = req.body.aiUserId;
       //   get AI user ID
-      let getAIUserIdStatus = await getAIUserId();
+      console.log(`AI User ID: ${aiUserId}`);
+      let getAIUserIdStatus = await checkIfAIUserExists(aiUserId);
+      console.log(getAIUserIdStatus);
       if (getAIUserIdStatus.data === null) {
+        console.log('Error');
         return res.status(500).send({
           message: getAIUserIdStatus.message,
         });
       } else {
-        let AIUserId = getAIUserIdStatus.data;
+        let AIUserId = getAIUserIdStatus.data.get('user_id');
+        console.log(`AI User ID: ${AIUserId}`);
         // fetch Audio Description & Audio Clip Data for AI user to copy for the new user
         await Audio_Descriptions.findOne({
           where: {
@@ -101,7 +124,7 @@ exports.createNewUserAd = async (req, res) => {
                   }
                   return res.status(200).send({
                     message: `Success OK!! Use https://ydx.youdescribe.org/api/audio-clips/processAllClipsInDB/${ad.ad_id} to generate audio files for the new Audio Description.`,
-                    url:`http://3.101.130.10:4000/api/audio-clips/processAllClipsInDB/${ad.ad_id}`
+                    url: `https://ydx.youdescribe.org/api/audio-clips/processAllClipsInDB/${ad.ad_id}`
                   });
                 })
                 .catch((err) => {

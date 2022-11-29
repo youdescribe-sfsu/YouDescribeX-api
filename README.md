@@ -164,7 +164,8 @@ Audio_Clips.findAll({
   body: 
   {
       "userId" : "0571fa0e-32df-4aa7-bdeb-a97706f8135a",
-      "youtubeVideoId" : "usTc08X1b4I"
+      "youtubeVideoId" : "usTc08X1b4I",
+      "aiUserId": "#AIUSERID#"
   }
   ```
  * Click on the link & note down the AD ID returned in the response from Step 2. Use it in step no 3.
