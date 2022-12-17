@@ -9,6 +9,7 @@ exports.addTotalTime = async (req, res) => {
   Timing.create({
     ParticipantParticipantId: req.body.participant_id,
     total_time: req.body.time,
+    youtube_video_id : req.body.video_id,
     
   })
     .then((user) => {

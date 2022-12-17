@@ -9,6 +9,10 @@ const Timing = db.define('Timing', {
     allowNull: false,
     type: Sequelize.FLOAT,
   },
+  youtube_video_id: {
+    allowNull: false,
+    type: Sequelize.STRING,
+  },
 });
 
 Timing.belongsTo(Participants);
