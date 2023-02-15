@@ -24,6 +24,7 @@
     "dotenv": "^16.0.0",
     "express": "^4.17.3",
     "get-mp3-duration": "^1.0.0",
+    "mongoose": "^6.9.1",
     "multer": "^1.4.4-lts.1",
     "pg": "^8.7.3",
     "pg-hstore": "^2.3.4",

@@ -3,13 +3,13 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 //routes
-const users = require('./routes/users');
+// const users = require('./routes/users');
 const videos = require('./routes/videos');
-const dialog_timestamps = require('./routes/dialog_timestamps');
-const audio_descriptions = require('./routes/audio_descriptions');
-const notes = require('./routes/notes');
-const audio_clips = require('./routes/audio_clips');
-const createUserLinks = require('./routes/createUserLinks');
+// const dialog_timestamps = require('./routes/dialog_timestamps');
+// const audio_descriptions = require('./routes/audio_descriptions');
+// const notes = require('./routes/notes');
+// const audio_clips = require('./routes/audio_clips');
+// const createUserLinks = require('./routes/createUserLinks');
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -20,11 +20,12 @@ app.use('/api/static', express.static(path.join(__dirname, 'public')));
 port = process.env.PORT || 4000;
 
 //User Routes
-app.use('/api/users', users);
+// app.use('/api/users', users);
 app.use('/api/videos', videos);
-app.use('/api/dialog-timestamps', dialog_timestamps);
-app.use('/api/audio-descriptions', audio_descriptions);
-app.use('/api/notes', notes);
-app.use('/api/audio-clips', audio_clips);
-app.use('/api/create-user-links', createUserLinks);
+// app.use('/api/dialog-timestamps', dialog_timestamps);
+// app.use('/api/audio-descriptions', audio_descriptions);
+// app.use('/api/notes', notes);
+// app.use('/api/audio-clips', audio_clips);
+// app.use('/api/create-user-links', createUserLinks);
+mongoDb = require('./config/db');
 app.listen(port, () => console.log(`YDX Backend server on port ${port}!`));

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const videoController = require('../controllers/videoController');
+const videoController = require('../controllers/videoController/videoController');
 router.use(express.json());
 
 // Routes - send request to controller where db processing is done

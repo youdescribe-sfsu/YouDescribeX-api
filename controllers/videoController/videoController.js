@@ -1,17 +1,13 @@
-const Videos = require('../models/Videos');
-const Audio_Descriptions = require('../models/Audio_Descriptions');
-const Audio_Clips = require('../models/Audio_Clips');
-const Notes = require('../models/Notes');
-
+const Videos = require('../../models/postgres/Videos');
+const Audio_Descriptions = require('../../models/postgres/Audio_Descriptions');
+const Audio_Clips = require('../../models/postgres/Audio_Clips');
+const Notes = require('../../models/postgres/Notes');
+const getVideobyYoutubeIdUtil = require('./videoControllerUtil').getVideobyYoutubeIdUtil;
 // db processing is done here using sequelize models
 
 // find one Video by YouTubeVideoId
 exports.getVideobyYoutubeId = async (req, res) => {
-  Videos.findOne({
-    where: {
-      youtube_video_id: req.params.youtubeId,
-    },
-  })
+  getVideobyYoutubeIdUtil(req.params.youtubeId)
     .then((videos) => {
       return res.status(200).send(videos);
     })
