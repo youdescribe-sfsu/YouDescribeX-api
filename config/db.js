@@ -1,4 +1,12 @@
 const { Sequelize, UUID } = require('sequelize');
+const mongoose = require('mongoose');
+const mongoDb = mongoose.connect(`mongodb://localhost:27017`, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
+  .then(() => console.log(`Connected to MONGODB!`))
+  .catch(error => console.log(error.message));
+
 
 const db = new Sequelize(
   process.env.DATABASE,
@@ -10,6 +18,8 @@ const db = new Sequelize(
     dialect: 'postgres',
   }
 );
+console.log('-----------------');
+console.log(db)
 
 // Test DB connection
 db.authenticate()
@@ -26,4 +36,7 @@ db.authenticate()
   })
   .catch((err) => console.log('Error' + err));
 
-module.exports = db;
+
+
+
+module.exports = { db, mongoDb };

@@ -1,7 +1,7 @@
 const Sequelize = require('sequelize');
-const db = require('../config/db');
+const db = require('../../config/db');
 
-const Videos = db.define('Videos', {
+const Videos = db.sequelize.define('Videos', {
   video_id: {
     type: Sequelize.UUID,
     defaultValue: Sequelize.UUIDV4,
