@@ -83,7 +83,6 @@ class UserService {
 
     } else {
       const { aiUserId, userId, youtubeVideoId } = newUserAudioDescription;
-      console.log(newUserAudioDescription)
       // Check if Video exists
       const videoIdStatus = await PostGres_Videos.findOne({ where: { youtube_video_id: youtubeVideoId } });
       if (!videoIdStatus) throw new HttpException(409, "Video doesn't exist");
@@ -109,16 +108,13 @@ class UserService {
         ]
       });
       if (!checkIfAIDescriptionsExists) throw new HttpException(409, "AI Descriptions doesn't exist");
-      console.log(checkIfAIDescriptionsExists)
       // Create new Audio Description
-      console.log(`Trying to create new Audio Description for ${userId} and ${videoIdStatus.video_id}`)
       const createNewAudioDescription = await PostGres_Audio_Descriptions.create({
         VideoVideoId: videoIdStatus.video_id,
         UserUserId: userId,
         is_published: false,
       });
       if (!createNewAudioDescription) throw new HttpException(409, "Audio Description couldn't be created");
-      console.log(`Trying to create new Audio Description for ${userId} and ${videoIdStatus.video_id}`)
       // Create new Audio Clips
       const createNewAudioClips = await PostGres_Audio_Clips.bulkCreate(checkIfAIDescriptionsExists.Audio_Clips.map((clip) => {
         return {
@@ -134,7 +130,7 @@ class UserService {
       createNewAudioClips.forEach(async (clip) => {
         createNewAudioDescription.addAudio_Clip(clip);
       });
-
+      return createNewAudioDescription.ad_id;
     }
 
   }
