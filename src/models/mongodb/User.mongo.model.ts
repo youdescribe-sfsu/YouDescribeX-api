@@ -1,6 +1,5 @@
 import { IUsers } from '../../interfaces/users.interface';
-import { model, Schema,Types } from 'mongoose';
-
+import { model, Schema, Types } from 'mongoose';
 
 const usersSchema = new Schema<IUsers>({
   name: { type: String, required: true },

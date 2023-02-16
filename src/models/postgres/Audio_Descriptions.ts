@@ -14,12 +14,15 @@ export interface Audio_DescriptionsAttributes {
   VideoVideoId?: string;
 }
 
-export type Audio_DescriptionsPk = "ad_id";
+export type Audio_DescriptionsPk = 'ad_id';
 export type Audio_DescriptionsId = Audio_Descriptions[Audio_DescriptionsPk];
-export type Audio_DescriptionsOptionalAttributes = "createdAt" | "updatedAt" | "UserUserId" | "VideoVideoId";
+export type Audio_DescriptionsOptionalAttributes = 'createdAt' | 'updatedAt' | 'UserUserId' | 'VideoVideoId';
 export type Audio_DescriptionsCreationAttributes = Optional<Audio_DescriptionsAttributes, Audio_DescriptionsOptionalAttributes>;
 
-export class Audio_Descriptions extends Model<Audio_DescriptionsAttributes, Audio_DescriptionsCreationAttributes> implements Audio_DescriptionsAttributes {
+export class Audio_Descriptions
+  extends Model<Audio_DescriptionsAttributes, Audio_DescriptionsCreationAttributes>
+  implements Audio_DescriptionsAttributes
+{
   ad_id!: string;
   is_published!: boolean;
   createdAt!: Date;
@@ -63,55 +66,56 @@ export class Audio_Descriptions extends Model<Audio_DescriptionsAttributes, Audi
   createVideoVideo!: Sequelize.BelongsToCreateAssociationMixin<Videos>;
 
   static initModel(sequelize: Sequelize.Sequelize): typeof Audio_Descriptions {
-    return Audio_Descriptions.init({
-      ad_id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
-        allowNull: false,
-        primaryKey: true
-      },
-      is_published: {
-        type: DataTypes.BOOLEAN,
-        allowNull: false
-      },
-      createdAt: {
-        type: DataTypes.DATE,
-        defaultValue: Sequelize.NOW,
-      },
-      updatedAt: {
-        type: DataTypes.DATE,
-        defaultValue: Sequelize.NOW,
-      },
-      UserUserId: {
-        type: DataTypes.UUID,
-        allowNull: true,
-        references: {
-          model: 'Users',
-          key: 'user_id'
-        }
-      },
-      VideoVideoId: {
-        type: DataTypes.UUID,
-        allowNull: true,
-        references: {
-          model: 'Videos',
-          key: 'video_id'
-        }
-      }
-    }, {
-      sequelize,
-      tableName: 'Audio_Descriptions',
-      schema: 'public',
-      timestamps: true,
-      indexes: [
-        {
-          name: "Audio_Descriptions_pkey",
-          unique: true,
-          fields: [
-            { name: "ad_id" },
-          ]
+    return Audio_Descriptions.init(
+      {
+        ad_id: {
+          type: DataTypes.UUID,
+          defaultValue: DataTypes.UUIDV4,
+          allowNull: false,
+          primaryKey: true,
         },
-      ]
-    });
+        is_published: {
+          type: DataTypes.BOOLEAN,
+          allowNull: false,
+        },
+        createdAt: {
+          type: DataTypes.DATE,
+          defaultValue: Sequelize.NOW,
+        },
+        updatedAt: {
+          type: DataTypes.DATE,
+          defaultValue: Sequelize.NOW,
+        },
+        UserUserId: {
+          type: DataTypes.UUID,
+          allowNull: true,
+          references: {
+            model: 'Users',
+            key: 'user_id',
+          },
+        },
+        VideoVideoId: {
+          type: DataTypes.UUID,
+          allowNull: true,
+          references: {
+            model: 'Videos',
+            key: 'video_id',
+          },
+        },
+      },
+      {
+        sequelize,
+        tableName: 'Audio_Descriptions',
+        schema: 'public',
+        timestamps: true,
+        indexes: [
+          {
+            name: 'Audio_Descriptions_pkey',
+            unique: true,
+            fields: [{ name: 'ad_id' }],
+          },
+        ],
+      },
+    );
   }
 }

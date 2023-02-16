@@ -7,11 +7,11 @@ export class CreateUserDto {
   public name: string;
 }
 
-export class CreateUserAudioDescription{
-    @IsString()
-    public userId: string;
-    @IsString()
-    public youtubeVideoId : string;
-    @IsString()
-    public aiUserId: string;
+export class CreateUserAudioDescription {
+  @IsString()
+  public userId: string;
+  @IsString()
+  public youtubeVideoId: string;
+  @IsString()
+  public aiUserId: string;
 }

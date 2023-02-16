@@ -12,9 +12,9 @@ export interface VideosAttributes {
   updatedAt: Date;
 }
 
-export type VideosPk = "video_id";
+export type VideosPk = 'video_id';
 export type VideosId = Videos[VideosPk];
-export type VideosOptionalAttributes = "createdAt" | "updatedAt";
+export type VideosOptionalAttributes = 'createdAt' | 'updatedAt';
 export type VideosCreationAttributes = Optional<VideosAttributes, VideosOptionalAttributes>;
 
 export class Videos extends Model<VideosAttributes, VideosCreationAttributes> implements VideosAttributes {
@@ -51,47 +51,48 @@ export class Videos extends Model<VideosAttributes, VideosCreationAttributes> im
   countDialog_Timestamps!: Sequelize.HasManyCountAssociationsMixin;
 
   static initModel(sequelize: Sequelize.Sequelize): typeof Videos {
-    return Videos.init({
-      video_id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
-        allowNull: false,
-        primaryKey: true
-      },
-      youtube_video_id: {
-        type: DataTypes.STRING(255),
-        allowNull: false
-      },
-      video_name: {
-        type: DataTypes.STRING(255),
-        allowNull: false
-      },
-      video_length: {
-        type: DataTypes.DOUBLE,
-        allowNull: false
-      },
-      createdAt: {
-        type: DataTypes.DATE,
-        defaultValue: Sequelize.NOW,
-      },
-      updatedAt: {
-        type: DataTypes.DATE,
-        defaultValue: Sequelize.NOW,
-      }
-    }, {
-    sequelize,
-    tableName: 'Videos',
-    schema: 'public',
-    timestamps: true,
-    indexes: [
+    return Videos.init(
       {
-        name: "Videos_pkey",
-        unique: true,
-        fields: [
-          { name: "video_id" },
-        ]
+        video_id: {
+          type: DataTypes.UUID,
+          defaultValue: DataTypes.UUIDV4,
+          allowNull: false,
+          primaryKey: true,
+        },
+        youtube_video_id: {
+          type: DataTypes.STRING(255),
+          allowNull: false,
+        },
+        video_name: {
+          type: DataTypes.STRING(255),
+          allowNull: false,
+        },
+        video_length: {
+          type: DataTypes.DOUBLE,
+          allowNull: false,
+        },
+        createdAt: {
+          type: DataTypes.DATE,
+          defaultValue: Sequelize.NOW,
+        },
+        updatedAt: {
+          type: DataTypes.DATE,
+          defaultValue: Sequelize.NOW,
+        },
       },
-    ]
-  });
+      {
+        sequelize,
+        tableName: 'Videos',
+        schema: 'public',
+        timestamps: true,
+        indexes: [
+          {
+            name: 'Videos_pkey',
+            unique: true,
+            fields: [{ name: 'video_id' }],
+          },
+        ],
+      },
+    );
   }
 }

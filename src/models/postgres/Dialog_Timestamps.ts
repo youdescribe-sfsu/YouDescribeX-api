@@ -13,12 +13,15 @@ export interface Dialog_TimestampsAttributes {
   VideoVideoId?: string;
 }
 
-export type Dialog_TimestampsPk = "dialog_id";
+export type Dialog_TimestampsPk = 'dialog_id';
 export type Dialog_TimestampsId = Dialog_Timestamps[Dialog_TimestampsPk];
-export type Dialog_TimestampsOptionalAttributes = "createdAt" | "updatedAt" | "VideoVideoId";
+export type Dialog_TimestampsOptionalAttributes = 'createdAt' | 'updatedAt' | 'VideoVideoId';
 export type Dialog_TimestampsCreationAttributes = Optional<Dialog_TimestampsAttributes, Dialog_TimestampsOptionalAttributes>;
 
-export class Dialog_Timestamps extends Model<Dialog_TimestampsAttributes, Dialog_TimestampsCreationAttributes> implements Dialog_TimestampsAttributes {
+export class Dialog_Timestamps
+  extends Model<Dialog_TimestampsAttributes, Dialog_TimestampsCreationAttributes>
+  implements Dialog_TimestampsAttributes
+{
   dialog_id!: string;
   dialog_sequence_num!: number;
   dialog_start_time!: number;
@@ -35,59 +38,60 @@ export class Dialog_Timestamps extends Model<Dialog_TimestampsAttributes, Dialog
   createVideoVideo!: Sequelize.BelongsToCreateAssociationMixin<Videos>;
 
   static initModel(sequelize: Sequelize.Sequelize): typeof Dialog_Timestamps {
-    return Dialog_Timestamps.init({
-      dialog_id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
-        allowNull: false,
-        primaryKey: true
-      },
-      dialog_sequence_num: {
-        type: DataTypes.INTEGER,
-        allowNull: false
-      },
-      dialog_start_time: {
-        type: DataTypes.DOUBLE,
-        allowNull: false
-      },
-      dialog_end_time: {
-        type: DataTypes.DOUBLE,
-        allowNull: false
-      },
-      dialog_duration: {
-        type: DataTypes.DOUBLE,
-        allowNull: false
-      },
-      createdAt: {
-        type: DataTypes.DATE,
-        defaultValue: Sequelize.NOW,
-      },
-      updatedAt: {
-        type: DataTypes.DATE,
-        defaultValue: Sequelize.NOW,
-      },
-      VideoVideoId: {
-        type: DataTypes.UUID,
-        allowNull: true,
-        references: {
-          model: 'Videos',
-          key: 'video_id'
-        }
-      },
-    }, {
-    sequelize,
-    tableName: 'Dialog_Timestamps',
-    schema: 'public',
-    timestamps: true,
-    indexes: [
+    return Dialog_Timestamps.init(
       {
-        name: "Dialog_Timestamps_pkey",
-        unique: true,
-        fields: [
-          { name: "dialog_id" },
-        ]
+        dialog_id: {
+          type: DataTypes.UUID,
+          defaultValue: DataTypes.UUIDV4,
+          allowNull: false,
+          primaryKey: true,
+        },
+        dialog_sequence_num: {
+          type: DataTypes.INTEGER,
+          allowNull: false,
+        },
+        dialog_start_time: {
+          type: DataTypes.DOUBLE,
+          allowNull: false,
+        },
+        dialog_end_time: {
+          type: DataTypes.DOUBLE,
+          allowNull: false,
+        },
+        dialog_duration: {
+          type: DataTypes.DOUBLE,
+          allowNull: false,
+        },
+        createdAt: {
+          type: DataTypes.DATE,
+          defaultValue: Sequelize.NOW,
+        },
+        updatedAt: {
+          type: DataTypes.DATE,
+          defaultValue: Sequelize.NOW,
+        },
+        VideoVideoId: {
+          type: DataTypes.UUID,
+          allowNull: true,
+          references: {
+            model: 'Videos',
+            key: 'video_id',
+          },
+        },
       },
-    ]
-  });
+      {
+        sequelize,
+        tableName: 'Dialog_Timestamps',
+        schema: 'public',
+        timestamps: true,
+        indexes: [
+          {
+            name: 'Dialog_Timestamps_pkey',
+            unique: true,
+            fields: [{ name: 'dialog_id' }],
+          },
+        ],
+      },
+    );
   }
 }

@@ -1,8 +1,6 @@
 import { model, Schema, Types } from 'mongoose';
 import { IAudioClips } from '../../interfaces/audioClips.interface';
 
-
-
 const AudioClipsSchema = new Schema<IAudioClips>({
   clip_id: { type: Types.ObjectId, required: true, unique: true, default: Schema.Types.ObjectId },
   clip_title: { type: String },
@@ -17,7 +15,6 @@ const AudioClipsSchema = new Schema<IAudioClips>({
 });
 
 export const AudioClips = model<IAudioClips>('Audio_Clips', AudioClipsSchema);
-
 
 // const Audio_Clips_Schema = mongoDb.Schema({
 //     clip_id: {
