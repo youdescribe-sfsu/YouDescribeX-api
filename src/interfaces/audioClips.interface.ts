@@ -12,4 +12,5 @@ export interface IAudioClips{
     clip_duration: DataTypes.FloatDataType;
     clip_audio_path: string;
     is_recorded: boolean;
+    AudioDescriptionAdId: ObjectId;
 }

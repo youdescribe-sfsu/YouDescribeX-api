@@ -14,8 +14,8 @@ class UsersRoute implements Routes {
   }
 
   private initializeRoutes() {
-    console.log(this.path)
     this.router.post(`${this.path}/add-new-user`, this.usersController.createUser);
+    this.router.post(`${this.path}/create-new-user-ad`, this.usersController.createNewUserAudioDescription);
     // this.router.get(`${this.path}`, this.usersController.getUsers);
     // this.router.get(`${this.path}/:id`, this.usersController.getUserById);
     // this.router.post(`${this.path}`, validationMiddleware(CreateUserDto, 'body'), this.usersController.createUser);

@@ -44,7 +44,7 @@ export const testDataBaseConnection = () => {
     } else {
         console.log("Testing PostgreSQL connection")
         getPostGresConnection().authenticate()
-            .then(() => console.log('Connected to YDXAI Database'))
+            .then(() => console.log(`Connected to ${POSTGRES_DB_NAME} Database`))
             .then(() => {
                 // db.sync({ alter: true })
                 POSTGRESQL_CONNECTION.sync({ logging: false })

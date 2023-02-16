@@ -6,3 +6,12 @@ export class CreateUserDto {
   @IsString()
   public name: string;
 }
+
+export class CreateUserAudioDescription{
+    @IsString()
+    public userId: string;
+    @IsString()
+    public youtubeVideoId : string;
+    @IsString()
+    public aiUserId: string;
+}
