@@ -34,3 +34,5 @@ tts_api_key.json
 
 # audio files
 public/audio/
+dist/
+logs/
