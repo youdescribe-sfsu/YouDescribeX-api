@@ -10,9 +10,9 @@ export interface NotesAttributes {
   AudioDescriptionAdId?: string;
 }
 
-export type NotesPk = "notes_id";
+export type NotesPk = 'notes_id';
 export type NotesId = Notes[NotesPk];
-export type NotesOptionalAttributes = "createdAt" | "updatedAt" | "AudioDescriptionAdId";
+export type NotesOptionalAttributes = 'createdAt' | 'updatedAt' | 'AudioDescriptionAdId';
 export type NotesCreationAttributes = Optional<NotesAttributes, NotesOptionalAttributes>;
 
 export class Notes extends Model<NotesAttributes, NotesCreationAttributes> implements NotesAttributes {
@@ -29,47 +29,48 @@ export class Notes extends Model<NotesAttributes, NotesCreationAttributes> imple
   createAudioDescriptionAd!: Sequelize.BelongsToCreateAssociationMixin<Audio_Descriptions>;
 
   static initModel(sequelize: Sequelize.Sequelize): typeof Notes {
-    return Notes.init({
-      notes_id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
-        allowNull: false,
-        primaryKey: true
-      },
-      notes_text: {
-        type: DataTypes.TEXT,
-        allowNull: false
-      },
-      createdAt: {
-        type: DataTypes.DATE,
-        defaultValue: Sequelize.NOW,
-      },
-      updatedAt: {
-        type: DataTypes.DATE,
-        defaultValue: Sequelize.NOW,
-      },
-      AudioDescriptionAdId: {
-        type: DataTypes.UUID,
-        allowNull: true,
-        references: {
-          model: 'Audio_Descriptions',
-          key: 'ad_id'
-        }
-      }
-    }, {
-    sequelize,
-    tableName: 'Notes',
-    schema: 'public',
-    timestamps: true,
-    indexes: [
+    return Notes.init(
       {
-        name: "Notes_pkey",
-        unique: true,
-        fields: [
-          { name: "notes_id" },
-        ]
+        notes_id: {
+          type: DataTypes.UUID,
+          defaultValue: DataTypes.UUIDV4,
+          allowNull: false,
+          primaryKey: true,
+        },
+        notes_text: {
+          type: DataTypes.TEXT,
+          allowNull: false,
+        },
+        createdAt: {
+          type: DataTypes.DATE,
+          defaultValue: Sequelize.NOW,
+        },
+        updatedAt: {
+          type: DataTypes.DATE,
+          defaultValue: Sequelize.NOW,
+        },
+        AudioDescriptionAdId: {
+          type: DataTypes.UUID,
+          allowNull: true,
+          references: {
+            model: 'Audio_Descriptions',
+            key: 'ad_id',
+          },
+        },
       },
-    ]
-  });
+      {
+        sequelize,
+        tableName: 'Notes',
+        schema: 'public',
+        timestamps: true,
+        indexes: [
+          {
+            name: 'Notes_pkey',
+            unique: true,
+            fields: [{ name: 'notes_id' }],
+          },
+        ],
+      },
+    );
   }
 }

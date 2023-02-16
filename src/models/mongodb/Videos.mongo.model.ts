@@ -1,7 +1,6 @@
 import { model, Schema, Types } from 'mongoose';
 import { IVideos } from '../../interfaces/videos.interface';
 
-
 const VideosSchema = new Schema<IVideos>({
   video_id: { type: Types.ObjectId, default: Types.ObjectId, required: true, unique: true },
   video_name: { type: String, required: true },

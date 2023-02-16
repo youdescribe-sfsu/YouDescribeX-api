@@ -1,12 +1,10 @@
 import { model, Types, Schema } from 'mongoose';
 import { INotes } from '../../interfaces/notes.interface';
 
-
-
 const NotesSchema = new Schema<INotes>({
-    notes_id: { type: Types.ObjectId, default: Types.ObjectId, required: true, unique: true },
-    notes_text: { type: String, required: true },
-  });
+  notes_id: { type: Types.ObjectId, default: Types.ObjectId, required: true, unique: true },
+  notes_text: { type: String, required: true },
+});
 
 export const Notes = model<INotes>('Notes', NotesSchema);
 
@@ -25,5 +23,3 @@ export const Notes = model<INotes>('Notes', NotesSchema);
 // const Notes_Mongo = mongoDb.model('Notes', Notes_Schema);
 
 // module.exports = Notes_Mongo;
-
-

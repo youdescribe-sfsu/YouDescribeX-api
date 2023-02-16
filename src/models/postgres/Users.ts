@@ -11,9 +11,9 @@ export interface UsersAttributes {
   updatedAt: Date;
 }
 
-export type UsersPk = "user_id";
+export type UsersPk = 'user_id';
 export type UsersId = Users[UsersPk];
-export type UsersOptionalAttributes = "user_email" | "createdAt" | "updatedAt";
+export type UsersOptionalAttributes = 'user_email' | 'createdAt' | 'updatedAt';
 export type UsersCreationAttributes = Optional<UsersAttributes, UsersOptionalAttributes>;
 
 export class Users extends Model<UsersAttributes, UsersCreationAttributes> implements UsersAttributes {
@@ -38,47 +38,48 @@ export class Users extends Model<UsersAttributes, UsersCreationAttributes> imple
   countAudio_Descriptions!: Sequelize.HasManyCountAssociationsMixin;
 
   static initModel(sequelize: Sequelize.Sequelize): typeof Users {
-    return Users.init({
-      user_id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
-        allowNull: false,
-        primaryKey: true
-      },
-      is_ai: {
-        type: DataTypes.BOOLEAN,
-        allowNull: false
-      },
-      name: {
-        type: DataTypes.STRING(255),
-        allowNull: false
-      },
-      user_email: {
-        type: DataTypes.STRING(255),
-        allowNull: true
-      },
-      createdAt: {
-        type: DataTypes.DATE,
-        defaultValue: Sequelize.NOW,
-      },
-      updatedAt: {
-        type: DataTypes.DATE,
-        defaultValue: Sequelize.NOW,
-      }
-    }, {
-    sequelize,
-    tableName: 'Users',
-    schema: 'public',
-    timestamps: true,
-    indexes: [
+    return Users.init(
       {
-        name: "Users_pkey",
-        unique: true,
-        fields: [
-          { name: "user_id" },
-        ]
+        user_id: {
+          type: DataTypes.UUID,
+          defaultValue: DataTypes.UUIDV4,
+          allowNull: false,
+          primaryKey: true,
+        },
+        is_ai: {
+          type: DataTypes.BOOLEAN,
+          allowNull: false,
+        },
+        name: {
+          type: DataTypes.STRING(255),
+          allowNull: false,
+        },
+        user_email: {
+          type: DataTypes.STRING(255),
+          allowNull: true,
+        },
+        createdAt: {
+          type: DataTypes.DATE,
+          defaultValue: Sequelize.NOW,
+        },
+        updatedAt: {
+          type: DataTypes.DATE,
+          defaultValue: Sequelize.NOW,
+        },
       },
-    ]
-  });
+      {
+        sequelize,
+        tableName: 'Users',
+        schema: 'public',
+        timestamps: true,
+        indexes: [
+          {
+            name: 'Users_pkey',
+            unique: true,
+            fields: [{ name: 'user_id' }],
+          },
+        ],
+      },
+    );
   }
 }

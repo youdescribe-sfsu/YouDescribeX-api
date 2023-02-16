@@ -11,9 +11,9 @@ export interface TimingsAttributes {
   ParticipantParticipantId?: string;
 }
 
-export type TimingsPk = "id";
+export type TimingsPk = 'id';
 export type TimingsId = Timings[TimingsPk];
-export type TimingsOptionalAttributes = "id" | "createdAt" | "updatedAt" | "ParticipantParticipantId";
+export type TimingsOptionalAttributes = 'id' | 'createdAt' | 'updatedAt' | 'ParticipantParticipantId';
 export type TimingsCreationAttributes = Optional<TimingsAttributes, TimingsOptionalAttributes>;
 
 export class Timings extends Model<TimingsAttributes, TimingsCreationAttributes> implements TimingsAttributes {
@@ -31,51 +31,52 @@ export class Timings extends Model<TimingsAttributes, TimingsCreationAttributes>
   createParticipantParticipant!: Sequelize.BelongsToCreateAssociationMixin<Participants>;
 
   static initModel(sequelize: Sequelize.Sequelize): typeof Timings {
-    return Timings.init({
-      id: {
-        autoIncrement: true,
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        primaryKey: true
-      },
-      total_time: {
-        type: DataTypes.DOUBLE,
-        allowNull: false
-      },
-      youtube_video_id: {
-        type: DataTypes.STRING(255),
-        allowNull: false
-      },
-      createdAt: {
-        type: DataTypes.DATE,
-        defaultValue: Sequelize.NOW,
-      },
-      updatedAt: {
-        type: DataTypes.DATE,
-        defaultValue: Sequelize.NOW,
-      },
-      ParticipantParticipantId: {
-        type: DataTypes.UUID,
-        allowNull: true,
-        references: {
-          model: 'Participants',
-          key: 'participant_id'
-        }
-      }
-    }, {
-    sequelize,
-    tableName: 'Timings',
-    schema: 'public',
-    timestamps: true,
-    indexes: [
+    return Timings.init(
       {
-        name: "Timings_pkey",
-        unique: true,
-        fields: [
-          { name: "id" },
-        ]
+        id: {
+          autoIncrement: true,
+          type: DataTypes.INTEGER,
+          allowNull: false,
+          primaryKey: true,
+        },
+        total_time: {
+          type: DataTypes.DOUBLE,
+          allowNull: false,
+        },
+        youtube_video_id: {
+          type: DataTypes.STRING(255),
+          allowNull: false,
+        },
+        createdAt: {
+          type: DataTypes.DATE,
+          defaultValue: Sequelize.NOW,
+        },
+        updatedAt: {
+          type: DataTypes.DATE,
+          defaultValue: Sequelize.NOW,
+        },
+        ParticipantParticipantId: {
+          type: DataTypes.UUID,
+          allowNull: true,
+          references: {
+            model: 'Participants',
+            key: 'participant_id',
+          },
+        },
       },
-    ]
-  });
+      {
+        sequelize,
+        tableName: 'Timings',
+        schema: 'public',
+        timestamps: true,
+        indexes: [
+          {
+            name: 'Timings_pkey',
+            unique: true,
+            fields: [{ name: 'id' }],
+          },
+        ],
+      },
+    );
   }
 }

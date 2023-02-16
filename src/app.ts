@@ -42,7 +42,7 @@ class App {
   }
 
   private testDatabase() {
-    testDataBaseConnection()
+    testDataBaseConnection();
   }
 
   private initializeMiddlewares() {
@@ -52,7 +52,6 @@ class App {
     this.app.use(express.urlencoded({ extended: true }));
     this.app.use(cookieParser());
     this.app.use('/api/static', express.static(path.join(__dirname, 'public')));
-
   }
 
   private initializeRoutes(routes: Routes[]) {

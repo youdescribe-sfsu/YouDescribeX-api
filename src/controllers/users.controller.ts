@@ -30,7 +30,7 @@ class UsersController {
   public createUser = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userData: CreateUserDto = req.body;
-      console.log("userData", userData)
+      console.log('userData', userData);
       const createUserData = await this.userService.createUser(userData);
 
       res.status(201).json({ data: createUserData, message: 'created' });
@@ -46,12 +46,12 @@ class UsersController {
 
       res.status(201).json({
         message: `Success OK!! Use https://ydx.youdescribe.org/api/audio-clips/processAllClipsInDB/${audioDescriptionID} to generate audio files for the new Audio Description.`,
-        url: `https://ydx.youdescribe.org/api/audio-clips/processAllClipsInDB/${audioDescriptionID}`
+        url: `https://ydx.youdescribe.org/api/audio-clips/processAllClipsInDB/${audioDescriptionID}`,
       });
     } catch (error) {
       next(error);
     }
-  }
+  };
 
   // public updateUser = async (req: Request, res: Response, next: NextFunction) => {
   //   try {
