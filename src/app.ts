@@ -7,6 +7,7 @@ import { testDataBaseConnection } from './databases';
 import { Routes } from './interfaces/routes.interface';
 import errorMiddleware from './middlewares/error.middleware';
 import { logger } from './utils/logger';
+import path from 'path';
 
 class App {
   public app: express.Application;
@@ -50,11 +51,13 @@ class App {
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
     this.app.use(cookieParser());
+    this.app.use('/api/static', express.static(path.join(__dirname, 'public')));
+
   }
 
   private initializeRoutes(routes: Routes[]) {
     routes.forEach(route => {
-      this.app.use('/', route.router);
+      this.app.use('/api/', route.router);
     });
   }
 

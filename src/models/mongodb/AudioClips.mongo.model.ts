@@ -16,7 +16,7 @@ const AudioClipsSchema = new Schema<IAudioClips>({
   is_recorded: { type: Boolean, required: true, default: false },
 });
 
-export const Audio_Clips = model<IAudioClips>('Audio_Clips', AudioClipsSchema);
+export const AudioClips = model<IAudioClips>('Audio_Clips', AudioClipsSchema);
 
 
 // const Audio_Clips_Schema = mongoDb.Schema({

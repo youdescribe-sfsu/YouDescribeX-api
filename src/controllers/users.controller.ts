@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
-// import { CreateUserDto } from '@dtos/users.dto';
+import { CreateUserAudioDescription, CreateUserDto } from '../dtos/users.dto';
 import { IUsers } from '../interfaces/users.interface';
 import userService from '../services/users.service';
 
@@ -16,10 +16,10 @@ class UsersController {
     }
   };
 
-  public getUserById = async (req: Request, res: Response, next: NextFunction) => {
+  public getUserByEmail = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId: string = req.params.email;
-      const findOneUserData: IUsers = await this.userService.findUserByEmail(userId);
+      const findOneUserData = await this.userService.findUserByEmail(userId);
 
       res.status(200).json({ data: findOneUserData, message: 'findOne' });
     } catch (error) {
@@ -29,18 +29,27 @@ class UsersController {
 
   public createUser = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userData: {
-        name: string;
-        email: string;
-      } = req.body;
+      const userData: CreateUserDto = req.body;
       console.log("userData", userData)
-      const createUserData: IUsers = await this.userService.createUser(userData);
+      const createUserData = await this.userService.createUser(userData);
 
       res.status(201).json({ data: createUserData, message: 'created' });
     } catch (error) {
       next(error);
     }
   };
+
+  public createNewUserAudioDescription = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const newUserAudioDescription: CreateUserAudioDescription = req.body;
+      console.log("userData", newUserAudioDescription)
+      const createUserData = await this.userService.createNewUserAudioDescription(newUserAudioDescription);
+
+      res.status(201).json({ data: createUserData, message: 'created' });
+    } catch (error) {
+      next(error);
+    }
+  }
 
   // public updateUser = async (req: Request, res: Response, next: NextFunction) => {
   //   try {
