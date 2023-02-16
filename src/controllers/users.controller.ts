@@ -42,10 +42,12 @@ class UsersController {
   public createNewUserAudioDescription = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const newUserAudioDescription: CreateUserAudioDescription = req.body;
-      console.log("userData", newUserAudioDescription)
-      const createUserData = await this.userService.createNewUserAudioDescription(newUserAudioDescription);
+      const audioDescriptionID = await this.userService.createNewUserAudioDescription(newUserAudioDescription);
 
-      res.status(201).json({ data: createUserData, message: 'created' });
+      res.status(201).json({
+        message: `Success OK!! Use https://ydx.youdescribe.org/api/audio-clips/processAllClipsInDB/${audioDescriptionID} to generate audio files for the new Audio Description.`,
+        url: `https://ydx.youdescribe.org/api/audio-clips/processAllClipsInDB/${audioDescriptionID}`
+      });
     } catch (error) {
       next(error);
     }
