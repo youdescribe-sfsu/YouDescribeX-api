@@ -3,18 +3,10 @@ import { HttpException } from '../exceptions/HttpException';
 import { IUsers } from '../interfaces/users.interface';
 import { isEmpty } from '../utils/util';
 import { CURRENT_DATABASE } from '../config';
-
-// User Imports
 import { User as mongodbUser } from '../models/mongodb/User.mongo.model';
 import { PostGres_Users } from '../models/postgres/init-models';
-// Video Imports
-import { Videos as mongodbVideos } from '../models/mongodb/Videos.mongo.model';
 import { PostGres_Videos } from '../models/postgres/init-models';
-// Audio Description Imports
-import { AudioDescriptions as mongodbAudioDescriptions } from '../models/mongodb/AudioDescriptions.mongo.model';
 import { PostGres_Audio_Descriptions } from '../models/postgres/init-models';
-// Audio Clip Imports
-import { AudioClips as mongodbAudioClips } from '../models/mongodb/AudioClips.mongo.model';
 import { PostGres_Audio_Clips } from '../models/postgres/init-models';
 class UserService {
   public async findAllUser(): Promise<IUsers[]> {

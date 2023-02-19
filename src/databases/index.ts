@@ -9,7 +9,6 @@ import { Sequelize, Options } from 'sequelize';
 import { CURRENT_DATABASE } from '../config';
 // MongoDB connection string
 const MONGODB_CONNECTION_STRING = `mongodb://${MONGO_DB_HOST}:${MONGO_DB_PORT}/${MONGO_DB_DATABASE}`;
-console.log(MONGODB_CONNECTION_STRING);
 // PostgreSQL connection object
 const POSTGRESQL_OPTIONS: Options = {
   host: POSTGRES_DB_HOST,
@@ -50,8 +49,8 @@ export const testDataBaseConnection = () => {
       .then(() => {
         // db.sync({ alter: true })
         POSTGRESQL_CONNECTION.sync({ logging: false })
-          .then(result => {
-            console.log(`Synced with YDXAI Database}`);
+          .then(() => {
+            console.log(`Synced with ${POSTGRES_DB_NAME} Database`);
           })
           .catch(err => {
             console.log(err);
