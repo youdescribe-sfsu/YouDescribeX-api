@@ -20,7 +20,9 @@ class NotesService {
         return newNote;
       } else {
         console.log('noteId', noteId);
-        const audioDescriptionID = await PostGres_Notes.findOne({ where: { AudioDescriptionAdId: adId } });
+        const audioDescriptionID = await PostGres_Notes.findOne({
+          where: { AudioDescriptionAdId: adId },
+        });
         if (!audioDescriptionID) throw new HttpException(409, "Audio Description doesn't exist");
 
         const updatedNotes = await PostGres_Notes.update(

@@ -19,10 +19,7 @@ export type Audio_DescriptionsId = Audio_Descriptions[Audio_DescriptionsPk];
 export type Audio_DescriptionsOptionalAttributes = 'createdAt' | 'updatedAt' | 'UserUserId' | 'VideoVideoId';
 export type Audio_DescriptionsCreationAttributes = Optional<Audio_DescriptionsAttributes, Audio_DescriptionsOptionalAttributes>;
 
-export class Audio_Descriptions
-  extends Model<Audio_DescriptionsAttributes, Audio_DescriptionsCreationAttributes>
-  implements Audio_DescriptionsAttributes
-{
+export class Audio_Descriptions extends Model<Audio_DescriptionsAttributes, Audio_DescriptionsCreationAttributes> implements Audio_DescriptionsAttributes {
   ad_id!: string;
   is_published!: boolean;
   createdAt!: Date;

@@ -13,11 +13,15 @@ class VideosService {
     if (isEmpty(youtubeId)) throw new HttpException(400, 'youtubeId is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
-      const findVideoById: IVideos = await mongodbVideos.findOne({ youtube_video_id: youtubeId });
+      const findVideoById: IVideos = await mongodbVideos.findOne({
+        youtube_video_id: youtubeId,
+      });
       if (!findVideoById) throw new HttpException(409, "YouTube Video doesn't exist");
       return findVideoById;
     } else {
-      const findVideoById: VideosAttributes = await PostGres_Videos.findOne({ where: { youtube_video_id: youtubeId } });
+      const findVideoById: VideosAttributes = await PostGres_Videos.findOne({
+        where: { youtube_video_id: youtubeId },
+      });
       if (!findVideoById) throw new HttpException(409, "YouTube Video doesn't exist");
       return findVideoById;
     }
@@ -28,22 +32,39 @@ class VideosService {
     if (isEmpty(userId)) throw new HttpException(400, 'userId is empty');
     if (CURRENT_DATABASE == 'mongodb') {
     } else {
-      const videoById: VideosAttributes = await PostGres_Videos.findOne({ where: { youtube_video_id: youtubeId } });
+      const videoById: VideosAttributes = await PostGres_Videos.findOne({
+        where: { youtube_video_id: youtubeId },
+      });
       if (!videoById) throw new HttpException(409, "Video doesn't exist");
 
-      const userById: UsersAttributes = await PostGres_Users.findOne({ where: { user_id: userId } });
+      const userById: UsersAttributes = await PostGres_Users.findOne({
+        where: { user_id: userId },
+      });
       if (!userById) throw new HttpException(409, "User doesn't exist");
 
-      const audioDescriptions = await PostGres_Audio_Descriptions.findOne({ where: { UserUserId: userId, VideoVideoId: videoById.video_id } });
+      const audioDescriptions = await PostGres_Audio_Descriptions.findOne({
+        where: { UserUserId: userId, VideoVideoId: videoById.video_id },
+      });
       if (!audioDescriptions) throw new HttpException(409, "Audio Description doesn't exist");
 
-      const audioClipsData = await PostGres_Audio_Clips.findOne({ where: { AudioDescriptionAdId: audioDescriptions.ad_id } });
+      const audioClipsData = await PostGres_Audio_Clips.findOne({
+        where: { AudioDescriptionAdId: audioDescriptions.ad_id },
+      });
       if (!audioClipsData) throw new HttpException(409, "Audio Clip doesn't exist");
 
-      const notesData = await PostGres_Notes.findOne({ where: { AudioDescriptionAdId: audioDescriptions.ad_id } });
-      if (notesData) await PostGres_Notes.destroy({ where: { AudioDescriptionAdId: audioDescriptions.ad_id } });
-      await PostGres_Audio_Clips.destroy({ where: { AudioDescriptionAdId: audioDescriptions.ad_id } });
-      await PostGres_Audio_Descriptions.destroy({ where: { UserUserId: userId, VideoVideoId: videoById.video_id } });
+      const notesData = await PostGres_Notes.findOne({
+        where: { AudioDescriptionAdId: audioDescriptions.ad_id },
+      });
+      if (notesData)
+        await PostGres_Notes.destroy({
+          where: { AudioDescriptionAdId: audioDescriptions.ad_id },
+        });
+      await PostGres_Audio_Clips.destroy({
+        where: { AudioDescriptionAdId: audioDescriptions.ad_id },
+      });
+      await PostGres_Audio_Descriptions.destroy({
+        where: { UserUserId: userId, VideoVideoId: videoById.video_id },
+      });
       return videoById;
     }
   }

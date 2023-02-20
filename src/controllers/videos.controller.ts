@@ -21,9 +21,10 @@ class VideosController {
       const youtubeId: string = req.params.youtubeId;
       const userId: string = req.params.userId;
       const videoByYoutubeID: IVideos | VideosAttributes = await this.videosService.deleteVideoForUser(youtubeId, userId);
-      res
-        .status(200)
-        .json({ data: `Video with youtubeId: ${videoByYoutubeID.youtube_video_id} deleted for user with id: ${userId}`, message: 'deleted' });
+      res.status(200).json({
+        data: `Video with youtubeId: ${videoByYoutubeID.youtube_video_id} deleted for user with id: ${userId}`,
+        message: 'deleted',
+      });
     } catch (error) {
       next(error);
     }

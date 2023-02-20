@@ -18,11 +18,15 @@ class UserService {
     if (isEmpty(userEmail)) throw new HttpException(400, 'UserId is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
-      const findUserByEmail: IUsers = await mongodbUser.findOne({ user_email: userEmail });
+      const findUserByEmail: IUsers = await mongodbUser.findOne({
+        user_email: userEmail,
+      });
       if (!findUserByEmail) throw new HttpException(409, "User doesn't exist");
       return findUserByEmail;
     } else {
-      const findUserByEmail = await PostGres_Users.findOne({ where: { user_email: userEmail } });
+      const findUserByEmail = await PostGres_Users.findOne({
+        where: { user_email: userEmail },
+      });
       if (!findUserByEmail) throw new HttpException(409, "User doesn't exist");
       return findUserByEmail;
     }
@@ -32,7 +36,9 @@ class UserService {
     if (isEmpty(userData)) throw new HttpException(400, 'userData is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
-      const findUser: IUsers = await mongodbUser.findOne({ user_email: userData.email });
+      const findUser: IUsers = await mongodbUser.findOne({
+        user_email: userData.email,
+      });
       if (findUser) throw new HttpException(409, `This email ${userData.email} already exists`);
       const createUserData: IUsers = await mongodbUser.create({
         is_ai: false,
@@ -42,7 +48,9 @@ class UserService {
 
       return createUserData;
     } else {
-      const findUser = await PostGres_Users.findOne({ where: { user_email: userData.email } });
+      const findUser = await PostGres_Users.findOne({
+        where: { user_email: userData.email },
+      });
       if (findUser) throw new HttpException(409, `This email ${userData.email} already exists`);
       const createUserData = await PostGres_Users.create({
         is_ai: false,
@@ -57,11 +65,15 @@ class UserService {
     if (isEmpty(userEmail)) throw new HttpException(400, 'UserEmail is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
-      const deleteUserByEmail: IUsers = await mongodbUser.findOneAndDelete({ user_email: userEmail });
+      const deleteUserByEmail: IUsers = await mongodbUser.findOneAndDelete({
+        user_email: userEmail,
+      });
       if (!deleteUserByEmail) throw new HttpException(409, "User doesn't exist");
       return deleteUserByEmail;
     } else {
-      const deleteUserByEmail = await PostGres_Users.findOne({ where: { user_email: userEmail } });
+      const deleteUserByEmail = await PostGres_Users.findOne({
+        where: { user_email: userEmail },
+      });
       if (!deleteUserByEmail) throw new HttpException(409, "User doesn't exist");
       await PostGres_Users.destroy({ where: { user_email: userEmail } });
       return deleteUserByEmail;
@@ -75,7 +87,9 @@ class UserService {
     } else {
       const { aiUserId, userId, youtubeVideoId } = newUserAudioDescription;
       // Check if Video exists
-      const videoIdStatus = await PostGres_Videos.findOne({ where: { youtube_video_id: youtubeVideoId } });
+      const videoIdStatus = await PostGres_Videos.findOne({
+        where: { youtube_video_id: youtubeVideoId },
+      });
       if (!videoIdStatus) throw new HttpException(409, "Video doesn't exist");
 
       // Check if AUDIO DESCRIPTION already exists
@@ -85,7 +99,9 @@ class UserService {
       if (checkIfAudioDescriptionExists) throw new HttpException(409, 'Audio Description already exists');
 
       // Check if AI USER exists
-      const checkIfAIUserExists = await PostGres_Users.findOne({ where: { user_id: aiUserId } });
+      const checkIfAIUserExists = await PostGres_Users.findOne({
+        where: { user_id: aiUserId },
+      });
       if (!checkIfAIUserExists) throw new HttpException(409, "AI User doesn't exist");
 
       // Check if AI Descriptions exists
