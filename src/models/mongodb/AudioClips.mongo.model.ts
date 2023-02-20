@@ -2,7 +2,12 @@ import { model, Schema, Types } from 'mongoose';
 import { IAudioClips } from '../../interfaces/audioClips.interface';
 
 const AudioClipsSchema = new Schema<IAudioClips>({
-  clip_id: { type: Types.ObjectId, required: true, unique: true, default: Schema.Types.ObjectId },
+  clip_id: {
+    type: Types.ObjectId,
+    required: true,
+    unique: true,
+    default: Schema.Types.ObjectId,
+  },
   clip_title: { type: String },
   description_type: { type: String, required: true },
   description_text: { type: String, required: true },

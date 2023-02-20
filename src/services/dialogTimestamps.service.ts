@@ -10,15 +10,17 @@ class DialogTimestampsService {
     if (isEmpty(videoId)) throw new HttpException(400, 'videoId is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
-        const findDialogTimestampsById: IDialogTimeStamps = await mongodbDialogTimestamps.findOne({ VideoVideoId: videoId });
-        if (!findDialogTimestampsById) throw new HttpException(409, "Dialog Timestamp for this YouTube Video doesn't exist");
-        return findDialogTimestampsById;
-      } else {
-        const findDialogTimestampsById: Dialog_TimestampsAttributes = await PostGres_Dialog_Timestamps.findOne({ where: { VideoVideoId: videoId } });
-        if (!findDialogTimestampsById) throw new HttpException(409, "Dialog Timestamp for this YouTube Video doesn't exist");
-        return findDialogTimestampsById;
-      }
+      const findDialogTimestampsById: IDialogTimeStamps = await mongodbDialogTimestamps.findOne({ VideoVideoId: videoId });
+      if (!findDialogTimestampsById) throw new HttpException(409, "Dialog Timestamp for this YouTube Video doesn't exist");
+      return findDialogTimestampsById;
+    } else {
+      const findDialogTimestampsById: Dialog_TimestampsAttributes = await PostGres_Dialog_Timestamps.findOne({
+        where: { VideoVideoId: videoId },
+      });
+      if (!findDialogTimestampsById) throw new HttpException(409, "Dialog Timestamp for this YouTube Video doesn't exist");
+      return findDialogTimestampsById;
     }
+  }
 }
 
 export default DialogTimestampsService;

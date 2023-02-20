@@ -33,7 +33,11 @@ class UsersController {
       console.log('userData', userData);
       const createUserData = await this.userService.createUser(userData);
 
-      res.status(201).json({ data: createUserData, message: 'created' });
+      res.status(201).json({
+        data: createUserData,
+        message: 'created',
+        url: `https://ydx.youdescribe.org/api/audio-clips/processAllClipsInDB/${createUserData._id}`,
+      });
     } catch (error) {
       next(error);
     }

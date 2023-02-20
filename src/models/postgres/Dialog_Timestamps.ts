@@ -18,10 +18,7 @@ export type Dialog_TimestampsId = Dialog_Timestamps[Dialog_TimestampsPk];
 export type Dialog_TimestampsOptionalAttributes = 'createdAt' | 'updatedAt' | 'VideoVideoId';
 export type Dialog_TimestampsCreationAttributes = Optional<Dialog_TimestampsAttributes, Dialog_TimestampsOptionalAttributes>;
 
-export class Dialog_Timestamps
-  extends Model<Dialog_TimestampsAttributes, Dialog_TimestampsCreationAttributes>
-  implements Dialog_TimestampsAttributes
-{
+export class Dialog_Timestamps extends Model<Dialog_TimestampsAttributes, Dialog_TimestampsCreationAttributes> implements Dialog_TimestampsAttributes {
   dialog_id!: string;
   dialog_sequence_num!: number;
   dialog_start_time!: number;
