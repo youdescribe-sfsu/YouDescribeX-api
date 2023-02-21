@@ -5,9 +5,11 @@ import VideosRoute from './routes/videos.route';
 import NotesRoute from './routes/notes.route';
 import DialogTimestampsRoute from './routes/dialog_timestamps.route';
 import TimingsRoute from './routes/timings.route';
+import ParticipantsRoute from './routes/participants.route';
+import AudioDescriptionsRoute from './routes/audio_descriptions.route'
 
 validateEnv();
 
-const app = new App([new UsersRoute(), new VideosRoute(), new NotesRoute(), new DialogTimestampsRoute(), new TimingsRoute()]);
+const app = new App([new UsersRoute(), new VideosRoute(), new NotesRoute(), new DialogTimestampsRoute(), new TimingsRoute(), new ParticipantsRoute(), new AudioDescriptionsRoute()]);
 
 app.listen();
