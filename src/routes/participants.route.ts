@@ -2,7 +2,7 @@ import { Router } from 'express';
 import ParticipantController from '../controllers/participant.controller';
 import { Routes } from '../interfaces/routes.interface';
 
-class TimingsRoute implements Routes {
+class ParticipantsRoute implements Routes {
   public path = '/create-participant-links';
   public router = Router();
   public participantController = new ParticipantController();
@@ -17,4 +17,4 @@ class TimingsRoute implements Routes {
   }
 }
 
-export default TimingsRoute;
+export default ParticipantsRoute;
