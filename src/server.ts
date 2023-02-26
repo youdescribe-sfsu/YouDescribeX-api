@@ -6,7 +6,7 @@ import NotesRoute from './routes/notes.route';
 import DialogTimestampsRoute from './routes/dialog_timestamps.route';
 import TimingsRoute from './routes/timings.route';
 import ParticipantsRoute from './routes/participants.route';
-import AudioDescriptionsRoute from './routes/audio_descriptions.route'
+import AudioDescriptionsRoute from './routes/audio_descriptions.route';
 
 validateEnv();
 
