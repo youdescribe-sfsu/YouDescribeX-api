@@ -13,8 +13,7 @@
     "lint:fix": "npm run lint -- --fix",
     "deploy:prod": "npm run build && pm2 start ecosystem.config.js --only prod",
     "deploy:dev": "pm2 start ecosystem.config.js --only dev",
-    "prepare": "husky install",
-    "pre-commit": "npm run lint:fix && lint-staged"
+    "prepare": "husky install"
   },
   "lint-staged": {
     "*.ts": [
