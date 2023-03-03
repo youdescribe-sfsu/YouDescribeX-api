@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
+import { AddNewAudioClipDto, UpdateAudioClipDescriptionDto, UpdateAudioClipStartTimeDto, UpdateClipAudioPathDto } from '../dtos/audioClips.dto';
 import AudioClipsService from '../services/audioClips.service';
 
 class AudioClipsController {
@@ -39,11 +40,7 @@ class AudioClipsController {
   public updateAudioClipStartTime = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const clipId: string = req.params.clipId;
-      const audioBody: {
-        clipStartTime: string;
-        youtubeVideoId: string;
-        audioDescriptionId: string;
-      } = req.body;
+      const audioBody: UpdateAudioClipStartTimeDto = req.body;
       const updatedAudioClipStartTime = await this.audioClipsService.updateAudioClipStartTime(clipId, audioBody);
       res.status(200).json(updatedAudioClipStartTime);
     } catch (error) {
@@ -54,13 +51,7 @@ class AudioClipsController {
   public updateAudioClipDescription = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const clipId: string = req.params.clipId;
-      const audioBody: {
-        userId: string;
-        youtubeVideoId: string;
-        clipDescriptionText: string;
-        clipDescriptionType: string;
-        audioDescriptionId: string;
-      } = req.body;
+      const audioBody: UpdateAudioClipDescriptionDto = req.body;
       const updatedAudioClipStartTime = await this.audioClipsService.updateAudioClipDescription(clipId, audioBody);
       res.status(200).json(updatedAudioClipStartTime);
     } catch (error) {
@@ -72,13 +63,7 @@ class AudioClipsController {
     try {
       const clipId = req.params.clipId;
       const file = req.file;
-      const audioBody: {
-        clipDescriptionText: string;
-        youtubeVideoId: string;
-        clipStartTime: string;
-        audioDescriptionId: string;
-        recordedClipDuration: string;
-      } = req.body;
+      const audioBody: UpdateClipAudioPathDto = req.body;
       const updatedClipAudioPath = await this.audioClipsService.updateClipAudioPath(clipId, audioBody, file);
       res.status(200).json(updatedClipAudioPath);
     } catch (error) {
@@ -90,18 +75,7 @@ class AudioClipsController {
     try {
       const clipId = req.params.clipId;
       const file = req.file;
-      const audioBody: {
-        newACStartTime: string;
-        newACTitle: string;
-        newACType: string;
-        newACDescriptionText: string;
-        recordedClipDuration: string;
-        isRecorded: boolean;
-        newACPlaybackType: string;
-        newACDuration: string;
-        userId: string;
-        youtubeVideoId: string;
-      } = req.body;
+      const audioBody: AddNewAudioClipDto = req.body;
       const addedAudioClip = await this.audioClipsService.addNewAudioClip(clipId, audioBody, file);
       res.status(200).json(addedAudioClip);
     } catch (error) {

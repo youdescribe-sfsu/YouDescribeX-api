@@ -1,4 +1,4 @@
-import { CreateUserAudioDescription, CreateUserDto } from '../dtos/users.dto';
+import { CreateUserAudioDescriptionDto, CreateUserDto } from '../dtos/users.dto';
 import { HttpException } from '../exceptions/HttpException';
 import { IUsers } from '../interfaces/users.interface';
 import { isEmpty } from '../utils/util';
@@ -80,7 +80,7 @@ class UserService {
     }
   }
 
-  public async createNewUserAudioDescription(newUserAudioDescription: CreateUserAudioDescription) {
+  public async createNewUserAudioDescription(newUserAudioDescription: CreateUserAudioDescriptionDto) {
     if (isEmpty(newUserAudioDescription)) throw new HttpException(400, 'Data is empty');
     // ##TODO
     if (CURRENT_DATABASE == 'mongodb') {

@@ -8,6 +8,7 @@ import { PostGres_Users } from '../models/postgres/init-models';
 import { PostGres_Videos } from '../models/postgres/init-models';
 import { PostGres_Dialog_Timestamps } from '../models/postgres/init-models';
 import { IAudioDescriptions } from '../interfaces/audioDescriptions.interface';
+import { NewAiDescriptionDto } from '../dtos/audioDescriptions.dto';
 
 const fs = require('fs');
 
@@ -41,11 +42,11 @@ class AudioDescriptionsService {
     }
   }
 
-  public async newAiDescription(dialog: any[], audio_clips: any[], aiUserId: string, youtube_video_id: string, video_name: string, video_length: number): Promise<IAudioDescriptions | Audio_DescriptionsAttributes> {
-    if (isEmpty(dialog)) throw new HttpException(400, 'dialog is empty');
+  public async newAiDescription(newAIDescription: NewAiDescriptionDto): Promise<IAudioDescriptions | Audio_DescriptionsAttributes> {
+    const { dialog_timestamps, audio_clips, aiUserId = 'db72cc2a-b054-4b00-9f85-851b45649be0', youtube_id, video_name, video_length } = newAIDescription;
+    if (isEmpty(dialog_timestamps)) throw new HttpException(400, 'dialog is empty');
     if (isEmpty(audio_clips)) throw new HttpException(400, 'audio clips is empty');
-    if (isEmpty(aiUserId)) throw new HttpException(400, 'ai User ID is empty');
-    if (isEmpty(youtube_video_id)) throw new HttpException(400, 'youtube video id is empty');
+    if (isEmpty(youtube_id)) throw new HttpException(400, 'youtube video id is empty');
     if (isEmpty(video_name)) throw new HttpException(400, 'video name is empty');
     if (isEmpty(video_length)) throw new HttpException(400, 'video length is empty');
 
@@ -56,12 +57,12 @@ class AudioDescriptionsService {
           user_id: aiUserId, // AI User ID
         },
       });
-      if (!aiUser) throw new HttpException(409, "ai User doesn't exist");
+      if (!aiUser) throw new HttpException(404, "ai User doesn't exist");
 
       let vid = await PostGres_Videos.findOne({
-        where: { youtube_video_id: youtube_video_id },
+        where: { youtube_video_id: youtube_id },
       });
-      if (!vid) throw new HttpException(409, "Video doesn't exist");
+      if (!vid) throw new HttpException(404, "Video doesn't exist");
 
       const ad = await PostGres_Audio_Descriptions.create({
         is_published: false,
@@ -72,7 +73,7 @@ class AudioDescriptionsService {
         await ad.setVideoVideo(vid);
       } else {
         vid = await PostGres_Videos.create({
-          youtube_video_id: youtube_video_id,
+          youtube_video_id: youtube_id,
           video_name: video_name,
           video_length: video_length,
         });
@@ -97,7 +98,7 @@ class AudioDescriptionsService {
       if (!new_clip) throw new HttpException(409, "Audio Clips couldn't be created");
 
       const new_timestamp = await PostGres_Dialog_Timestamps.bulkCreate(
-        dialog.map(timestamp => {
+        dialog_timestamps.map(timestamp => {
           return {
             dialog_sequence_num: timestamp.sequence_num,
             dialog_start_time: timestamp.start_time,

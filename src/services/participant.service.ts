@@ -1,11 +1,11 @@
-import { IAddNewParticipant } from '../interfaces/timings.interface';
 import { CURRENT_DATABASE } from '../config';
 import { HttpException } from '../exceptions/HttpException';
 import { Participants, PostGres_Participants } from '../models/postgres/init-models';
 import { isEmpty } from '../utils/util';
+import { AddNewParticipantDto } from '../dtos/participant.dto';
 
 class ParticipantService {
-  public async addNewParticipant(newParticpantData: IAddNewParticipant): Promise<Participants> {
+  public async addNewParticipant(newParticpantData: AddNewParticipantDto): Promise<Participants> {
     const { email, name, userIdWithAi, userIdWithoutAi, youtubeVideoIdWithAi, youtubeVideoIdWithoutAi } = newParticpantData;
 
     if (isEmpty(email)) throw new HttpException(400, 'Email is empty');

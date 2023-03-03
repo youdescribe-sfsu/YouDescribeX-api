@@ -7,7 +7,7 @@ export class CreateUserDto {
   public name: string;
 }
 
-export class CreateUserAudioDescription {
+export class CreateUserAudioDescriptionDto {
   @IsString()
   public userId: string;
   @IsString()

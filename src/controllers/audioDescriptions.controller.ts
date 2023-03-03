@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from 'express';
 import { Audio_DescriptionsAttributes } from '../models/postgres/Audio_Descriptions';
 import AudioDescriptionsService from '../services/audioDescriptions.service';
 import { IAudioDescriptions } from '../interfaces/audioDescriptions.interface';
+import { NewAiDescriptionDto } from '../dtos/audioDescriptions.dto';
 
 class AudioDescripionsController {
   public audioDescriptionsService = new AudioDescriptionsService();
@@ -20,17 +21,8 @@ class AudioDescripionsController {
 
   public newAiDescription = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const dialog = req.body.dialogue_timestamps;
-      const audio_clips = req.body.audio_clips;
-      const aiUserId = req.body.aiUserId || 'db72cc2a-b054-4b00-9f85-851b45649be0';
-      const youtube_video_id = req.body.youtube_id;
-      const video_name = req.body.video_name;
-      const video_length = req.body.video_length;
-
-      console.log(req.body);
-
-      const newAIDescription: IAudioDescriptions | Audio_DescriptionsAttributes = await this.audioDescriptionsService.newAiDescription(dialog, audio_clips, aiUserId, youtube_video_id, video_name, video_length);
-
+      const newAiDescriptionData: NewAiDescriptionDto = req.body;
+      const newAIDescription: IAudioDescriptions | Audio_DescriptionsAttributes = await this.audioDescriptionsService.newAiDescription(newAiDescriptionData);
       res.status(200).json(newAIDescription);
     } catch (error) {
       next(error);
