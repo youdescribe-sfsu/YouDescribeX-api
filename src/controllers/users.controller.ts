@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
-import { CreateUserAudioDescription, CreateUserDto } from '../dtos/users.dto';
+import { CreateUserAudioDescriptionDto, CreateUserDto } from '../dtos/users.dto';
 import { IUsers } from '../interfaces/users.interface';
 import userService from '../services/users.service';
 
@@ -30,7 +30,6 @@ class UsersController {
   public createUser = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userData: CreateUserDto = req.body;
-      console.log('userData', userData);
       const createUserData = await this.userService.createUser(userData);
 
       res.status(201).json({
@@ -45,7 +44,7 @@ class UsersController {
 
   public createNewUserAudioDescription = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const newUserAudioDescription: CreateUserAudioDescription = req.body;
+      const newUserAudioDescription: CreateUserAudioDescriptionDto = req.body;
       const audioDescriptionID = await this.userService.createNewUserAudioDescription(newUserAudioDescription);
 
       res.status(201).json({
@@ -56,29 +55,6 @@ class UsersController {
       next(error);
     }
   };
-
-  // public updateUser = async (req: Request, res: Response, next: NextFunction) => {
-  //   try {
-  //     const userId: string = req.params.id;
-  //     const userData: CreateUserDto = req.body;
-  //     const updateUserData: User = await this.userService.updateUser(userId, userData);
-
-  //     res.status(200).json({ data: updateUserData, message: 'updated' });
-  //   } catch (error) {
-  //     next(error);
-  //   }
-  // };
-
-  // public deleteUser = async (req: Request, res: Response, next: NextFunction) => {
-  //   try {
-  //     const userId: string = req.params.id;
-  //     const deleteUserData: User = await this.userService.deleteUser(userId);
-
-  //     res.status(200).json({ data: deleteUserData, message: 'deleted' });
-  //   } catch (error) {
-  //     next(error);
-  //   }
-  // };
 }
 
 export default UsersController;

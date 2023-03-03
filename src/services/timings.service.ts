@@ -1,9 +1,10 @@
+import { AddTotalTimeDto } from '../dtos/timings.dto';
 import { CURRENT_DATABASE } from '../config';
 import { HttpException } from '../exceptions/HttpException';
 import { PostGres_Timings, Timings } from '../models/postgres/init-models';
 import { isEmpty } from '../utils/util';
 class TimingsService {
-  public async addTotalTime(timingBody: { participant_id: string; time: number; video_id: string }): Promise<Timings> {
+  public async addTotalTime(timingBody: AddTotalTimeDto): Promise<Timings> {
     const { participant_id, time, video_id } = timingBody;
     if (isEmpty(participant_id)) throw new HttpException(400, 'Participant ID is empty');
     if (isEmpty(video_id)) throw new HttpException(400, 'Video ID is empty');

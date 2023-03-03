@@ -1,3 +1,4 @@
+import { AddNewAudioClipDto, UpdateAudioClipDescriptionDto, UpdateAudioClipStartTimeDto, UpdateClipAudioPathDto } from '../dtos/audioClips.dto';
 import { CURRENT_DATABASE } from '../config';
 import { HttpException } from '../exceptions/HttpException';
 import { Audio_ClipsAttributes, Audio_Descriptions, PostGres_Audio_Clips, Videos } from '../models/postgres/init-models';
@@ -135,14 +136,7 @@ class AudioClipsService {
     }
   }
 
-  public async updateAudioClipStartTime(
-    clipId: string,
-    audioBody: {
-      clipStartTime: string;
-      youtubeVideoId: string;
-      audioDescriptionId: string;
-    },
-  ): Promise<number[]> {
+  public async updateAudioClipStartTime(clipId: string, audioBody: UpdateAudioClipStartTimeDto): Promise<number[]> {
     const { youtubeVideoId, clipStartTime, audioDescriptionId } = audioBody;
 
     if (isEmpty(clipId)) throw new HttpException(400, 'Clip ID is empty');
@@ -191,16 +185,7 @@ class AudioClipsService {
     }
   }
 
-  public async updateAudioClipDescription(
-    clipId: string,
-    audioBody: {
-      userId: string;
-      youtubeVideoId: string;
-      clipDescriptionText: string;
-      clipDescriptionType: string;
-      audioDescriptionId: string;
-    },
-  ): Promise<number[]> {
+  public async updateAudioClipDescription(clipId: string, audioBody: UpdateAudioClipDescriptionDto): Promise<number[]> {
     const { youtubeVideoId, clipDescriptionText, clipDescriptionType, userId, audioDescriptionId } = audioBody;
 
     if (isEmpty(clipId)) throw new HttpException(400, 'Clip ID is empty');
@@ -260,17 +245,7 @@ class AudioClipsService {
     }
   }
 
-  public async updateClipAudioPath(
-    clipId: string,
-    audioBody: {
-      clipDescriptionText: string;
-      youtubeVideoId: string;
-      clipStartTime: string;
-      audioDescriptionId: string;
-      recordedClipDuration: string;
-    },
-    file: Express.Multer.File,
-  ): Promise<number[]> {
+  public async updateClipAudioPath(clipId: string, audioBody: UpdateClipAudioPathDto, file: Express.Multer.File): Promise<number[]> {
     const { youtubeVideoId, clipDescriptionText, audioDescriptionId, clipStartTime, recordedClipDuration } = audioBody;
 
     if (isEmpty(clipId)) throw new HttpException(400, 'Clip ID is empty');
@@ -324,22 +299,7 @@ class AudioClipsService {
     }
   }
 
-  public async addNewAudioClip(
-    adId: string,
-    audioBody: {
-      newACStartTime: string;
-      newACTitle: string;
-      newACType: string;
-      newACDescriptionText: string;
-      recordedClipDuration: string;
-      isRecorded: boolean;
-      newACPlaybackType: string;
-      newACDuration: string;
-      userId: string;
-      youtubeVideoId: string;
-    },
-    file: Express.Multer.File,
-  ): Promise<string> {
+  public async addNewAudioClip(adId: string, audioBody: AddNewAudioClipDto, file: Express.Multer.File): Promise<string> {
     const { isRecorded, newACDescriptionText, newACPlaybackType, newACStartTime, newACTitle, newACType, recordedClipDuration, newACDuration, userId, youtubeVideoId } = audioBody;
 
     if (isEmpty(adId)) throw new HttpException(400, 'Clip ID is empty');

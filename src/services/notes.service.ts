@@ -3,8 +3,9 @@ import { isEmpty } from '../utils/util';
 import { CURRENT_DATABASE } from '../config';
 import { NotesAttributes, PostGres_Notes } from '../models/postgres/init-models';
 import { INotes } from '../interfaces/notes.interface';
+import { PostNoteByAdIdDto } from '../dtos/notes.dto';
 class NotesService {
-  public async postNoteByAdId(notesBody: { notes_text: string; adId: string; noteId: string }): Promise<INotes | NotesAttributes | number> {
+  public async postNoteByAdId(notesBody: PostNoteByAdIdDto): Promise<INotes | NotesAttributes | number> {
     const { adId, noteId, notes_text } = notesBody;
     if (isEmpty(adId)) throw new HttpException(400, 'Audio Description ID is empty');
     if (isEmpty(notes_text)) throw new HttpException(400, 'Notes Text is empty');
