@@ -2,21 +2,13 @@ import * as Sequelize from 'sequelize';
 import { DataTypes, Model, Optional } from 'sequelize';
 import type { Audio_Descriptions, Audio_DescriptionsId } from './Audio_Descriptions';
 import type { Dialog_Timestamps, Dialog_TimestampsId } from './Dialog_Timestamps';
-
-export interface VideosAttributes {
-  video_id: string;
-  youtube_video_id: string;
-  video_name: string;
-  video_length: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
+import type { IVideos } from '../../interfaces/videos.interface';
 
 export type VideosPk = 'video_id';
 export type VideosId = Videos[VideosPk];
 export type VideosOptionalAttributes = 'createdAt' | 'updatedAt';
 export type VideosCreationAttributes = Optional<VideosAttributes, VideosOptionalAttributes>;
-
+export type VideosAttributes = IVideos;
 export class Videos extends Model<VideosAttributes, VideosCreationAttributes> implements VideosAttributes {
   video_id!: string;
   youtube_video_id!: string;

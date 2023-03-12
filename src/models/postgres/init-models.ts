@@ -12,7 +12,8 @@ import type { ParticipantsAttributes, ParticipantsCreationAttributes } from './P
 import { Timings as _Timings } from './Timings';
 import type { TimingsAttributes, TimingsCreationAttributes } from './Timings';
 import { Users as _Users } from './Users';
-import type { UsersAttributes, UsersCreationAttributes } from './Users';
+import type { UsersCreationAttributes } from './Users';
+import type { IUsers as UsersAttributes } from '../../interfaces/users.interface';
 import { Videos as _Videos } from './Videos';
 import type { VideosAttributes, VideosCreationAttributes } from './Videos';
 import { getPostGresConnection } from '../../databases';

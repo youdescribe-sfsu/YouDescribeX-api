@@ -5,7 +5,29 @@ import userService from '../services/users.service';
 
 class UsersController {
   public userService = new userService();
-
+  /**
+   * @swagger
+   * /users/get-all-users:
+   *   get:
+   *     summary: Returns a list of all users
+   *     tags: [Users]
+   *     responses:
+   *       200:
+   *         description: OK
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 data:
+   *                   type: array
+   *                   items:
+   *                     $ref: '#/components/schemas/Users'
+   *                   description: List of users
+   *                 message:
+   *                   type: string
+   *                   description: Success message
+   */
   public getUsers = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const findAllUsersData: IUsers[] = await this.userService.findAllUser();
@@ -16,10 +38,37 @@ class UsersController {
     }
   };
 
+  /**
+   * @swagger
+   * /users/{email}:
+   *   get:
+   *     summary: Get user by email
+   *     tags: [Users]
+   *     description: Retrieve a user by their email address.
+   *     parameters:
+   *       - in: path
+   *         name: email
+   *         schema:
+   *           type: string
+   *         required: true
+   *         description: The email address of the user to retrieve.
+   *     responses:
+   *       '200':
+   *         description: A user object
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/Users'
+   *       '404':
+   *         description: User not found
+   *       '500':
+   *         description: Internal server error
+   */
+
   public getUserByEmail = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId: string = req.params.email;
-      const findOneUserData = await this.userService.findUserByEmail(userId);
+      const userEmail: string = req.params.email;
+      const findOneUserData = await this.userService.findUserByEmail(userEmail);
 
       res.status(200).json({ data: findOneUserData, message: 'findOne' });
     } catch (error) {
@@ -27,6 +76,28 @@ class UsersController {
     }
   };
 
+  /**
+   * @swagger
+   * /users/add-new-user:
+   *   post:
+   *     summary: Create a new user.
+   *     tags: [Users]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/CreateUserDto'
+   *     responses:
+   *       201:
+   *         description: The created user.
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/Users'
+   *       400:
+   *         description: Invalid user data.
+   */
   public createUser = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userData: CreateUserDto = req.body;
@@ -35,12 +106,41 @@ class UsersController {
       res.status(201).json({
         data: createUserData,
         message: 'created',
-        url: `https://ydx.youdescribe.org/api/audio-clips/processAllClipsInDB/${createUserData._id}`,
+        url: `https://ydx.youdescribe.org/api/audio-clips/processAllClipsInDB/${createUserData.user_id}`,
       });
     } catch (error) {
       next(error);
     }
   };
+
+  /**
+   * @swagger
+   * users/create-new-user-ad:
+   *   post:
+   *     summary: Creates a new user audio description and returns a URL to generate audio files for the description
+   *     tags: [Users]
+   *     requestBody:
+   *       description: User audio description object
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/CreateUserAudioDescriptionDto'
+   *     responses:
+   *       201:
+   *         description: OK
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   description: Success message
+   *                 url:
+   *                   type: string
+   *                   description: URL to generate audio files for the new audio description
+   */
 
   public createNewUserAudioDescription = async (req: Request, res: Response, next: NextFunction) => {
     try {

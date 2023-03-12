@@ -1,22 +1,14 @@
 import * as Sequelize from 'sequelize';
 import { DataTypes, Model, Optional } from 'sequelize';
+import { IUsers } from '../../interfaces/users.interface';
 import type { Audio_Descriptions, Audio_DescriptionsId } from './Audio_Descriptions';
-
-export interface UsersAttributes {
-  user_id: string;
-  is_ai: boolean;
-  name: string;
-  user_email?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 export type UsersPk = 'user_id';
 export type UsersId = Users[UsersPk];
 export type UsersOptionalAttributes = 'user_email' | 'createdAt' | 'updatedAt';
-export type UsersCreationAttributes = Optional<UsersAttributes, UsersOptionalAttributes>;
+export type UsersCreationAttributes = Optional<IUsers, UsersOptionalAttributes>;
 
-export class Users extends Model<UsersAttributes, UsersCreationAttributes> implements UsersAttributes {
+export class Users extends Model<IUsers, UsersCreationAttributes> implements IUsers {
   user_id!: string;
   is_ai!: boolean;
   name!: string;
