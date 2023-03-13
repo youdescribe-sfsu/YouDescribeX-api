@@ -7,7 +7,7 @@ class UsersController {
   public userService = new userService();
   /**
    * @swagger
-   * /users/get-all-users:
+   * /create-user-links/get-all-users:
    *   get:
    *     summary: Returns a list of all users
    *     tags: [Users]
@@ -40,7 +40,7 @@ class UsersController {
 
   /**
    * @swagger
-   * /users/{email}:
+   * /create-user-links/{email}:
    *   get:
    *     summary: Get user by email
    *     tags: [Users]
@@ -78,7 +78,7 @@ class UsersController {
 
   /**
    * @swagger
-   * /users/add-new-user:
+   * /create-user-links/add-new-user:
    *   post:
    *     summary: Create a new user.
    *     tags: [Users]
@@ -115,7 +115,7 @@ class UsersController {
 
   /**
    * @swagger
-   * users/create-new-user-ad:
+   * /create-user-links/create-new-user-ad:
    *   post:
    *     summary: Creates a new user audio description and returns a URL to generate audio files for the description
    *     tags: [Users]

@@ -3,7 +3,7 @@ import DialogTimestampsController from '../controllers/dialogTimestamps.controll
 import { Routes } from '../interfaces/routes.interface';
 
 class DialogTimestampsRoute implements Routes {
-  public path = '/dialogTimestamps';
+  public path = '/dialog-timestamps';
   public router = Router();
   public dialogTimestampsController = new DialogTimestampsController();
 

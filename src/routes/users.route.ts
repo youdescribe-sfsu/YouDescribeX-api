@@ -3,7 +3,7 @@ import UsersController from '../controllers/users.controller';
 import { Routes } from '../interfaces/routes.interface';
 
 class UsersRoute implements Routes {
-  public path = '/users';
+  public path = '/create-user-links';
   public router = Router();
   public usersController = new UsersController();
 
