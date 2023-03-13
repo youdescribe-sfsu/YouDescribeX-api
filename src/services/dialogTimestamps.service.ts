@@ -6,15 +6,15 @@ import { IDialogTimeStamps } from '../interfaces/dialogTimestamps.interface';
 // Dialog Timestamps Imports
 import { DialogTimeStamps as mongodbDialogTimestamps } from '../models/mongodb/DialogTimeStamps.mongo.model';
 class DialogTimestampsService {
-  public async getVideoDialogTimestamps(videoId: string): Promise<IDialogTimeStamps | Dialog_TimestampsAttributes> {
+  public async getVideoDialogTimestamps(videoId: string): Promise<IDialogTimeStamps[] | Dialog_TimestampsAttributes[]> {
     if (isEmpty(videoId)) throw new HttpException(400, 'videoId is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
-      const findDialogTimestampsById: IDialogTimeStamps = await mongodbDialogTimestamps.findOne({ VideoVideoId: videoId });
+      const findDialogTimestampsById: IDialogTimeStamps[] = await mongodbDialogTimestamps.find({ VideoVideoId: videoId });
       if (!findDialogTimestampsById) throw new HttpException(409, "Dialog Timestamp for this YouTube Video doesn't exist");
       return findDialogTimestampsById;
     } else {
-      const findDialogTimestampsById: Dialog_TimestampsAttributes = await PostGres_Dialog_Timestamps.findOne({
+      const findDialogTimestampsById: Dialog_TimestampsAttributes[] = await PostGres_Dialog_Timestamps.findAll({
         where: { VideoVideoId: videoId },
       });
       if (!findDialogTimestampsById) throw new HttpException(409, "Dialog Timestamp for this YouTube Video doesn't exist");
