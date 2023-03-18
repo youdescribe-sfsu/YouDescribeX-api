@@ -11,7 +11,10 @@ class AudioDescripionsController {
     try {
       const videoId: string = req.params.videoId;
       const userId: string = req.params.userId;
-      const userAudioDescriptions: IAudioDescriptions | Audio_DescriptionsAttributes = await this.audioDescriptionsService.getUserAudioDescriptionData(videoId, userId);
+      const userAudioDescriptions: IAudioDescriptions | Audio_DescriptionsAttributes = await this.audioDescriptionsService.getUserAudioDescriptionData(
+        videoId,
+        userId,
+      );
 
       res.status(200).json(userAudioDescriptions);
     } catch (error) {

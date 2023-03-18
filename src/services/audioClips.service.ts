@@ -3,7 +3,17 @@ import { CURRENT_DATABASE } from '../config';
 import { HttpException } from '../exceptions/HttpException';
 import { Audio_ClipsAttributes, Audio_Descriptions, PostGres_Audio_Clips, Videos } from '../models/postgres/init-models';
 import { isEmpty } from '../utils/util';
-import { analyzePlaybackType, deleteOldAudioFile, generateMp3forDescriptionText, getAudioDuration, getClipStartTimebyId, getOldAudioFilePath, getVideoFromYoutubeId, nudgeStartTimeIfZero, processCurrentClip } from './audioClips.util';
+import {
+  analyzePlaybackType,
+  deleteOldAudioFile,
+  generateMp3forDescriptionText,
+  getAudioDuration,
+  getClipStartTimebyId,
+  getOldAudioFilePath,
+  getVideoFromYoutubeId,
+  nudgeStartTimeIfZero,
+  processCurrentClip,
+} from './audioClips.util';
 
 interface IProcessedClips {
   clip_id: any;
@@ -300,7 +310,18 @@ class AudioClipsService {
   }
 
   public async addNewAudioClip(adId: string, audioBody: AddNewAudioClipDto, file: Express.Multer.File): Promise<string> {
-    const { isRecorded, newACDescriptionText, newACPlaybackType, newACStartTime, newACTitle, newACType, recordedClipDuration, newACDuration, userId, youtubeVideoId } = audioBody;
+    const {
+      isRecorded,
+      newACDescriptionText,
+      newACPlaybackType,
+      newACStartTime,
+      newACTitle,
+      newACType,
+      recordedClipDuration,
+      newACDuration,
+      userId,
+      youtubeVideoId,
+    } = audioBody;
 
     if (isEmpty(adId)) throw new HttpException(400, 'Clip ID is empty');
     if (isEmpty(newACDuration)) throw new HttpException(400, 'New Audio Clip Duration is empty');
