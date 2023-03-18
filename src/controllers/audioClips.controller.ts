@@ -73,10 +73,10 @@ class AudioClipsController {
 
   public addNewAudioClip = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const clipId = req.params.clipId;
+      const adId = req.params.adId;
       const file = req.file;
       const audioBody: AddNewAudioClipDto = req.body;
-      const addedAudioClip = await this.audioClipsService.addNewAudioClip(clipId, audioBody, file);
+      const addedAudioClip = await this.audioClipsService.addNewAudioClip(adId, audioBody, file);
       res.status(200).json(addedAudioClip);
     } catch (error) {
       next(error);
@@ -89,6 +89,7 @@ class AudioClipsController {
       const addedAudioClip = await this.audioClipsService.deleteAudioClip(clipId);
       res.status(200).json(addedAudioClip);
     } catch (error) {
+      console.log('error', error);
       next(error);
     }
   };

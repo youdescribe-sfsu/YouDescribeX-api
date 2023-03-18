@@ -45,13 +45,11 @@ export class AddNewAudioClipDto {
   @IsString()
   public newACDescriptionText: string;
   @IsString()
-  public recordedClipDuration: string;
-  @IsString()
   public isRecorded: boolean;
   @IsString()
   public newACPlaybackType: string;
   @IsString()
-  public newACDuration: string;
+  public newACDuration: string | null;
   @IsString()
   public userId: string;
   @IsString()

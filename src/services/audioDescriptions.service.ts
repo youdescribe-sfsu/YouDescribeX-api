@@ -9,6 +9,7 @@ import { PostGres_Videos } from '../models/postgres/init-models';
 import { PostGres_Dialog_Timestamps } from '../models/postgres/init-models';
 import { IAudioDescriptions } from '../interfaces/audioDescriptions.interface';
 import { NewAiDescriptionDto } from '../dtos/audioDescriptions.dto';
+import path from 'path';
 
 const fs = require('fs');
 
@@ -119,8 +120,7 @@ class AudioDescriptionsService {
 
     if (CURRENT_DATABASE == 'mongodb') {
     } else {
-      const pathToFolder = `.${AUDIO_DIRECTORY}/${youtube_video_id}/${userId}`;
-
+      const pathToFolder = path.join(__dirname, '../../', `.${AUDIO_DIRECTORY}/${youtube_video_id}/${userId}`);
       const files = fs.readdir(pathToFolder);
       if (!files) throw new HttpException(409, 'Error Reading Folder. Please check later!');
 
