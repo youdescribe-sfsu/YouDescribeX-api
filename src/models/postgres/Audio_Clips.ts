@@ -20,7 +20,14 @@ export interface Audio_ClipsAttributes {
 
 export type Audio_ClipsPk = 'clip_id';
 export type Audio_ClipsId = Audio_Clips[Audio_ClipsPk];
-export type Audio_ClipsOptionalAttributes = 'clip_title' | 'clip_end_time' | 'clip_duration' | 'clip_audio_path' | 'createdAt' | 'updatedAt' | 'AudioDescriptionAdId';
+export type Audio_ClipsOptionalAttributes =
+  | 'clip_title'
+  | 'clip_end_time'
+  | 'clip_duration'
+  | 'clip_audio_path'
+  | 'createdAt'
+  | 'updatedAt'
+  | 'AudioDescriptionAdId';
 export type Audio_ClipsCreationAttributes = Optional<Audio_ClipsAttributes, Audio_ClipsOptionalAttributes>;
 
 export class Audio_Clips extends Model<Audio_ClipsAttributes, Audio_ClipsCreationAttributes> implements Audio_ClipsAttributes {

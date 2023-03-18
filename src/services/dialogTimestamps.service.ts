@@ -4,13 +4,13 @@ import { CURRENT_DATABASE } from '../config';
 import { Dialog_TimestampsAttributes, PostGres_Dialog_Timestamps } from '../models/postgres/init-models';
 import { IDialogTimeStamps } from '../interfaces/dialogTimestamps.interface';
 // Dialog Timestamps Imports
-import { DialogTimeStamps as mongodbDialogTimestamps } from '../models/mongodb/DialogTimeStamps.mongo.model';
+import { MongoDialog_Timestamps_Model } from '../models/mongodb/init-models.mongo';
 class DialogTimestampsService {
   public async getVideoDialogTimestamps(videoId: string): Promise<IDialogTimeStamps[] | Dialog_TimestampsAttributes[]> {
     if (isEmpty(videoId)) throw new HttpException(400, 'videoId is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
-      const findDialogTimestampsById: IDialogTimeStamps[] = await mongodbDialogTimestamps.find({ VideoVideoId: videoId });
+      const findDialogTimestampsById: IDialogTimeStamps[] = await MongoDialog_Timestamps_Model.find({ VideoVideoId: videoId });
       if (!findDialogTimestampsById) throw new HttpException(409, "Dialog Timestamp for this YouTube Video doesn't exist");
       return findDialogTimestampsById;
     } else {

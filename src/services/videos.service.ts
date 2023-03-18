@@ -3,7 +3,7 @@ import { isEmpty } from '../utils/util';
 import { CURRENT_DATABASE } from '../config';
 import { PostGres_Notes, PostGres_Users, UsersAttributes, VideosAttributes } from '../models/postgres/init-models';
 // Video Imports
-import { Videos as mongodbVideos } from '../models/mongodb/Videos.mongo.model';
+import { MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import { PostGres_Videos } from '../models/postgres/init-models';
 import { PostGres_Audio_Descriptions } from '../models/postgres/init-models';
 import { PostGres_Audio_Clips } from '../models/postgres/init-models';
@@ -13,7 +13,7 @@ class VideosService {
     if (isEmpty(youtubeId)) throw new HttpException(400, 'youtubeId is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
-      const findVideoById: IVideos = await mongodbVideos.findOne({
+      const findVideoById: IVideos = await MongoVideosModel.findOne({
         youtube_video_id: youtubeId,
       });
       if (!findVideoById) throw new HttpException(409, "YouTube Video doesn't exist");

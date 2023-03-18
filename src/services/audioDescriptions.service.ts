@@ -1,6 +1,6 @@
 import { HttpException } from '../exceptions/HttpException';
 import { isEmpty } from '../utils/util';
-import { CURRENT_DATABASE } from '../config';
+import { AUDIO_DIRECTORY, CURRENT_DATABASE } from '../config';
 import { Audio_DescriptionsAttributes, PostGres_Audio_Descriptions } from '../models/postgres/init-models';
 import { PostGres_Audio_Clips } from '../models/postgres/init-models';
 import { PostGres_Notes } from '../models/postgres/init-models';
@@ -119,7 +119,7 @@ class AudioDescriptionsService {
 
     if (CURRENT_DATABASE == 'mongodb') {
     } else {
-      const pathToFolder = `./public/audio/${youtube_video_id}/${userId}`;
+      const pathToFolder = `.${AUDIO_DIRECTORY}/${youtube_video_id}/${userId}`;
 
       const files = fs.readdir(pathToFolder);
       if (!files) throw new HttpException(409, 'Error Reading Folder. Please check later!');

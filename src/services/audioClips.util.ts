@@ -6,7 +6,8 @@ import fs from 'fs';
 import { Op } from 'sequelize';
 import util from 'util';
 import { v4 as uuidv4 } from 'uuid';
-
+import multer from 'multer'; // to process form-data
+import { AUDIO_DIRECTORY } from '../config';
 interface NudgeStartTimeIfZeroResult {
   data: [] | null;
   message: string;
@@ -60,7 +61,12 @@ interface GenerateMp3forDescriptionTextResponse {
   filepath: string | null;
 }
 
-export const generateMp3forDescriptionText = async (userId: string, youtubeVideoId: string, clipDescriptionText: string, clipDescriptionType: string): Promise<GenerateMp3forDescriptionTextResponse> => {
+export const generateMp3forDescriptionText = async (
+  userId: string,
+  youtubeVideoId: string,
+  clipDescriptionText: string,
+  clipDescriptionType: string,
+): Promise<GenerateMp3forDescriptionTextResponse> => {
   try {
     const client = new textToSpeech.TextToSpeechClient();
 
@@ -89,7 +95,7 @@ export const generateMp3forDescriptionText = async (userId: string, youtubeVideo
     const [response] = await client.synthesizeSpeech(request);
 
     // add a folder for video ID and a sub folder for user ID
-    const dir = `./public/audio/${youtubeVideoId}/${userId}`;
+    const dir = `.${AUDIO_DIRECTORY}/${youtubeVideoId}/${userId}`;
     // creates the folder structure if it doesn't exist -- ${youtubeVideoId}/${userId}
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -121,7 +127,14 @@ interface AnalyzePlaybackTypeResponse {
 }
 
 // analyze clip playback type from dialog timestamp data
-export const analyzePlaybackType = async (currentClipStartTime: number, currentClipEndTime: number, videoId: string, adId: string, clipId: string | null, processingAllClips: boolean): Promise<AnalyzePlaybackTypeResponse> => {
+export const analyzePlaybackType = async (
+  currentClipStartTime: number,
+  currentClipEndTime: number,
+  videoId: string,
+  adId: string,
+  clipId: string | null,
+  processingAllClips: boolean,
+): Promise<AnalyzePlaybackTypeResponse> => {
   try {
     const overlappingDialogs = await Dialog_Timestamps.findAll({
       where: {
@@ -425,7 +438,6 @@ export const getAudioDuration = async (filepath: string) => {
   }
 };
 
-import multer from 'multer'; // to process form-data
 const storage = multer.diskStorage({
   filename: function (req, _file, cb) {
     const uniqueId = uuidv4();
@@ -433,7 +445,7 @@ const storage = multer.diskStorage({
     cb(null, `${newACType}-${uniqueId}.mp3`);
   },
   destination: function (req, _file, cb) {
-    cb(null, `./public/audio/${req.body.youtubeVideoId}/${req.body.userId}`);
+    cb(null, `.${AUDIO_DIRECTORY}/${req.body.youtubeVideoId}/${req.body.userId}`);
   },
   // onError:(err, next) => {
   //     console.log('error', err);
