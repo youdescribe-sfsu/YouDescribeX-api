@@ -1,7 +1,7 @@
 import { AddNewAudioClipDto, UpdateAudioClipDescriptionDto, UpdateAudioClipStartTimeDto, UpdateClipAudioPathDto } from '../dtos/audioClips.dto';
 import { CURRENT_DATABASE } from '../config';
 import { HttpException } from '../exceptions/HttpException';
-import { Audio_ClipsAttributes, Audio_Descriptions, PostGres_Audio_Clips, Videos } from '../models/postgres/init-models';
+import { Audio_ClipsAttributes, Audio_Descriptions, PostGres_Audio_Clips, PostGres_Audio_Descriptions, Videos } from '../models/postgres/init-models';
 import { isEmpty } from '../utils/util';
 import {
   analyzePlaybackType,
@@ -309,44 +309,28 @@ class AudioClipsService {
     }
   }
 
-  public async addNewAudioClip(adId: string, audioBody: AddNewAudioClipDto, file: Express.Multer.File): Promise<string> {
-    const {
-      isRecorded,
-      newACDescriptionText,
-      newACPlaybackType,
-      newACStartTime,
-      newACTitle,
-      newACType,
-      recordedClipDuration,
-      newACDuration,
-      userId,
-      youtubeVideoId,
-    } = audioBody;
+  public async addNewAudioClip(adId: string, audioBody: AddNewAudioClipDto, file: Express.Multer.File | null): Promise<string> {
+    const { isRecorded, newACDescriptionText, newACPlaybackType, newACStartTime, newACTitle, newACType, newACDuration, userId, youtubeVideoId } = audioBody;
 
     if (isEmpty(adId)) throw new HttpException(400, 'Clip ID is empty');
-    if (isEmpty(newACDuration)) throw new HttpException(400, 'New Audio Clip Duration is empty');
     if (isEmpty(userId)) throw new HttpException(400, 'User ID is empty');
     if (isEmpty(newACStartTime)) throw new HttpException(400, 'New Audio Clip Start Time is empty');
     if (isEmpty(newACTitle)) throw new HttpException(400, 'New Audio Clip Title is empty');
     if (isEmpty(newACType)) throw new HttpException(400, 'New Audio Clip Type is empty');
     if (isEmpty(newACDescriptionText)) throw new HttpException(400, 'New Audio Clip Description Text is empty');
-    if (isEmpty(recordedClipDuration)) throw new HttpException(400, 'Recorded Clip Duration is empty');
     if (isEmpty(newACPlaybackType)) throw new HttpException(400, 'New Audio Clip Playback Type is empty');
-
-    if (file === undefined) throw new HttpException(400, 'Audio File is empty');
-
     if (CURRENT_DATABASE == 'mongodb') {
     } else {
       let newClipAudioFilePath: string;
       let newAudioDuration: string;
-      if (file && isRecorded) {
+      if (file && isRecorded && newACDuration !== null) {
         newClipAudioFilePath = String(file.path).split('\\').join('/').replace('public', '.');
         newAudioDuration = newACDuration;
       }
       const generatedMP3Response = await generateMp3forDescriptionText(userId, youtubeVideoId, newACDescriptionText, newACType);
       if (generatedMP3Response.status === null) throw new HttpException(409, 'Unable to generate Text to Speech!! Please try again');
-      const generatedMP3FilePath = generatedMP3Response.filepath;
-      const clipDurationStatus = await getAudioDuration(generatedMP3FilePath);
+      newClipAudioFilePath = generatedMP3Response.filepath;
+      const clipDurationStatus = await getAudioDuration(newClipAudioFilePath);
       if (clipDurationStatus.data === null) throw new HttpException(409, clipDurationStatus.message);
       newAudioDuration = clipDurationStatus.data;
       const newClipEndTime = Number((parseFloat(newACStartTime) + parseFloat(newAudioDuration)).toFixed(2));
@@ -386,6 +370,8 @@ class AudioClipsService {
 
     if (CURRENT_DATABASE == 'mongodb') {
     } else {
+      console.log(clipId);
+
       const oldAudioFilePathStatus = await getOldAudioFilePath(clipId);
       if (oldAudioFilePathStatus.data === null) throw new HttpException(409, oldAudioFilePathStatus.message);
       const old_audio_path = oldAudioFilePathStatus.data;

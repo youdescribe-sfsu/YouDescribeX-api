@@ -8,6 +8,8 @@ import util from 'util';
 import { v4 as uuidv4 } from 'uuid';
 import multer from 'multer'; // to process form-data
 import { AUDIO_DIRECTORY } from '../config';
+import path from 'path';
+
 interface NudgeStartTimeIfZeroResult {
   data: [] | null;
   message: string;
@@ -95,7 +97,9 @@ export const generateMp3forDescriptionText = async (
     const [response] = await client.synthesizeSpeech(request);
 
     // add a folder for video ID and a sub folder for user ID
-    const dir = `.${AUDIO_DIRECTORY}/${youtubeVideoId}/${userId}`;
+    console.log('dir', AUDIO_DIRECTORY);
+    const dir = path.join(__dirname, '../../', `.${AUDIO_DIRECTORY}/${youtubeVideoId}/${userId}`);
+    console.log(dir);
     // creates the folder structure if it doesn't exist -- ${youtubeVideoId}/${userId}
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -227,9 +231,12 @@ export const analyzePlaybackType = async (
 };
 
 export const deleteOldAudioFile = async (old_audio_path: string) => {
-  const path = old_audio_path.replace('.', './public');
+  const newPath = path.join(__dirname, '../../', old_audio_path.replace('.', 'public'));
+  console.log('Old Audio File Path: ', old_audio_path);
+  console.log('new Path: ', newPath);
+
   try {
-    fs.unlinkSync(path);
+    fs.unlinkSync(newPath);
     console.log('Old Audio File Deleted');
     return true;
   } catch (err) {
@@ -422,15 +429,18 @@ export const processCurrentClip = async data => {
 };
 
 export const getAudioDuration = async (filepath: string) => {
-  const path = filepath.replace('.', './public');
+  const newPath = path.join(__dirname, '../../', filepath.replace('.', './public'));
+  console.log('new path', newPath);
+
   try {
-    const buffer = fs.readFileSync(path);
+    const buffer = fs.readFileSync(newPath);
     const duration = (getMP3Duration(buffer) / 1000).toFixed(2);
     return {
       message: 'Success',
       data: duration,
     };
   } catch (err) {
+    console.error(err);
     return {
       message: 'Error in Getting Audio Duration!! Please try again',
       data: null,
@@ -445,7 +455,8 @@ const storage = multer.diskStorage({
     cb(null, `${newACType}-${uniqueId}.mp3`);
   },
   destination: function (req, _file, cb) {
-    cb(null, `.${AUDIO_DIRECTORY}/${req.body.youtubeVideoId}/${req.body.userId}`);
+    const dir = path.join(__dirname, '../../', `.${AUDIO_DIRECTORY}/${req.body.youtubeVideoId}/${req.body.userId}`);
+    cb(null, dir);
   },
   // onError:(err, next) => {
   //     console.log('error', err);

@@ -55,7 +55,7 @@ export class Audio_Clips extends Model<Audio_ClipsAttributes, Audio_ClipsCreatio
     return Audio_Clips.init(
       {
         clip_id: {
-          type: DataTypes.UUID,
+          type: DataTypes.STRING(255),
           defaultValue: DataTypes.UUIDV4,
           allowNull: false,
           primaryKey: true,
