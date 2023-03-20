@@ -13,13 +13,18 @@ class NotesController {
       const videoByYoutubeID: INotes | NotesAttributes | number = await this.notesService.postNoteByAdId(notesBody);
       if (typeof videoByYoutubeID === 'number') {
         res.status(200).json({
-          data: `Note with id: ${notesBody.noteId} updated for ad with id: ${notesBody.adId}`,
-          affectedRows: videoByYoutubeID,
+          data: {
+            notes_id: notesBody.noteId,
+            ad_id: notesBody.adId,
+          },
           message: 'updated',
         });
       } else if (typeof videoByYoutubeID === 'object') {
         res.status(200).json({
-          data: `Note with id: ${videoByYoutubeID.notes_id} created for ad with id: ${notesBody.adId}`,
+          data: {
+            notes_id: notesBody.noteId,
+            ad_id: notesBody.adId,
+          },
           noteId: videoByYoutubeID.notes_id,
           message: 'created',
         });
