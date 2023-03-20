@@ -98,10 +98,9 @@ export const generateMp3forDescriptionText = async (
     const [response] = await client.synthesizeSpeech(request);
 
     // add a folder for video ID and a sub folder for user ID
-    logger.info('dir', AUDIO_DIRECTORY);
 
     const dir = `${AUDIO_DIRECTORY}/audio/${youtubeVideoId}/${userId}`;
-    logger.info(dir);
+    logger.info(`dir: ${dir}`);
     // creates the folder structure if it doesn't exist -- ${youtubeVideoId}/${userId}
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -115,9 +114,9 @@ export const generateMp3forDescriptionText = async (
       // Write the binary audio content to a local file
       const writeFile = util.promisify(fs.writeFile);
       await writeFile(filepath, response.audioContent, 'binary');
-      logger.info('Converted Text to Speech');
       // remove public from the file path
       const servingFilepath = `./audio/${youtubeVideoId}/${userId}/${type}-${uniqueId}.mp3`;
+      logger.info(`Converted Text to Speech:Serving file path ${servingFilepath}`);
       return { status: true, filepath: servingFilepath };
     }
     return { status: false, filepath: null };
@@ -233,11 +232,10 @@ export const analyzePlaybackType = async (
 };
 
 export const deleteOldAudioFile = async (old_audio_path: string) => {
-  logger.info('Old Audio File Path: ', old_audio_path);
   const newPath = AUDIO_DIRECTORY + old_audio_path.replace('.', '');
   // const newPath = path.join(__dirname, '../../', old_audio_path.replace('.', 'public'));
-  logger.info('Old Audio File Path: ', old_audio_path);
-  logger.info('new Path: ', newPath);
+  logger.info(`Old Audio File Path: ${old_audio_path}`);
+  logger.info(`new Path: ${newPath}`);
 
   try {
     fs.unlinkSync(newPath);
@@ -435,7 +433,7 @@ export const processCurrentClip = async data => {
 export const getAudioDuration = async (filepath: string) => {
   const newPath = AUDIO_DIRECTORY + filepath.replace('.', '');
   // const newPath = path.join(__dirname, '../../', filepath.replace('.', './public'));
-  logger.info('new path', newPath);
+  logger.info(`new path: ${newPath}`);
 
   try {
     const buffer = fs.readFileSync(newPath);

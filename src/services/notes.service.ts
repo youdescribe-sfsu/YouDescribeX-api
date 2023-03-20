@@ -21,7 +21,7 @@ class NotesService {
         });
         return newNote;
       } else {
-        logger.info('noteId', noteId);
+        logger.info(`noteId, ${noteId}`);
         const audioDescriptionID = await PostGres_Notes.findOne({
           where: { AudioDescriptionAdId: adId },
         });
