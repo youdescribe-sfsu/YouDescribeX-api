@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
+import { logger } from '../utils/logger';
 import { AddNewAudioClipDto, UpdateAudioClipDescriptionDto, UpdateAudioClipStartTimeDto, UpdateClipAudioPathDto } from '../dtos/audioClips.dto';
 import AudioClipsService from '../services/audioClips.service';
 
@@ -89,7 +90,7 @@ class AudioClipsController {
       const addedAudioClip = await this.audioClipsService.deleteAudioClip(clipId);
       res.status(200).json(addedAudioClip);
     } catch (error) {
-      console.log('error', error);
+      logger.info('error', error);
       next(error);
     }
   };

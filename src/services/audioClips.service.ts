@@ -14,6 +14,7 @@ import {
   nudgeStartTimeIfZero,
   processCurrentClip,
 } from './audioClips.util';
+import { logger } from '../utils/logger';
 
 interface IProcessedClips {
   clip_id: any;
@@ -92,7 +93,7 @@ class AudioClipsService {
       const updateStatusOfAllClips: IProcessedClips[] = [];
       await Promise.all(
         statusData.map(async data => {
-          console.log('Yet to update data in DB');
+          logger.info('Yet to update data in DB');
           // to update clip_audio_path, clip_duration, clip_end_time columns of Audio_Clips Table
           const updateStatus = await processCurrentClip(data);
           // get the status message and push it to an array
@@ -370,7 +371,7 @@ class AudioClipsService {
 
     if (CURRENT_DATABASE == 'mongodb') {
     } else {
-      console.log(clipId);
+      logger.info(clipId);
 
       const oldAudioFilePathStatus = await getOldAudioFilePath(clipId);
       if (oldAudioFilePathStatus.data === null) throw new HttpException(409, oldAudioFilePathStatus.message);

@@ -4,6 +4,7 @@ import { CURRENT_DATABASE } from '../config';
 import { NotesAttributes, PostGres_Notes } from '../models/postgres/init-models';
 import { INotes } from '../interfaces/notes.interface';
 import { PostNoteByAdIdDto } from '../dtos/notes.dto';
+import { logger } from '../utils/logger';
 class NotesService {
   public async postNoteByAdId(notesBody: PostNoteByAdIdDto): Promise<INotes | NotesAttributes | number> {
     const { adId, noteId, notes_text } = notesBody;
@@ -20,7 +21,7 @@ class NotesService {
         });
         return newNote;
       } else {
-        console.log('noteId', noteId);
+        logger.info('noteId', noteId);
         const audioDescriptionID = await PostGres_Notes.findOne({
           where: { AudioDescriptionAdId: adId },
         });

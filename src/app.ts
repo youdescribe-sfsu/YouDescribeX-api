@@ -2,7 +2,7 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
-import { NODE_ENV, PORT, CURRENT_DATABASE } from './config';
+import { NODE_ENV, PORT, CURRENT_DATABASE, AUDIO_DIRECTORY } from './config';
 import { testDataBaseConnection } from './databases';
 import { Routes } from './interfaces/routes.interface';
 import errorMiddleware from './middlewares/error.middleware';
@@ -57,7 +57,8 @@ class App {
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
     this.app.use(cookieParser());
-    this.app.use('/api/static', express.static(path.join(__dirname, '../', 'public')));
+    logger.info(`AUDIO_DIRECTORY: ${AUDIO_DIRECTORY}`);
+    this.app.use('/api/static', express.static(AUDIO_DIRECTORY));
   }
 
   private initializeRoutes(routes: Routes[]) {
