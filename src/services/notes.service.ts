@@ -9,7 +9,6 @@ class NotesService {
   public async postNoteByAdId(notesBody: PostNoteByAdIdDto): Promise<INotes | NotesAttributes | number> {
     const { adId, noteId, notes } = notesBody;
     if (isEmpty(adId)) throw new HttpException(400, 'Audio Description ID is empty');
-    if (isEmpty(notes)) throw new HttpException(400, 'Notes Text is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
     } else {
