@@ -269,7 +269,10 @@ class AudioClipsService {
 
     if (CURRENT_DATABASE == 'mongodb') {
     } else {
-      const clipAudioFilePath = String(file.path).split('\\').join('/').replace('public', '.');
+      // All audio clip paths have the ./audio/ prefix so, need to find /audio/ and then add a . to the beginning
+      const filePath = String(file.path);
+      const clipAudioFilePath = `.` + filePath.substring(filePath.indexOf('/audio/'));
+      logger.info(`Database Updated Audio Clip Path: ${clipAudioFilePath}`);
 
       const newClipEndTime = Number((parseFloat(clipStartTime) + parseFloat(recordedClipDuration)).toFixed(2));
       const videoIdStatus = await getVideoFromYoutubeId(youtubeVideoId);
