@@ -1,7 +1,7 @@
 import { AddNewAudioClipDto, UpdateAudioClipDescriptionDto, UpdateAudioClipStartTimeDto, UpdateClipAudioPathDto } from '../dtos/audioClips.dto';
 import { CURRENT_DATABASE } from '../config';
 import { HttpException } from '../exceptions/HttpException';
-import { Audio_ClipsAttributes, Audio_Descriptions, PostGres_Audio_Clips, PostGres_Audio_Descriptions, Videos } from '../models/postgres/init-models';
+import { Audio_ClipsAttributes, Audio_Descriptions, PostGres_Audio_Clips, Videos } from '../models/postgres/init-models';
 import { isEmpty } from '../utils/util';
 import {
   analyzePlaybackType,

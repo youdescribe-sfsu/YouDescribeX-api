@@ -1,4 +1,4 @@
-import { Schema, Document, Model, Types, model } from 'mongoose';
+import { Schema, Document, Model, Types } from 'mongoose';
 import { AudioClipsDocument } from './AudioClips.mongo';
 import { NotesDocument } from './Notes.mongo';
 import { UsersDocument } from './User.mongo';

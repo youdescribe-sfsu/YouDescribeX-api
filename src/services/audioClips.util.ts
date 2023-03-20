@@ -3,12 +3,11 @@ import { Audio_Clips, Dialog_Timestamps, Videos } from '../models/postgres/init-
 
 import textToSpeech from '@google-cloud/text-to-speech';
 import fs from 'fs';
+import multer from 'multer'; // to process form-data
 import { Op } from 'sequelize';
 import util from 'util';
 import { v4 as uuidv4 } from 'uuid';
-import multer from 'multer'; // to process form-data
 import { AUDIO_DIRECTORY } from '../config';
-import path from 'path';
 import { logger } from '../utils/logger';
 
 interface NudgeStartTimeIfZeroResult {

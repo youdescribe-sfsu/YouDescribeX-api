@@ -1,13 +1,12 @@
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import express from 'express';
+import express, { Application } from 'express';
 import { NODE_ENV, PORT, CURRENT_DATABASE, AUDIO_DIRECTORY } from './config';
 import { testDataBaseConnection } from './databases';
 import { Routes } from './interfaces/routes.interface';
 import errorMiddleware from './middlewares/error.middleware';
 import { logger } from './utils/logger';
-import path from 'path';
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import options from './swaggerOptions';
@@ -15,7 +14,7 @@ import yaml from 'js-yaml';
 import fs from 'fs';
 
 class App {
-  public app: express.Application;
+  public app: Application;
   public env: string;
   public port: string | number;
   public currentDatabase: string;
