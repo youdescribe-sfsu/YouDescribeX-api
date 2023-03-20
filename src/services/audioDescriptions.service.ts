@@ -10,6 +10,7 @@ import { PostGres_Dialog_Timestamps } from '../models/postgres/init-models';
 import { IAudioDescriptions } from '../interfaces/audioDescriptions.interface';
 import { NewAiDescriptionDto } from '../dtos/audioDescriptions.dto';
 import path from 'path';
+import { logger } from '../utils/logger';
 
 const fs = require('fs');
 
@@ -120,7 +121,9 @@ class AudioDescriptionsService {
 
     if (CURRENT_DATABASE == 'mongodb') {
     } else {
-      const pathToFolder = path.join(__dirname, '../../', `.${AUDIO_DIRECTORY}/${youtube_video_id}/${userId}`);
+      const pathToFolder = `${AUDIO_DIRECTORY}/audio/${youtube_video_id}/${userId}`;
+      logger.info(`pathToFolder: ${pathToFolder}`);
+      // const pathToFolder = path.join(__dirname, '../../', `.${AUDIO_DIRECTORY}/${youtube_video_id}/${userId}`);
       const files = fs.readdir(pathToFolder);
       if (!files) throw new HttpException(409, 'Error Reading Folder. Please check later!');
 
@@ -136,7 +139,7 @@ class AudioDescriptionsService {
       if ((dataToSend = [])) {
         throw new HttpException(409, 'Error Deleting Files. Please check later!');
       }
-      console.log('User AD deleted successfully');
+      logger.info('User AD deleted successfully');
       return dataToSend;
     }
   }

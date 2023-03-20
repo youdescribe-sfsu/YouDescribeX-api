@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import multer from 'multer'; // to process form-data
 import { AUDIO_DIRECTORY } from '../config';
 import path from 'path';
+import { logger } from '../utils/logger';
 
 interface NudgeStartTimeIfZeroResult {
   data: [] | null;
@@ -97,9 +98,10 @@ export const generateMp3forDescriptionText = async (
     const [response] = await client.synthesizeSpeech(request);
 
     // add a folder for video ID and a sub folder for user ID
-    console.log('dir', AUDIO_DIRECTORY);
-    const dir = path.join(__dirname, '../../', `.${AUDIO_DIRECTORY}/${youtubeVideoId}/${userId}`);
-    console.log(dir);
+    logger.info('dir', AUDIO_DIRECTORY);
+
+    const dir = `${AUDIO_DIRECTORY}/audio/${youtubeVideoId}/${userId}`;
+    logger.info(dir);
     // creates the folder structure if it doesn't exist -- ${youtubeVideoId}/${userId}
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -113,14 +115,14 @@ export const generateMp3forDescriptionText = async (
       // Write the binary audio content to a local file
       const writeFile = util.promisify(fs.writeFile);
       await writeFile(filepath, response.audioContent, 'binary');
-      console.log('Converted Text to Speech');
+      logger.info('Converted Text to Speech');
       // remove public from the file path
       const servingFilepath = `./audio/${youtubeVideoId}/${userId}/${type}-${uniqueId}.mp3`;
       return { status: true, filepath: servingFilepath };
     }
     return { status: false, filepath: null };
   } catch (error) {
-    console.log(error);
+    logger.info(error);
     return { status: false, filepath: null };
   }
 };
@@ -222,7 +224,7 @@ export const analyzePlaybackType = async (
       };
     }
   } catch (err) {
-    console.log(err);
+    logger.info(err);
     return {
       message: 'Unable to connect to DB - Analyze Playback Type!! Please try again',
       data: null,
@@ -231,13 +233,15 @@ export const analyzePlaybackType = async (
 };
 
 export const deleteOldAudioFile = async (old_audio_path: string) => {
-  const newPath = path.join(__dirname, '../../', old_audio_path.replace('.', 'public'));
-  console.log('Old Audio File Path: ', old_audio_path);
-  console.log('new Path: ', newPath);
+  logger.info('Old Audio File Path: ', old_audio_path);
+  const newPath = AUDIO_DIRECTORY + old_audio_path.replace('.', '');
+  // const newPath = path.join(__dirname, '../../', old_audio_path.replace('.', 'public'));
+  logger.info('Old Audio File Path: ', old_audio_path);
+  logger.info('new Path: ', newPath);
 
   try {
     fs.unlinkSync(newPath);
-    console.log('Old Audio File Deleted');
+    logger.info('Old Audio File Deleted');
     return true;
   } catch (err) {
     console.error(err);
@@ -340,7 +344,7 @@ export const processCurrentClip = async data => {
   // text to speech generation is successful
   else {
     // calculate audio duration
-    console.log('Generating Audio Duration');
+    logger.info('Generating Audio Duration');
     const clipDurationStatus = await getAudioDuration(data.textToSpeechOutput.filepath);
     // check if the returned data is null - an error in generating Audio Duration
     if (clipDurationStatus.data === null) {
@@ -381,7 +385,7 @@ export const processCurrentClip = async data => {
         )
           .then(async () => {
             // analyze clip playback type from dialog timestamp & Audio Clips data
-            console.log('Analyzing clip playback type from dialog timestamp & Audio Clips data');
+            logger.info('Analyzing clip playback type from dialog timestamp & Audio Clips data');
             const analysisStatus = await analyzePlaybackType(
               Number(clipStartTime),
               clipEndTime,
@@ -416,7 +420,7 @@ export const processCurrentClip = async data => {
             }
           })
           .catch(err => {
-            console.log(err);
+            logger.info(err);
             return {
               clip_id: data.clip_id,
               message: 'Unable to Update DB !! Please try again' + err,
@@ -429,8 +433,9 @@ export const processCurrentClip = async data => {
 };
 
 export const getAudioDuration = async (filepath: string) => {
-  const newPath = path.join(__dirname, '../../', filepath.replace('.', './public'));
-  console.log('new path', newPath);
+  const newPath = AUDIO_DIRECTORY + filepath.replace('.', '');
+  // const newPath = path.join(__dirname, '../../', filepath.replace('.', './public'));
+  logger.info('new path', newPath);
 
   try {
     const buffer = fs.readFileSync(newPath);
@@ -455,11 +460,12 @@ const storage = multer.diskStorage({
     cb(null, `${newACType}-${uniqueId}.mp3`);
   },
   destination: function (req, _file, cb) {
-    const dir = path.join(__dirname, '../../', `.${AUDIO_DIRECTORY}/${req.body.youtubeVideoId}/${req.body.userId}`);
+    const dir = `${AUDIO_DIRECTORY}/audio/${req.body.youtubeVideoId}/${req.body.userId}`;
+    // const dir = path.join(__dirname, '../../', `.${AUDIO_DIRECTORY}/${req.body.youtubeVideoId}/${req.body.userId}`);
     cb(null, dir);
   },
   // onError:(err, next) => {
-  //     console.log('error', err);
+  //     logger.info('error', err);
   //     next(err);
   // } ,
 });

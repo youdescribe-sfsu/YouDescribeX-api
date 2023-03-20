@@ -7,6 +7,7 @@ import { connect } from 'mongoose';
 import { Sequelize, Options } from 'sequelize';
 
 import { CURRENT_DATABASE } from '../config';
+import { logger } from '../utils/logger';
 // MongoDB connection string
 const MONGODB_CONNECTION_STRING = `mongodb://${MONGO_DB_HOST}:${MONGO_DB_PORT}/${MONGO_DB_DATABASE}`;
 // PostgreSQL connection object
@@ -14,6 +15,7 @@ const POSTGRESQL_OPTIONS: Options = {
   host: POSTGRES_DB_HOST,
   port: parseInt(POSTGRES_DB_PORT) || 5432,
   dialect: 'postgres',
+  logging: false,
 };
 
 // PostgreSQL connection object
@@ -33,29 +35,29 @@ export const getPostGresConnection = (): Sequelize => POSTGRESQL_CONNECTION;
 
 export const testDataBaseConnection = () => {
   if (CURRENT_DATABASE === 'mongodb') {
-    console.log('Testing MongoDB connection');
+    logger.info('Testing MongoDB connection');
     getMongoDbConnection()
       .then(result => {
-        console.log(`Connected to MongoDB Database: ${result.connection.name}`);
+        logger.info(`Connected to MongoDB Database: ${result.connection.name}`);
       })
       .catch(err => {
-        console.log(`Error connecting to MongoDB Database: ${err}`);
+        logger.info(`Error connecting to MongoDB Database: ${err}`);
       });
   } else {
-    console.log('Testing PostgreSQL connection');
+    logger.info('Testing PostgreSQL connection');
     getPostGresConnection()
       .authenticate()
-      .then(() => console.log(`Connected to ${POSTGRES_DB_NAME} Database`))
+      .then(() => logger.info(`Connected to ${POSTGRES_DB_NAME} Database`))
       .then(() => {
         // db.sync({ alter: true })
         POSTGRESQL_CONNECTION.sync({ logging: false })
           .then(() => {
-            console.log(`Synced with ${POSTGRES_DB_NAME} Database`);
+            logger.info(`Synced with ${POSTGRES_DB_NAME} Database`);
           })
           .catch(err => {
-            console.log(err);
+            logger.info(err);
           });
       })
-      .catch(err => console.log(`Error connecting to YDXAI Database: ${err}`));
+      .catch(err => logger.info(`Error connecting to YDXAI Database: ${err}`));
   }
 };
