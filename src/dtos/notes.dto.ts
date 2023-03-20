@@ -2,7 +2,7 @@ import { IsString } from 'class-validator';
 
 export class PostNoteByAdIdDto {
   @IsString()
-  public notes_text: string;
+  public notes: string;
   @IsString()
   public adId: string;
   @IsString()
