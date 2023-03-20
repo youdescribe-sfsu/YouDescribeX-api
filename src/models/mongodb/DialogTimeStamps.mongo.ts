@@ -1,4 +1,4 @@
-import mongoose, { Document, Model, Schema } from 'mongoose';
+import { Document, Model, Schema } from 'mongoose';
 import { VideosDocument } from './Videos.mongo';
 
 export interface Dialog_TimestampsAttributes {
