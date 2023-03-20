@@ -90,7 +90,8 @@ class AudioClipsController {
       const addedAudioClip = await this.audioClipsService.deleteAudioClip(clipId);
       res.status(200).json(addedAudioClip);
     } catch (error) {
-      logger.info('error', error);
+      console.error('error', error);
+      logger.error(error);
       next(error);
     }
   };
