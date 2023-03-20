@@ -7,16 +7,16 @@ import { PostNoteByAdIdDto } from '../dtos/notes.dto';
 import { logger } from '../utils/logger';
 class NotesService {
   public async postNoteByAdId(notesBody: PostNoteByAdIdDto): Promise<INotes | NotesAttributes | number> {
-    const { adId, noteId, notes_text } = notesBody;
+    const { adId, noteId, notes } = notesBody;
     if (isEmpty(adId)) throw new HttpException(400, 'Audio Description ID is empty');
-    if (isEmpty(notes_text)) throw new HttpException(400, 'Notes Text is empty');
+    if (isEmpty(notes)) throw new HttpException(400, 'Notes Text is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
     } else {
       // Create a new note
       if (isEmpty(noteId)) {
         const newNote = await PostGres_Notes.create({
-          notes_text: notes_text,
+          notes_text: notes,
           AudioDescriptionAdId: adId,
         });
         return newNote;
@@ -28,7 +28,7 @@ class NotesService {
         if (!audioDescriptionID) throw new HttpException(409, "Audio Description doesn't exist");
 
         const updatedNotes = await PostGres_Notes.update(
-          { notes_text: notes_text },
+          { notes_text: notes },
           {
             where: {
               AudioDescriptionAdId: adId,
