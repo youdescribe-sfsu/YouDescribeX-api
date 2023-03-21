@@ -241,7 +241,7 @@ export const deleteOldAudioFile = async (old_audio_path: string) => {
     logger.info('Old Audio File Deleted');
     return true;
   } catch (err) {
-    console.error(err);
+    logger.error(err);
     return false;
   }
 };
@@ -442,7 +442,7 @@ export const getAudioDuration = async (filepath: string) => {
       data: duration,
     };
   } catch (err) {
-    console.error(err);
+    logger.error(err);
     return {
       message: 'Error in Getting Audio Duration!! Please try again',
       data: null,

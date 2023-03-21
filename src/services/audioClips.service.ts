@@ -210,9 +210,10 @@ class AudioClipsService {
     } else {
       const generatedMP3Response = await generateMp3forDescriptionText(userId, youtubeVideoId, clipDescriptionText, clipDescriptionType);
       if (generatedMP3Response.filepath === null) throw new HttpException(409, "Audio Description couldn't be generated");
+      const newAudioClipPath = generatedMP3Response.filepath;
       const oldAudioFilePathStatus = await getOldAudioFilePath(clipId);
       if (oldAudioFilePathStatus.data === null) throw new HttpException(409, oldAudioFilePathStatus.message);
-      const clipDurationStatus = await getAudioDuration(generatedMP3Response.filepath);
+      const clipDurationStatus = await getAudioDuration(newAudioClipPath);
       if (clipDurationStatus.data === null) throw new HttpException(409, clipDurationStatus.message);
       const getVideoIdStatus = await getVideoFromYoutubeId(youtubeVideoId);
       if (getVideoIdStatus.data === null) throw new HttpException(409, getVideoIdStatus.message);
@@ -236,7 +237,7 @@ class AudioClipsService {
 
       const updatedAudioClip = await PostGres_Audio_Clips.update(
         {
-          clip_audio_path: oldAudioFilePath,
+          clip_audio_path: newAudioClipPath,
           description_text: clipDescriptionText,
           clip_duration: Number(parseFloat(updatedAudioDuration).toFixed(2)),
           clip_end_time: updatedClipEndTime,
