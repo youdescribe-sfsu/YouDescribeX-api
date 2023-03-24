@@ -1,42 +1,47 @@
-import { Document, Model, Schema } from 'mongoose';
-import { v4 as uuidv4 } from 'uuid';
-import { Audio_DescriptionsDocument } from './AudioDescriptions.mongo';
+import mongoose, { Document, Schema } from 'mongoose';
 
-export interface AudioClipsAttributes {
-  clip_id: string;
-  clip_title?: string;
+interface ITranscript {
+  _id: string;
+  sentence: string;
+  start_time: number;
+  end_time: number;
+}
+
+interface IAudioClip extends Document {
+  _id: string;
+  audio_description: string;
+  created_at: Date;
   description_type: string;
   description_text: string;
+  duration: number;
+  end_time: number;
+  file_mime_type: string;
+  file_name: string;
+  file_path: string;
+  file_size_bytes: number;
+  label: string;
   playback_type: string;
-  clip_start_time: number;
-  clip_end_time?: number;
-  clip_duration?: number;
-  clip_audio_path?: string;
-  is_recorded: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-  AudioDescriptionAdId?: Schema.Types.ObjectId;
+  start_time: number;
+  transcript: ITranscript[];
+  updated_at: Date;
+  user: string;
+  video: string;
 }
 
-export interface AudioClipsDocument extends AudioClipsAttributes, Document {
-  AudioDescriptionAd: Audio_DescriptionsDocument['_id'];
-}
-
-export interface AudioClipsModel extends Model<AudioClipsDocument> {
-  findByClipId(clipId: string): Promise<AudioClipsDocument | null>;
-}
-
-const audioClipsSchema = new Schema<AudioClipsDocument, AudioClipsModel>(
+const AudioClipSchema: Schema = new Schema(
   {
-    clip_id: {
+    _id: {
       type: String,
-      default: uuidv4,
-      required: true,
-      unique: true,
+      default: () => new mongoose.Types.ObjectId().toString(),
     },
-    clip_title: {
-      type: String,
-      required: false,
+    audio_description: {
+      type: Schema.Types.ObjectId,
+      ref: 'AudioDescription',
+      required: true,
+    },
+    created_at: {
+      type: Date,
+      default: Date.now,
     },
     description_type: {
       type: String,
@@ -44,57 +49,81 @@ const audioClipsSchema = new Schema<AudioClipsDocument, AudioClipsModel>(
     },
     description_text: {
       type: String,
+    },
+    duration: {
+      type: Number,
+      required: true,
+    },
+    end_time: {
+      type: Number,
+      required: true,
+    },
+    file_mime_type: {
+      type: String,
+      required: true,
+    },
+    file_name: {
+      type: String,
+      required: true,
+    },
+    file_path: {
+      type: String,
+      required: true,
+    },
+    file_size_bytes: {
+      type: Number,
+      required: true,
+    },
+    label: {
+      type: String,
       required: true,
     },
     playback_type: {
       type: String,
       required: true,
     },
-    clip_start_time: {
+    start_time: {
       type: Number,
       required: true,
     },
-    clip_end_time: {
-      type: Number,
-      required: false,
-    },
-    clip_duration: {
-      type: Number,
-      required: false,
-    },
-    clip_audio_path: {
-      type: String,
-      required: false,
-    },
-    is_recorded: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-    createdAt: {
+    transcript: [
+      {
+        _id: {
+          type: String,
+          default: () => new mongoose.Types.ObjectId().toString(),
+        },
+        sentence: {
+          type: String,
+          required: true,
+        },
+        start_time: {
+          type: Number,
+          required: true,
+        },
+        end_time: {
+          type: Number,
+          required: true,
+        },
+      },
+    ],
+    updated_at: {
       type: Date,
-      required: true,
       default: Date.now,
     },
-    updatedAt: {
-      type: Date,
-      required: true,
-      default: Date.now,
-    },
-    AudioDescriptionAdId: {
+    user: {
       type: Schema.Types.ObjectId,
-      required: false,
-      ref: 'AudioDescriptions',
+      ref: 'User',
+      required: true,
+    },
+    video: {
+      type: Schema.Types.ObjectId,
+      ref: 'Video',
+      required: true,
     },
   },
-  {
-    timestamps: true,
-    collection: 'Audio_Clips',
-  },
+  { collection: 'audio_clips' },
 );
 
-audioClipsSchema.statics.findByClipId = async function (clipId: string) {
-  return this.findOne({ clip_id: clipId }).populate('AudioDescriptionAd');
-};
+const AudioClipModel = mongoose.model<IAudioClip>('AudioClip', AudioClipSchema);
 
-export { audioClipsSchema };
+export default AudioClipModel;

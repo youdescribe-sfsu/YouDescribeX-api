@@ -1,57 +1,85 @@
-import { Document, Model, Schema } from 'mongoose';
+import mongoose, { Document, Schema } from 'mongoose';
 
-export interface VideosAttributes {
-  video_id: string;
-  youtube_video_id: string;
-  video_name: string;
-  video_length: number;
-  createdAt: Date;
-  updatedAt: Date;
+interface IVideo extends Document {
+  audio_descriptions: string[];
+  category: string;
+  category_id: number;
+  created_at: Date;
+  custom_tags: string[];
+  description: string;
+  duration: number;
+  tags: string[];
+  title: string;
+  updated_at: Date;
+  views: number;
+  youtube_id: string;
+  youtube_status: string;
 }
 
-export type VideosDocument = Document & VideosAttributes;
-
-export interface VideosModel extends Model<VideosDocument> {
-  findByVideoId(video_id: string): Promise<VideosDocument | null>;
-}
-
-const videosSchema = new Schema<VideosDocument, VideosModel>(
+const VideoSchema: Schema = new Schema(
   {
-    video_id: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    youtube_video_id: {
-      type: String,
-      required: true,
-    },
-    video_name: {
+    audio_descriptions: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'AudioDescription',
+      },
+    ],
+    category: {
       type: String,
       required: true,
     },
-    video_length: {
+    category_id: {
       type: Number,
       required: true,
     },
-    createdAt: {
+    created_at: {
       type: Date,
-      default: Date.now,
+      required: true,
     },
-    updatedAt: {
+    custom_tags: [
+      {
+        type: String,
+        required: true,
+      },
+    ],
+    description: {
+      type: String,
+      required: true,
+    },
+    duration: {
+      type: Number,
+      required: true,
+    },
+    tags: [
+      {
+        type: String,
+        required: true,
+      },
+    ],
+    title: {
+      type: String,
+      required: true,
+    },
+    updated_at: {
       type: Date,
-      default: Date.now,
+      required: true,
+    },
+    views: {
+      type: Number,
+      required: true,
+    },
+    youtube_id: {
+      type: String,
+      required: true,
+    },
+    youtube_status: {
+      type: String,
+      required: true,
     },
   },
-  {
-    timestamps: true,
-    collection: 'Videos',
-    collation: { locale: 'en_US', strength: 1 },
-  },
+  { collection: 'videos' },
 );
 
-videosSchema.statics.findByVideoId = async function (video_id: string): Promise<VideosDocument | null> {
-  return this.findOne({ video_id }).populate('AudioDescriptions').populate('DialogTimestamps');
-};
+const VideoModel = mongoose.model<IVideo>('Video', VideoSchema);
 
-export { videosSchema };
+export default VideoModel;

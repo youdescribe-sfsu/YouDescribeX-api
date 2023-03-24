@@ -1,71 +1,86 @@
-import { Schema, Document, Model, Types } from 'mongoose';
-import { AudioClipsDocument } from './AudioClips.mongo';
-import { NotesDocument } from './Notes.mongo';
-import { UsersDocument } from './User.mongo';
-import { VideosDocument } from './Videos.mongo';
+import mongoose, { Document, Schema } from 'mongoose';
 
-export interface Audio_DescriptionsAttributes {
-  ad_id: string;
-  is_published: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-  UserUserId?: string;
-  VideoVideoId?: string;
+interface IAudioDescription extends Document {
+  admin_review: boolean;
+  audio_clips: string[];
+  created_at: Date;
+  language: string;
+  legacy_notes: string;
+  overall_rating_votes_average: number;
+  overall_rating_votes_counter: number;
+  overall_rating_votes_sum: number;
+  status: string;
+  updated_at: Date;
+  user: string;
+  video: string;
+  views: number;
 }
 
-export type Audio_DescriptionsDocument = Document &
-  Audio_DescriptionsAttributes & {
-    Audio_Clips: Types.Array<AudioClipsDocument['id']>;
-    Notes: Types.Array<NotesDocument['id']>;
-    UserUser?: UsersDocument['id'];
-    VideoVideo?: VideosDocument['_id'];
-  };
-
-export type Audio_DescriptionsModel = Model<Audio_DescriptionsDocument>;
-
-const Audio_DescriptionsSchema = new Schema<Audio_DescriptionsDocument, Audio_DescriptionsModel>(
+const AudioDescriptionSchema: Schema = new Schema(
   {
-    ad_id: {
+    _id: {
       type: String,
-      required: true,
-      unique: true,
+      default: () => new mongoose.Types.ObjectId().toString(),
     },
-    is_published: {
+    admin_review: {
       type: Boolean,
+      default: false,
+    },
+    audio_clips: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'AudioClip',
+      },
+    ],
+    created_at: {
+      type: Date,
+      default: Date.now,
+    },
+    language: {
+      type: String,
       required: true,
     },
-    createdAt: {
+    legacy_notes: {
+      type: String,
+    },
+    overall_rating_votes_average: {
+      type: Number,
+      default: 0,
+    },
+    overall_rating_votes_counter: {
+      type: Number,
+      default: 0,
+    },
+    overall_rating_votes_sum: {
+      type: Number,
+      default: 0,
+    },
+    status: {
+      type: String,
+      required: true,
+    },
+    updated_at: {
       type: Date,
       default: Date.now,
     },
-    updatedAt: {
-      type: Date,
-      default: Date.now,
+    user: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
     },
-    UserUserId: {
-      type: String,
-      ref: 'Users',
+    video: {
+      type: Schema.Types.ObjectId,
+      ref: 'Video',
+      required: true,
     },
-    VideoVideoId: {
-      type: String,
-      ref: 'Videos',
+    views: {
+      type: Number,
+      default: 0,
     },
-    Audio_Clips: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: 'Audio_Clips',
-      },
-    ],
-    Notes: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: 'Notes',
-      },
-    ],
   },
-  {
-    timestamps: true,
-  },
+  { collection: 'audio_descriptions' },
 );
 
-export { Audio_DescriptionsSchema };
+const AudioDescriptionModel = mongoose.model<IAudioDescription>('AudioDescription', AudioDescriptionSchema);
+
+export default AudioDescriptionModel;
