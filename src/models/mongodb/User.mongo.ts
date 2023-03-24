@@ -1,50 +1,81 @@
-import { Schema, Document, Types } from 'mongoose';
-import { Audio_DescriptionsDocument } from './AudioDescriptions.mongo';
-export type ObjectId = Types.ObjectId;
+import mongoose, { Document, Schema } from 'mongoose';
 
-export interface UsersAttributes {
-  user_id: ObjectId;
-  is_ai: boolean;
+interface IUser extends Document {
+  admin_level: number;
+  email: string;
+  alias: string;
+  google_user_id: string;
+  last_login: Date;
+  dialects: string;
   name: string;
-  user_email?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  opt_in: boolean;
+  picture: string;
+  policy_review: boolean;
+  token: string;
+  updated_at: Date;
+  user_type: string;
 }
 
-export interface UsersDocument extends UsersAttributes, Document {
-  Audio_Descriptions: Audio_DescriptionsDocument['_id'];
-}
+const UserSchema: Schema = new Schema(
+  {
+    admin_level: {
+      type: Number,
+      required: true,
+    },
+    email: {
+      type: String,
+      required: true,
+    },
+    alias: {
+      type: String,
+      required: true,
+    },
+    google_user_id: {
+      type: String,
+      required: true,
+    },
+    last_login: {
+      type: Date,
+      required: true,
+    },
+    dialects: {
+      type: String,
+      required: true,
+    },
+    name: {
+      type: String,
+      required: true,
+    },
+    opt_in: {
+      type: Boolean,
+      required: true,
+    },
+    picture: {
+      type: String,
+      required: true,
+    },
+    policy_review: {
+      type: Boolean,
+      required: true,
+    },
+    token: {
+      type: String,
+      required: true,
+    },
+    updated_at: {
+      type: Date,
+      required: true,
+    },
+    user_type: {
+      type: String,
+      required: true,
+    },
+  },
+  {
+    collection: 'users',
+  },
+);
 
-const UsersSchema = new Schema<UsersDocument>({
-  user_id: {
-    type: Schema.Types.ObjectId,
-    required: true,
-    default: () => new Types.ObjectId(),
-    unique: true,
-  },
-  is_ai: {
-    type: Boolean,
-    required: true,
-    default: false,
-  },
-  name: {
-    type: String,
-    required: true,
-  },
-  user_email: {
-    type: String,
-    default: null,
-    required: true,
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now,
-  },
-  Audio_Descriptions: [{ type: Schema.Types.ObjectId, ref: 'Audio_Descriptions' }],
-});
+const UserModel = mongoose.model<IUser>('User', UserSchema);
 
-export { UsersSchema };
+export default UserModel;

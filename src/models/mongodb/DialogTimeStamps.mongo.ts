@@ -1,59 +1,22 @@
-import { Document, Model, Schema } from 'mongoose';
-import { VideosDocument } from './Videos.mongo';
+import { Schema, model, Types } from 'mongoose';
 
-export interface Dialog_TimestampsAttributes {
-  dialog_id: string;
-  dialog_sequence_num: number;
+interface DialogTimestamps {
   dialog_start_time: number;
   dialog_end_time: number;
   dialog_duration: number;
-  createdAt: Date;
-  updatedAt: Date;
-  VideoVideoId?: string;
+  video: Types.ObjectId;
 }
 
-export type Dialog_TimestampsModel = Model<Dialog_TimestampsDocument>;
+const dialogTimestampsSchema = new Schema<DialogTimestamps>(
+  {
+    dialog_start_time: { type: Number, required: true },
+    dialog_end_time: { type: Number, required: true },
+    dialog_duration: { type: Number, required: true },
+    video: { type: Schema.Types.ObjectId, ref: 'Video', required: true },
+  },
+  { collection: 'dialog_timestamps' },
+);
 
-export interface Dialog_TimestampsDocument extends Dialog_TimestampsAttributes, Document {
-  VideoVideo: VideosDocument['id'];
-}
+const Dialog_Timestamps = model<DialogTimestamps>('Dialog_Timestamps', dialogTimestampsSchema);
 
-export type Dialog_TimestampsOptionalAttributes = 'createdAt' | 'updatedAt' | 'VideoVideoId';
-
-const Dialog_TimestampsSchema = new Schema<Dialog_TimestampsDocument>({
-  dialog_id: {
-    type: String,
-    required: true,
-    unique: true,
-  },
-  dialog_sequence_num: {
-    type: Number,
-    required: true,
-  },
-  dialog_start_time: {
-    type: Number,
-    required: true,
-  },
-  dialog_end_time: {
-    type: Number,
-    required: true,
-  },
-  dialog_duration: {
-    type: Number,
-    required: true,
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now,
-  },
-  VideoVideoId: {
-    type: String,
-    ref: 'Videos',
-  },
-});
-
-export { Dialog_TimestampsSchema };
+export default Dialog_Timestamps;

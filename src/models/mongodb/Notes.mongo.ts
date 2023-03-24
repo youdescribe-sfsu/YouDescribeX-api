@@ -1,43 +1,20 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import { Schema, model, ObjectId } from 'mongoose';
 
-export interface NotesDocument extends Document {
-  notes_id: string;
+interface INotes {
   notes_text: string;
-  createdAt: Date;
-  updatedAt: Date;
-  AudioDescriptionAdId?: string;
+  notes_timestamp: number;
+  audio_description: ObjectId;
 }
 
-const NotesSchema = new Schema(
+const NotesSchema = new Schema<INotes>(
   {
-    notes_id: {
-      type: String,
-      required: true,
-      default: () => new mongoose.Types.ObjectId().toString(),
-      unique: true,
-    },
-    notes_text: {
-      type: String,
-      required: true,
-    },
-    createdAt: {
-      type: Date,
-      default: Date.now,
-    },
-    updatedAt: {
-      type: Date,
-      default: Date.now,
-    },
-    AudioDescriptionAdId: {
-      type: String,
-      ref: 'Audio_Descriptions',
-    },
+    notes_text: { type: String, required: true },
+    notes_timestamp: { type: Number, required: true },
+    audio_description: { type: Schema.Types.ObjectId, ref: 'AudioDescription', required: true },
   },
-  {
-    timestamps: true,
-    collection: 'Notes',
-    versionKey: false,
-  },
+  { collection: 'notes' },
 );
 
-export { NotesSchema };
+const Notes = model<INotes>('Notes', NotesSchema);
+
+export { Notes };
