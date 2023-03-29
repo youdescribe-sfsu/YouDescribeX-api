@@ -124,6 +124,5 @@ const AudioClipSchema: Schema = new Schema(
   { collection: 'audio_clips' },
 );
 
-const AudioClipModel = mongoose.model<IAudioClip>('AudioClip', AudioClipSchema);
-
-export default AudioClipModel;
+export default AudioClipSchema;
+export { IAudioClip };

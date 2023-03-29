@@ -13,7 +13,7 @@ interface IUser extends Document {
   policy_review: boolean;
   token: string;
   updated_at: Date;
-  user_type: string;
+  user_type: string; // volunteer, admin
 }
 
 const UserSchema: Schema = new Schema(
@@ -76,6 +76,7 @@ const UserSchema: Schema = new Schema(
   },
 );
 
-const UserModel = mongoose.model<IUser>('User', UserSchema);
+// const UserModel = mongoose.model<IUser>('User', UserSchema);
 
-export default UserModel;
+export default UserSchema;
+export { IUser };

@@ -6,8 +6,7 @@ export interface TimingsDocument extends Document {
   youtube_video_id: string;
   createdAt: Date;
   updatedAt: Date;
-  ParticipantParticipantId?: string;
-  ParticipantParticipant: ParticipantsDocument['_id'];
+  ParticipantParticipantId: ParticipantsDocument['_id'];
 }
 
 const TimingsSchema = new Schema<TimingsDocument>({
@@ -33,4 +32,4 @@ const TimingsSchema = new Schema<TimingsDocument>({
   },
 });
 
-export { TimingsSchema };
+export default TimingsSchema;

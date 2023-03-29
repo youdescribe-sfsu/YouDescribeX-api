@@ -15,6 +15,5 @@ const NotesSchema = new Schema<INotes>(
   { collection: 'notes' },
 );
 
-const Notes = model<INotes>('Notes', NotesSchema);
-
-export { Notes };
+export default NotesSchema;
+export { INotes };

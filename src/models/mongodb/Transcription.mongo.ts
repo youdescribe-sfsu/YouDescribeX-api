@@ -76,6 +76,5 @@ const TranscriptionSchema = new Schema<ITranscription>(
   { collection: 'transcriptions' },
 );
 
-const Transcription = mongoose.model<ITranscription>('Transcription', TranscriptionSchema);
-
-export default Transcription;
+export default TranscriptionSchema;
+export { ITranscription };

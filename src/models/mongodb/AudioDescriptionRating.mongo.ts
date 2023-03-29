@@ -40,6 +40,5 @@ const AudioDescriptionRatingSchema = new Schema<IAudioDescriptionRating>(
   { collection: 'audio_descriptions_ratings' },
 );
 
-const AudioDescriptionRating = mongoose.model<IAudioDescriptionRating>('AudioDescriptionRating', AudioDescriptionRatingSchema);
-
-export default AudioDescriptionRating;
+export default AudioDescriptionRatingSchema;
+export { IAudioDescriptionRating };

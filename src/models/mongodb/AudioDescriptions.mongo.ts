@@ -81,6 +81,5 @@ const AudioDescriptionSchema: Schema = new Schema(
   { collection: 'audio_descriptions' },
 );
 
-const AudioDescriptionModel = mongoose.model<IAudioDescription>('AudioDescription', AudioDescriptionSchema);
-
-export default AudioDescriptionModel;
+export default AudioDescriptionSchema;
+export { IAudioDescription };
