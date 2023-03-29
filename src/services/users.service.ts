@@ -8,21 +8,27 @@ import { PostGres_Users } from '../models/postgres/init-models';
 import { PostGres_Videos } from '../models/postgres/init-models';
 import { PostGres_Audio_Descriptions } from '../models/postgres/init-models';
 import { PostGres_Audio_Clips } from '../models/postgres/init-models';
+import { MongoUsersModel } from '../models/mongodb/init-models.mongo';
 class UserService {
   public async findAllUser(): Promise<IUsers[]> {
-    // const users: IUsers[] = await MongoUsersModel.find();
-    return [];
+    if (CURRENT_DATABASE == 'mongodb') {
+      const users: IUsers[] = await MongoUsersModel.find();
+      return users;
+    } else {
+      const users = await PostGres_Users.findAll();
+      return users;
+    }
   }
 
   public async findUserByEmail(userEmail: string): Promise<any> {
     if (isEmpty(userEmail)) throw new HttpException(400, 'UserId is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
-      // const findUserByEmail: IUsers = await MongoUsersModel.findOne({
-      //   user_email: userEmail,
-      // });
-      // if (!findUserByEmail) throw new HttpException(409, "User doesn't exist");
-      // return findUserByEmail;
+      const findUserByEmail: IUsers = await MongoUsersModel.findOne({
+        email: userEmail,
+      });
+      if (!findUserByEmail) throw new HttpException(409, "User doesn't exist");
+      return findUserByEmail;
     } else {
       const findUserByEmail = await PostGres_Users.findOne({
         where: { user_email: userEmail },
@@ -36,16 +42,18 @@ class UserService {
     if (isEmpty(userData)) throw new HttpException(400, 'userData is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
-      // const findUser: IUsers = await MongoUsersModel.findOne({
-      //   user_email: userData.email,
-      // });
-      // if (findUser) throw new HttpException(409, `This email ${userData.email} already exists`);
-      // const createUserData = await MongoUsersModel.create({
-      //   is_ai: false,
-      //   name: userData.name,
-      //   user_email: userData.email,
-      // });
-      // return createUserData;
+      const findUser: IUsers = await MongoUsersModel.findOne({
+        email: userData.email,
+      });
+      if (findUser) throw new HttpException(409, `This email ${userData.email} already exists`);
+      const createUserData = await MongoUsersModel.create({
+        user_type: 'volunteer',
+        admin_level: 0,
+        email: userData.email,
+        alias: userData.name,
+        // TODO: add the rest of the fields
+      });
+      return createUserData;
     } else {
       const findUser = await PostGres_Users.findOne({
         where: { user_email: userData.email },
@@ -64,11 +72,11 @@ class UserService {
     if (isEmpty(userEmail)) throw new HttpException(400, 'UserEmail is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
-      // const deleteUserByEmail: IUsers = await MongoUsersModel.findOneAndDelete({
-      //   user_email: userEmail,
-      // });
-      // if (!deleteUserByEmail) throw new HttpException(409, "User doesn't exist");
-      // return deleteUserByEmail;
+      const deleteUserByEmail: IUsers = await MongoUsersModel.findOneAndDelete({
+        email: userEmail,
+      });
+      if (!deleteUserByEmail) throw new HttpException(409, "User doesn't exist");
+      return deleteUserByEmail;
     } else {
       const deleteUserByEmail = await PostGres_Users.findOne({
         where: { user_email: userEmail },

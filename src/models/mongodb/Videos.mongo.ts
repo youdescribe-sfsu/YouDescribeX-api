@@ -80,6 +80,5 @@ const VideoSchema: Schema = new Schema(
   { collection: 'videos' },
 );
 
-const VideoModel = mongoose.model<IVideo>('Video', VideoSchema);
-
-export default VideoModel;
+export default VideoSchema;
+export { IVideo };

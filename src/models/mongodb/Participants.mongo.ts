@@ -65,4 +65,4 @@ const ParticipantsSchema = new Schema(
   },
 );
 
-export { ParticipantsSchema };
+export default ParticipantsSchema;

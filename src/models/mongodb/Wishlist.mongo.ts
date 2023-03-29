@@ -13,7 +13,7 @@ interface IWishList extends Document {
   youtube_status: string;
 }
 
-const schema = new Schema<IWishList>(
+const WishlistSchema = new Schema<IWishList>(
   {
     youtube_id: String,
     category: String,
@@ -29,4 +29,5 @@ const schema = new Schema<IWishList>(
   { collection: 'wish_list' },
 );
 
-export default model<IWishList>('WishList', schema);
+export default WishlistSchema;
+export { IWishList };

@@ -19,6 +19,5 @@ const VisitSchema = new Schema(
   { collection: 'visits' },
 );
 
-const VisitModel = model<IVisit>('Visit', VisitSchema);
-
-export { VisitModel, IVisit };
+export default VisitSchema;
+export { IVisit };

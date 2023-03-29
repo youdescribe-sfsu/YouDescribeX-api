@@ -7,7 +7,7 @@ interface DialogTimestamps {
   video: Types.ObjectId;
 }
 
-const dialogTimestampsSchema = new Schema<DialogTimestamps>(
+const DialogTimestampsSchema = new Schema<DialogTimestamps>(
   {
     dialog_start_time: { type: Number, required: true },
     dialog_end_time: { type: Number, required: true },
@@ -17,6 +17,7 @@ const dialogTimestampsSchema = new Schema<DialogTimestamps>(
   { collection: 'dialog_timestamps' },
 );
 
-const Dialog_Timestamps = model<DialogTimestamps>('Dialog_Timestamps', dialogTimestampsSchema);
+// const Dialog_Timestamps = model<DialogTimestamps>('Dialog_Timestamps', DialogTimestampsSchema);
 
-export default Dialog_Timestamps;
+export default DialogTimestampsSchema;
+export { DialogTimestamps };

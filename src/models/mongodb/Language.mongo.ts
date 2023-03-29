@@ -19,6 +19,5 @@ const LanguageSchema = new Schema<ILanguage>(
   { collection: 'languages' },
 );
 
-const Language = mongoose.model<ILanguage>('Language', LanguageSchema);
-
-export default Language;
+export default LanguageSchema;
+export { ILanguage };

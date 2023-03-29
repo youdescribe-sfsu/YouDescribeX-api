@@ -17,6 +17,5 @@ const UserVotesSchema = new Schema(
   { collection: 'users_votes' },
 );
 
-const UserVotesModel = model<IUserVotes>('UserVotes', UserVotesSchema);
-
-export default UserVotesModel;
+export default UserVotesSchema;
+export { IUserVotes };
