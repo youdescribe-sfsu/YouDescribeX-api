@@ -77,27 +77,39 @@ class AudioDescriptionsService {
       const ad = new MongoAudio_Descriptions_Model();
       if (!ad) throw new HttpException(409, "Audio Descriptions couldn't be created");
       if (vid) {
-        ad.set('video', vid);
+        ad.set('video', vid._id);
       } else {
         const newVid = new MongoVideosModel();
-        newVid.set('youtube_video_id', youtube_id);
-        newVid.set('video_name', video_name);
-        newVid.set('video_length', video_length);
+        newVid.set('audio_descriptions', []);
+        newVid.set('category', '');
+        newVid.set('category_id', 0);
+        newVid.set('youtube_id', youtube_id);
+        newVid.set('title', video_name);
+        newVid.set('duration', video_length);
+        newVid.set('description', '');
+        newVid.set('tags', []);
+        newVid.set('custom_tags', []);
+        newVid.set('views', 0);
+        newVid.set('youtube_status', 'ready');
+        newVid.set('updated_at', new Date());
+
         const newSavedVideo = await newVid.save();
         if (!newSavedVideo) throw new HttpException(409, "Video couldn't be created");
-        ad.set('video', newVid);
+        ad.set('video', newSavedVideo._id);
         vid = newVid;
       }
       ad.set('user', aiUser);
-
       const new_clip = await MongoAudioClipsModel.create(
         audio_clips.map(clip => {
           return {
-            clip_title: 'scene ' + clip.scene_number,
+            audio_description: ad._id,
+            user: aiUser._id,
+            video: vid._id,
             description_text: clip.text,
-            playback_type: 'extended',
             description_type: clip.type,
-            clip_start_time: clip.start_time,
+            label: `scene ${clip.scene_number}`,
+            playback_type: 'extended',
+            start_time: clip.start_time,
           };
         }),
       );
@@ -181,29 +193,29 @@ class AudioDescriptionsService {
     if (isEmpty(youtube_video_id)) throw new HttpException(400, 'Youtube Video ID is empty');
     if (isEmpty(userId)) throw new HttpException(400, 'User ID is empty');
 
-    if (CURRENT_DATABASE == 'mongodb') {
-    } else {
-      const pathToFolder = `${AUDIO_DIRECTORY}/audio/${youtube_video_id}/${userId}`;
-      logger.info(`pathToFolder: ${pathToFolder}`);
-      // const pathToFolder = path.join(__dirname, '../../', `.${AUDIO_DIRECTORY}/${youtube_video_id}/${userId}`);
-      const files = fs.readdir(pathToFolder);
-      if (!files) throw new HttpException(409, 'Error Reading Folder. Please check later!');
+    // if (CURRENT_DATABASE == 'mongodb') {
+    // } else {
+    const pathToFolder = `${AUDIO_DIRECTORY}/audio/${youtube_video_id}/${userId}`;
+    logger.info(`pathToFolder: ${pathToFolder}`);
+    // const pathToFolder = path.join(__dirname, '../../', `.${AUDIO_DIRECTORY}/${youtube_video_id}/${userId}`);
+    const files = fs.readdir(pathToFolder);
+    if (!files) throw new HttpException(409, 'Error Reading Folder. Please check later!');
 
-      let dataToSend = [];
-      files.forEach((file, i) => {
-        fs.unlinkSync(pathToFolder + '/' + file);
-        dataToSend.push({
-          SerialNumber: i + 1,
-          file: file,
-          status: 'File Deleted Successfully.',
-        });
+    let dataToSend = [];
+    files.forEach((file, i) => {
+      fs.unlinkSync(pathToFolder + '/' + file);
+      dataToSend.push({
+        SerialNumber: i + 1,
+        file: file,
+        status: 'File Deleted Successfully.',
       });
-      if ((dataToSend = [])) {
-        throw new HttpException(409, 'Error Deleting Files. Please check later!');
-      }
-      logger.info('User AD deleted successfully');
-      return dataToSend;
+    });
+    if ((dataToSend = [])) {
+      throw new HttpException(409, 'Error Deleting Files. Please check later!');
     }
+    logger.info('User AD deleted successfully');
+    return dataToSend;
+    // }
   }
 }
 

@@ -30,7 +30,7 @@ class UsersController {
    */
   public getUsers = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const findAllUsersData: IUsers[] = await this.userService.findAllUser();
+      const findAllUsersData = await this.userService.findAllUser();
 
       res.status(200).json({ data: findAllUsersData, message: 'findAll' });
     } catch (error) {
@@ -101,12 +101,11 @@ class UsersController {
   public createUser = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userData: CreateUserDto = req.body;
-      const createUserData = await this.userService.createUser(userData);
+      const createUserData: any = await this.userService.createUser(userData);
 
       res.status(201).json({
         data: createUserData,
         message: 'created',
-        url: `https://ydx.youdescribe.org/api/audio-clips/processAllClipsInDB/${createUserData.user_id}`,
       });
     } catch (error) {
       next(error);

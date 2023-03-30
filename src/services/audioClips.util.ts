@@ -1,26 +1,41 @@
 import getMP3Duration from 'get-mp3-duration';
 import { Audio_Clips, Dialog_Timestamps, Videos } from '../models/postgres/init-models';
-
 import textToSpeech from '@google-cloud/text-to-speech';
 import fs from 'fs';
 import multer from 'multer'; // to process form-data
 import { Op } from 'sequelize';
 import util from 'util';
 import { v4 as uuidv4 } from 'uuid';
-import { AUDIO_DIRECTORY } from '../config';
+import { AUDIO_DIRECTORY, CURRENT_DATABASE } from '../config';
 import { logger } from '../utils/logger';
+import { MongoAudioClipsModel, MongoDialog_Timestamps_Model, MongoVideosModel } from '../models/mongodb/init-models.mongo';
+import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
 
 interface NudgeStartTimeIfZeroResult {
   data: [] | null;
   message: string;
 }
 
-export const nudgeStartTimeIfZero = async (audioClips: Audio_Clips[]): Promise<NudgeStartTimeIfZeroResult> => {
+function isIAudioClip(clip: IAudioClip | Audio_Clips): clip is IAudioClip {
+  return (clip as IAudioClip).start_time !== undefined;
+}
+
+function isAudioClips(clip: IAudioClip | Audio_Clips): clip is Audio_Clips {
+  return (clip as Audio_Clips).clip_start_time !== undefined;
+}
+
+export const nudgeStartTimeIfZero = async (audioClips: Audio_Clips[] | IAudioClip[]): Promise<NudgeStartTimeIfZeroResult> => {
   const startTimeZeroaudioClipIds: string[] = [];
 
   for (const clip of audioClips) {
-    if (clip.clip_start_time === 0) {
-      startTimeZeroaudioClipIds.push(clip.clip_id);
+    if (isAudioClips(clip)) {
+      if (clip.clip_start_time === 0) {
+        startTimeZeroaudioClipIds.push(clip.clip_id);
+      }
+    } else if (isIAudioClip(clip)) {
+      if (clip.start_time === 0) {
+        startTimeZeroaudioClipIds.push(clip._id);
+      }
     }
   }
 
@@ -32,24 +47,36 @@ export const nudgeStartTimeIfZero = async (audioClips: Audio_Clips[]): Promise<N
   }
 
   try {
-    const clipsToUpdate = await Audio_Clips.findAll({
-      where: {
-        clip_id: startTimeZeroaudioClipIds,
-      },
-      logging: false,
-      // raw: true, // for getting just data and no db info
-    });
+    if (CURRENT_DATABASE == 'mongodb') {
+      const clipsToUpdate = await MongoAudioClipsModel.find({
+        clip_id: { $in: startTimeZeroaudioClipIds },
+      });
 
-    await Promise.all(
-      clipsToUpdate.map(async clip => {
-        await clip.update({ clip_start_time: clip.clip_start_time + 1 });
-      }),
-    );
+      await Promise.all(clipsToUpdate.map(async clip => await clip.update({ start_time: clip.start_time + 1 })));
+      return {
+        data: [],
+        message: 'Clip Start Times Updated. Success OK!',
+      };
+    } else {
+      const clipsToUpdate = await Audio_Clips.findAll({
+        where: {
+          clip_id: startTimeZeroaudioClipIds,
+        },
+        logging: false,
+        // raw: true, // for getting just data and no db info
+      });
 
-    return {
-      data: [],
-      message: 'Clip Start Times Updated. Success OK!',
-    };
+      await Promise.all(
+        clipsToUpdate.map(async clip => {
+          await clip.update({ clip_start_time: clip.clip_start_time + 1 });
+        }),
+      );
+
+      return {
+        data: [],
+        message: 'Clip Start Times Updated. Success OK!',
+      };
+    }
   } catch (err) {
     return {
       data: null,
@@ -139,94 +166,159 @@ export const analyzePlaybackType = async (
   clipId: string | null,
   processingAllClips: boolean,
 ): Promise<AnalyzePlaybackTypeResponse> => {
-  try {
-    const overlappingDialogs = await Dialog_Timestamps.findAll({
-      where: {
-        VideoVideoId: videoId,
-        [Op.and]: [
-          {
-            dialog_start_time: {
-              [Op.lte]: currentClipEndTime,
-            },
-          },
-          {
-            dialog_end_time: {
-              [Op.gte]: currentClipStartTime,
-            },
-          },
-        ],
-      },
-      attributes: ['dialog_start_time', 'dialog_end_time'],
-    });
-    if (overlappingDialogs.length !== 0) {
-      return {
-        message: 'Success - extended!',
-        data: 'extended',
-      };
-    }
-
-    const overlappingClips = await Audio_Clips.findAll({
-      where: {
-        AudioDescriptionAdId: adId,
-        [Op.and]: [
-          {
-            clip_start_time: {
-              [Op.lte]: currentClipEndTime,
-            },
-          },
-          {
-            clip_end_time: {
-              [Op.gte]: currentClipStartTime,
-            },
-          },
-          {
-            clip_id: {
-              [Op.not]: clipId === null ? null : [clipId],
-            },
-          },
-        ],
-      },
-      raw: true,
-    });
-
-    if (overlappingClips.length === 0) {
-      return {
-        message: 'Success - inline!',
-        data: 'inline',
-      };
-    }
-
-    if (processingAllClips) {
-      let countOfClipsAfter = 0;
-      overlappingClips.forEach(clip => {
-        if (clip.clip_start_time > currentClipStartTime) {
-          countOfClipsAfter++;
-        }
-      });
-
-      if (countOfClipsAfter > 0) {
+  if (CURRENT_DATABASE == 'mongodb') {
+    try {
+      const overlappingDialogs = await MongoDialog_Timestamps_Model.find({
+        video: videoId,
+      })
+        .where('dialog_start_time')
+        .lte(currentClipEndTime)
+        .where('dialog_end_time')
+        .gte(currentClipStartTime)
+        .exec();
+      if (overlappingDialogs.length !== 0) {
         return {
           message: 'Success - extended!',
           data: 'extended',
         };
-      } else {
+      }
+
+      const overlappingClips = await MongoAudioClipsModel.find({
+        audio_description: adId,
+      })
+        .where('clip_start_time')
+        .lte(currentClipEndTime)
+        .where('clip_end_time')
+        .gte(currentClipStartTime)
+        .exec();
+      if (overlappingClips.length === 0) {
         return {
           message: 'Success - inline!',
           data: 'inline',
         };
       }
-    } else {
+      if (processingAllClips) {
+        let countOfClipsAfter = 0;
+        overlappingClips.forEach(clip => {
+          if (clip.start_time > currentClipStartTime) {
+            countOfClipsAfter++;
+          }
+        });
+
+        if (countOfClipsAfter > 0) {
+          return {
+            message: 'Success - extended!',
+            data: 'extended',
+          };
+        } else {
+          return {
+            message: 'Success - inline!',
+            data: 'inline',
+          };
+        }
+      } else {
+        return {
+          message: 'Success - extended!',
+          data: 'extended',
+        };
+      }
+    } catch (err) {
+      logger.info(err);
       return {
-        message: 'Success - extended!',
-        data: 'extended',
+        message: 'Unable to connect to DB - Analyze Playback Type!! Please try again',
+        data: null,
       };
     }
-  } catch (err) {
-    logger.info(err);
-    return {
-      message: 'Unable to connect to DB - Analyze Playback Type!! Please try again',
-      data: null,
-    };
+  } else {
+    try {
+      const overlappingDialogs = await Dialog_Timestamps.findAll({
+        where: {
+          VideoVideoId: videoId,
+          [Op.and]: [
+            {
+              dialog_start_time: {
+                [Op.lte]: currentClipEndTime,
+              },
+            },
+            {
+              dialog_end_time: {
+                [Op.gte]: currentClipStartTime,
+              },
+            },
+          ],
+        },
+        attributes: ['dialog_start_time', 'dialog_end_time'],
+      });
+      if (overlappingDialogs.length !== 0) {
+        return {
+          message: 'Success - extended!',
+          data: 'extended',
+        };
+      }
+
+      const overlappingClips = await Audio_Clips.findAll({
+        where: {
+          AudioDescriptionAdId: adId,
+          [Op.and]: [
+            {
+              clip_start_time: {
+                [Op.lte]: currentClipEndTime,
+              },
+            },
+            {
+              clip_end_time: {
+                [Op.gte]: currentClipStartTime,
+              },
+            },
+            {
+              clip_id: {
+                [Op.not]: clipId === null ? null : [clipId],
+              },
+            },
+          ],
+        },
+        raw: true,
+      });
+
+      if (overlappingClips.length === 0) {
+        return {
+          message: 'Success - inline!',
+          data: 'inline',
+        };
+      }
+
+      if (processingAllClips) {
+        let countOfClipsAfter = 0;
+        overlappingClips.forEach(clip => {
+          if (clip.clip_start_time > currentClipStartTime) {
+            countOfClipsAfter++;
+          }
+        });
+
+        if (countOfClipsAfter > 0) {
+          return {
+            message: 'Success - extended!',
+            data: 'extended',
+          };
+        } else {
+          return {
+            message: 'Success - inline!',
+            data: 'inline',
+          };
+        }
+      } else {
+        return {
+          message: 'Success - extended!',
+          data: 'extended',
+        };
+      }
+    } catch (err) {
+      logger.info(err);
+      return {
+        message: 'Unable to connect to DB - Analyze Playback Type!! Please try again',
+        data: null,
+      };
+    }
   }
 };
 
@@ -247,87 +339,157 @@ export const deleteOldAudioFile = async (old_audio_path: string) => {
 };
 
 export const getClipStartTimebyId = async (clipId: string) => {
-  return Audio_Clips.findOne({
-    where: {
-      clip_id: clipId,
-    },
-    attributes: ['clip_start_time'],
-  })
-    .then(clip => {
-      return {
-        message: 'Success',
-        data: clip.clip_start_time.toFixed(2),
-      };
-    })
-    .catch(err => {
-      return {
-        message: `Unable to connect to DB - getClipStartTimebyId!! Please try again ${err}`,
-        data: null,
-      }; // send error message
-    });
-};
-
-export const getOldAudioFilePath = async (clipId: string) => {
-  return Audio_Clips.findOne({
-    where: {
-      clip_id: clipId,
-    },
-    attributes: ['clip_audio_path'],
-  })
-    .then(clip => {
-      return {
-        message: 'Success',
-        data: clip.clip_audio_path,
-      };
-    })
-    .catch(err => {
-      return {
-        message: `Unable to connect to DB - getOldAudioFilePath!! Please try again ${err}`,
-        data: null,
-      }; // send error message
-    });
-};
-
-export const getVideoFromYoutubeId = async youtubeVideoID => {
-  return Videos.findOne({
-    where: {
-      youtube_video_id: youtubeVideoID,
-    },
-  })
-    .then(video => {
-      return { message: 'Success', data: video.video_id };
-    })
-    .catch(err => {
-      return {
-        message: 'Error Connecting to DB!! Please try again. getVideoFromYoutubeId ' + err,
-        data: null,
-      };
-    });
-};
-
-export const updatePlaybackinDB = async (clipId: string, playbackType: any) => {
-  return Audio_Clips.update(
-    {
-      playback_type: playbackType,
-    },
-    {
+  if (CURRENT_DATABASE === 'mongodb') {
+    return MongoAudioClipsModel.findById(clipId)
+      .then(clip => {
+        return {
+          message: 'Success',
+          data: clip.start_time.toFixed(2),
+        };
+      })
+      .catch(err => {
+        return {
+          message: `Unable to connect to DB - getClipStartTimebyId!! Please try again ${err}`,
+          data: null,
+        }; // send error message
+      });
+  } else {
+    return Audio_Clips.findOne({
       where: {
         clip_id: clipId,
       },
-    },
-  )
-    .then(async clip => {
-      return {
-        message: 'Updated Playback Type',
-        data: clip,
-      };
+      attributes: ['clip_start_time'],
     })
-    .catch(err => {
-      return {
-        message: 'Error in Updating Playback Type' + err,
-        data: null,
-      };
-    });
+      .then(clip => {
+        return {
+          message: 'Success',
+          data: clip.clip_start_time.toFixed(2),
+        };
+      })
+      .catch(err => {
+        return {
+          message: `Unable to connect to DB - getClipStartTimebyId!! Please try again ${err}`,
+          data: null,
+        }; // send error message
+      });
+  }
+};
+
+export const getOldAudioFilePath = async (clipId: string) => {
+  if (CURRENT_DATABASE === 'mongodb') {
+    return MongoAudioClipsModel.findById(clipId)
+      .then(clip => {
+        return {
+          message: 'Success',
+          data: clip.file_path,
+        };
+      })
+      .catch(err => {
+        return {
+          message: `Unable to connect to DB - getOldAudioFilePath!! Please try again ${err}`,
+          data: null,
+        }; // send error message
+      });
+  } else {
+    return Audio_Clips.findOne({
+      where: {
+        clip_id: clipId,
+      },
+      attributes: ['clip_audio_path'],
+    })
+      .then(clip => {
+        return {
+          message: 'Success',
+          data: clip.clip_audio_path,
+        };
+      })
+      .catch(err => {
+        return {
+          message: `Unable to connect to DB - getOldAudioFilePath!! Please try again ${err}`,
+          data: null,
+        }; // send error message
+      });
+  }
+};
+
+export const getVideoFromYoutubeId = async youtubeVideoID => {
+  if (CURRENT_DATABASE === 'mongodb') {
+    return MongoVideosModel.findOne({
+      youtube_id: youtubeVideoID,
+    })
+      .then(video => {
+        return { message: 'Success', data: video._id };
+      })
+      .catch(err => {
+        return {
+          message: 'Error Connecting to DB!! Please try again. getVideoFromYoutubeId ' + err,
+          data: null,
+        };
+      });
+  } else {
+    return Videos.findOne({
+      where: {
+        youtube_video_id: youtubeVideoID,
+      },
+    })
+      .then(video => {
+        return { message: 'Success', data: video.video_id };
+      })
+      .catch(err => {
+        return {
+          message: 'Error Connecting to DB!! Please try again. getVideoFromYoutubeId ' + err,
+          data: null,
+        };
+      });
+  }
+};
+
+export const updatePlaybackinDB = async (clipId: string, playbackType: any) => {
+  if (CURRENT_DATABASE === 'mongodb') {
+    return MongoAudioClipsModel.updateOne(
+      {
+        _id: clipId,
+      },
+      {
+        playback_type: playbackType,
+      },
+    )
+      .then(async clip => {
+        return {
+          message: 'Updated Playback Type',
+          data: clip,
+        };
+      })
+      .catch(err => {
+        return {
+          message: 'Error in Updating Playback Type' + err,
+          data: null,
+        };
+      });
+  } else {
+    return Audio_Clips.update(
+      {
+        playback_type: playbackType,
+      },
+      {
+        where: {
+          clip_id: clipId,
+        },
+      },
+    )
+      .then(async clip => {
+        return {
+          message: 'Updated Playback Type',
+          data: clip,
+        };
+      })
+      .catch(err => {
+        return {
+          message: 'Error in Updating Playback Type' + err,
+          data: null,
+        };
+      });
+  }
 };
 
 export const processCurrentClip = async data => {
@@ -365,65 +527,123 @@ export const processCurrentClip = async data => {
         const clipStartTime = parseFloat(getClipStartTimeStatus.data).toFixed(2);
         const clipEndTime = Number((parseFloat(clipStartTime) + parseFloat(clipDuration)).toFixed(2));
 
-        // update the path of the audio file, duration, end time, start time of the audio clip in the db
-        return await Audio_Clips.update(
-          {
-            clip_start_time: Number(parseFloat(clipStartTime).toFixed(2)), // rounding the start time
-            clip_audio_path: data.textToSpeechOutput.filepath,
-            clip_duration: parseFloat(clipDuration),
-            clip_end_time: clipEndTime,
-          },
-          {
-            where: {
-              clip_id: data.clip_id,
+        if (CURRENT_DATABASE === 'mongodb') {
+          return MongoAudioClipsModel.updateOne(
+            {
+              _id: data.clip_id,
             },
-            // logging: false,
-          },
-        )
-          .then(async () => {
-            // analyze clip playback type from dialog timestamp & Audio Clips data
-            logger.info('Analyzing clip playback type from dialog timestamp & Audio Clips data');
-            const analysisStatus = await analyzePlaybackType(
-              Number(clipStartTime),
-              clipEndTime,
-              data.video_id,
-              data.ad_id,
-              data.clip_id,
-              true, // passing true as this is processing all audio clips at once
-            );
-            // check if the returned data is null - an error in analyzing Playback type
-            if (analysisStatus.data === null) {
-              return {
-                clip_id: data.clip_id,
-                message: analysisStatus.message,
-              };
-            } else {
-              const playbackType = analysisStatus.data;
-
-              const updatePlaybackStatus = await updatePlaybackinDB(data.clip_id, playbackType);
-              // check if the returned data is null - an error in updatingPlayback type
-              if (updatePlaybackStatus.data === null) {
+            {
+              start_time: Number(parseFloat(clipStartTime).toFixed(2)), // rounding the start time
+              file_path: data.textToSpeechOutput.filepath,
+              duration: parseFloat(clipDuration),
+              end_time: clipEndTime,
+            },
+          )
+            .then(async () => {
+              // analyze clip playback type from dialog timestamp & Audio Clips data
+              logger.info('Analyzing clip playback type from dialog timestamp & Audio Clips data');
+              const analysisStatus = await analyzePlaybackType(
+                Number(clipStartTime),
+                clipEndTime,
+                data.video_id,
+                data.ad_id,
+                data.clip_id,
+                true, // passing true as this is processing all audio clips at once
+              );
+              // check if the returned data is null - an error in analyzing Playback type
+              if (analysisStatus.data === null) {
                 return {
                   clip_id: data.clip_id,
-                  message: updatePlaybackStatus.message,
+                  message: analysisStatus.message,
                 };
               } else {
+                const playbackType = analysisStatus.data;
+
+                const updatePlaybackStatus = await updatePlaybackinDB(data.clip_id, playbackType);
+                // check if the returned data is null - an error in updatingPlayback type
+                if (updatePlaybackStatus.data === null) {
+                  return {
+                    clip_id: data.clip_id,
+                    message: updatePlaybackStatus.message,
+                  };
+                } else {
+                  return {
+                    clip_id: data.clip_id,
+                    message: 'Success OK',
+                    playbackType: playbackType,
+                  };
+                }
+              }
+            })
+            .catch(err => {
+              logger.info(err);
+              return {
+                clip_id: data.clip_id,
+                message: 'Unable to Update DB !! Please try again' + err,
+              };
+              // return the error msg with the clip_id
+            });
+        } else {
+          // update the path of the audio file, duration, end time, start time of the audio clip in the db
+          return await Audio_Clips.update(
+            {
+              clip_start_time: Number(parseFloat(clipStartTime).toFixed(2)), // rounding the start time
+              clip_audio_path: data.textToSpeechOutput.filepath,
+              clip_duration: parseFloat(clipDuration),
+              clip_end_time: clipEndTime,
+            },
+            {
+              where: {
+                clip_id: data.clip_id,
+              },
+              // logging: false,
+            },
+          )
+            .then(async () => {
+              // analyze clip playback type from dialog timestamp & Audio Clips data
+              logger.info('Analyzing clip playback type from dialog timestamp & Audio Clips data');
+              const analysisStatus = await analyzePlaybackType(
+                Number(clipStartTime),
+                clipEndTime,
+                data.video_id,
+                data.ad_id,
+                data.clip_id,
+                true, // passing true as this is processing all audio clips at once
+              );
+              // check if the returned data is null - an error in analyzing Playback type
+              if (analysisStatus.data === null) {
                 return {
                   clip_id: data.clip_id,
-                  message: 'Success OK',
-                  playbackType: playbackType,
+                  message: analysisStatus.message,
                 };
+              } else {
+                const playbackType = analysisStatus.data;
+
+                const updatePlaybackStatus = await updatePlaybackinDB(data.clip_id, playbackType);
+                // check if the returned data is null - an error in updatingPlayback type
+                if (updatePlaybackStatus.data === null) {
+                  return {
+                    clip_id: data.clip_id,
+                    message: updatePlaybackStatus.message,
+                  };
+                } else {
+                  return {
+                    clip_id: data.clip_id,
+                    message: 'Success OK',
+                    playbackType: playbackType,
+                  };
+                }
               }
-            }
-          })
-          .catch(err => {
-            logger.info(err);
-            return {
-              clip_id: data.clip_id,
-              message: 'Unable to Update DB !! Please try again' + err,
-            };
-            // return the error msg with the clip_id
-          });
+            })
+            .catch(err => {
+              logger.info(err);
+              return {
+                clip_id: data.clip_id,
+                message: 'Unable to Update DB !! Please try again' + err,
+              };
+              // return the error msg with the clip_id
+            });
+        }
       }
     }
   }

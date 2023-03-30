@@ -1,18 +1,18 @@
 import { CreateUserAudioDescriptionDto, CreateUserDto } from '../dtos/users.dto';
 import { HttpException } from '../exceptions/HttpException';
-import { IUsers } from '../interfaces/users.interface';
 import { isEmpty } from '../utils/util';
 import { CURRENT_DATABASE } from '../config';
-// import { MongoAudioClipsModel, MongoAudio_Descriptions_Model, MongoUsersModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
-import { PostGres_Users } from '../models/postgres/init-models';
+import { PostGres_Users, UsersAttributes } from '../models/postgres/init-models';
 import { PostGres_Videos } from '../models/postgres/init-models';
 import { PostGres_Audio_Descriptions } from '../models/postgres/init-models';
 import { PostGres_Audio_Clips } from '../models/postgres/init-models';
-import { MongoUsersModel } from '../models/mongodb/init-models.mongo';
+import { MongoAudioClipsModel, MongoAudio_Descriptions_Model, MongoUsersModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
+import { IUser } from '../models/mongodb/User.mongo';
+import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
 class UserService {
-  public async findAllUser(): Promise<IUsers[]> {
+  public async findAllUser(): Promise<IUser[] | UsersAttributes[]> {
     if (CURRENT_DATABASE == 'mongodb') {
-      const users: IUsers[] = await MongoUsersModel.find();
+      const users = await MongoUsersModel.find();
       return users;
     } else {
       const users = await PostGres_Users.findAll();
@@ -20,11 +20,11 @@ class UserService {
     }
   }
 
-  public async findUserByEmail(userEmail: string): Promise<any> {
+  public async findUserByEmail(userEmail: string): Promise<IUser | UsersAttributes> {
     if (isEmpty(userEmail)) throw new HttpException(400, 'UserId is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
-      const findUserByEmail: IUsers = await MongoUsersModel.findOne({
+      const findUserByEmail = await MongoUsersModel.findOne({
         email: userEmail,
       });
       if (!findUserByEmail) throw new HttpException(409, "User doesn't exist");
@@ -38,11 +38,11 @@ class UserService {
     }
   }
 
-  public async createUser(userData: CreateUserDto): Promise<any> {
+  public async createUser(userData: CreateUserDto): Promise<IUser | UsersAttributes> {
     if (isEmpty(userData)) throw new HttpException(400, 'userData is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
-      const findUser: IUsers = await MongoUsersModel.findOne({
+      const findUser = await MongoUsersModel.findOne({
         email: userData.email,
       });
       if (findUser) throw new HttpException(409, `This email ${userData.email} already exists`);
@@ -68,11 +68,11 @@ class UserService {
     }
   }
 
-  public async deleteUser(userEmail: string): Promise<any> {
+  public async deleteUser(userEmail: string): Promise<IUser | UsersAttributes> {
     if (isEmpty(userEmail)) throw new HttpException(400, 'UserEmail is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
-      const deleteUserByEmail: IUsers = await MongoUsersModel.findOneAndDelete({
+      const deleteUserByEmail = await MongoUsersModel.findOneAndDelete({
         email: userEmail,
       });
       if (!deleteUserByEmail) throw new HttpException(409, "User doesn't exist");
@@ -94,53 +94,58 @@ class UserService {
     if (isEmpty(youtubeVideoId)) throw new HttpException(400, 'youtubeVideoId is empty');
     // ##TODO
     if (CURRENT_DATABASE == 'mongodb') {
-      // const videoIdStatus = await MongoVideosModel.findOne({
-      //   where: { youtube_video_id: youtubeVideoId },
-      // });
-      // if (!videoIdStatus) throw new HttpException(409, "Video doesn't exist");
-      // const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
-      //   where: { VideoVideoId: videoIdStatus.video_id, UserUserId: userId },
-      // });
-      // if (checkIfAudioDescriptionExists) throw new HttpException(409, 'Audio Description already exists');
-      // const checkIfAIUserExists = await MongoUsersModel.findOne({
-      //   where: { user_id: aiUserId },
-      // });
-      // if (!checkIfAIUserExists) throw new HttpException(409, "AI User doesn't exist");
-      // const checkIfAIDescriptionsExists = await MongoAudio_Descriptions_Model.findOne({
-      //   where: { VideoVideoId: videoIdStatus.video_id, UserUserId: aiUserId },
-      //   include: [
-      //     {
-      //       model: MongoAudioClipsModel,
-      //       separate: true,
-      //       order: ['clip_start_time'],
-      //       as: 'Audio_Clips',
-      //     },
-      //   ],
-      // });
-      // if (!checkIfAIDescriptionsExists) throw new HttpException(409, "AI Descriptions doesn't exist");
-      // const createNewAudioDescription = await MongoAudio_Descriptions_Model.create({
-      //   VideoVideoId: videoIdStatus.video_id,
-      //   UserUserId: userId,
-      //   is_published: false,
-      // });
-      // if (!createNewAudioDescription) throw new HttpException(409, "Audio Description couldn't be created");
-      // const createNewAudioClips = await MongoAudioClipsModel.insertMany(
-      //   checkIfAIDescriptionsExists.Audio_Clips.map(clip => {
-      //     return {
-      //       clip_title: clip.clip_title,
-      //       description_type: clip.description_type,
-      //       description_text: clip.description_text,
-      //       playback_type: clip.playback_type,
-      //       clip_start_time: clip.clip_start_time,
-      //       is_recorded: false,
-      //     };
-      //   }),
-      // );
-      // if (!createNewAudioClips) throw new HttpException(409, "Audio Clips couldn't be created");
-      // createNewAudioClips.forEach(async clip => {
-      //   createNewAudioDescription.Audio_Clips.push(clip);
-      // });
-      // return createNewAudioDescription.ad_id;
+      const videoIdStatus = await MongoVideosModel.findOne({
+        where: { youtube_video_id: youtubeVideoId },
+      });
+      if (!videoIdStatus) throw new HttpException(409, "Video doesn't exist");
+      const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
+        where: { video: videoIdStatus._id, user: userId },
+      });
+      if (checkIfAudioDescriptionExists) throw new HttpException(409, 'Audio Description already exists');
+      const checkIfAIUserExists = await MongoUsersModel.findOne({
+        where: { user_id: aiUserId },
+      });
+      if (!checkIfAIUserExists) throw new HttpException(409, "AI User doesn't exist");
+      const checkIfAIDescriptionsExists = await MongoAudio_Descriptions_Model.findOne({
+        where: { video: videoIdStatus._id, user: aiUserId },
+      })
+        .populate('Audio_Clips')
+        .exec();
+      if (!checkIfAIDescriptionsExists) throw new HttpException(409, "AI Descriptions doesn't exist");
+      const createNewAudioDescription = await MongoAudio_Descriptions_Model.create({
+        video: videoIdStatus._id,
+        user: userId,
+      });
+      if (!createNewAudioDescription) throw new HttpException(409, "Audio Description couldn't be created");
+
+      const createNewAudioClips = await MongoAudioClipsModel.insertMany(
+        checkIfAIDescriptionsExists.audio_clips.map((clip: IAudioClip) => {
+          return {
+            audio_description: clip._id,
+            created_at: new Date(),
+            description_type: clip.description_type,
+            description_text: clip.description_text,
+            duration: clip.duration,
+            end_time: clip.end_time,
+            file_mime_type: clip.file_mime_type,
+            file_name: clip.file_name,
+            file_path: clip.file_path,
+            file_size_bytes: clip.file_size_bytes,
+            label: clip.label,
+            playback_type: clip.playback_type,
+            start_time: clip.start_time,
+            transcript: [],
+            updated_at: new Date(),
+            user: userId,
+            video: videoIdStatus._id,
+            is_recorded: false,
+          };
+        }),
+      );
+      if (!createNewAudioClips) throw new HttpException(409, "Audio Clips couldn't be created");
+      createNewAudioClips.forEach(async clip => createNewAudioDescription.audio_clips.push(clip));
+      createNewAudioDescription.save();
+      return createNewAudioDescription._id;
     } else {
       // Check if Video exists
       const videoIdStatus = await PostGres_Videos.findOne({

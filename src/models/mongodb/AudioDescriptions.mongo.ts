@@ -1,8 +1,9 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { IAudioClip } from './AudioClips.mongo';
 
 interface IAudioDescription extends Document {
   admin_review: boolean;
-  audio_clips: string[];
+  audio_clips: Array<IAudioClip['_id']>;
   created_at: Date;
   language: string;
   legacy_notes: string;
