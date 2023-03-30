@@ -12,9 +12,7 @@ class DialogTimestampsService {
     if (isEmpty(videoId)) throw new HttpException(400, 'videoId is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
-      const findYTVideoId = await MongoVideosModel.findById(videoId);
-      if (!findYTVideoId) throw new HttpException(409, "YouTube Video doesn't exist");
-      const findDialogTimestampsById = await MongoDialog_Timestamps_Model.find({ youtube_video_id: findYTVideoId.youtube_id });
+      const findDialogTimestampsById = await MongoDialog_Timestamps_Model.find({ video: videoId });
       if (!findDialogTimestampsById) throw new HttpException(409, "Dialog Timestamp for this YouTube Video doesn't exist");
       return findDialogTimestampsById;
     } else {

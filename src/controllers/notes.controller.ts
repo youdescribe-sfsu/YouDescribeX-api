@@ -1,8 +1,8 @@
 import { NextFunction, Request, Response } from 'express';
 import { NotesAttributes } from '../models/postgres/Notes';
 import NotesService from '../services/notes.service';
-import { INotes } from '../interfaces/notes.interface';
 import { PostNoteByAdIdDto } from '../dtos/notes.dto';
+import { INotes } from '../models/mongodb/Notes.mongo';
 
 class NotesController {
   public notesService = new NotesService();
@@ -10,7 +10,7 @@ class NotesController {
   public postNoteByAdId = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const notesBody: PostNoteByAdIdDto = req.body;
-      const videoByYoutubeID: INotes | NotesAttributes | number = await this.notesService.postNoteByAdId(notesBody);
+      const videoByYoutubeID: any = await this.notesService.postNoteByAdId(notesBody);
       if (typeof videoByYoutubeID === 'number') {
         res.status(200).json({
           data: {
@@ -25,7 +25,7 @@ class NotesController {
             notes_id: notesBody.noteId,
             ad_id: notesBody.adId,
           },
-          noteId: videoByYoutubeID.notes_id,
+          noteId: videoByYoutubeID.notes_id || videoByYoutubeID._id,
           message: 'created',
         });
       }

@@ -5,14 +5,14 @@ import { PostGres_Notes, PostGres_Users, UsersAttributes, VideosAttributes } fro
 import { PostGres_Videos } from '../models/postgres/init-models';
 import { PostGres_Audio_Descriptions } from '../models/postgres/init-models';
 import { PostGres_Audio_Clips } from '../models/postgres/init-models';
-import { IVideos } from '../interfaces/videos.interface';
 import { MongoAudioClipsModel, MongoAudio_Descriptions_Model, MongoNotesModel, MongoUsersModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
+import { IVideo } from '../models/mongodb/Videos.mongo';
 class VideosService {
-  public async getVideobyYoutubeId(youtubeId: string): Promise<IVideos | VideosAttributes> {
+  public async getVideobyYoutubeId(youtubeId: string): Promise<IVideo | VideosAttributes> {
     if (isEmpty(youtubeId)) throw new HttpException(400, 'youtubeId is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
-      const findVideoById: IVideos = await MongoVideosModel.findOne({
+      const findVideoById = await MongoVideosModel.findOne({
         youtube_id: youtubeId,
       });
       if (!findVideoById) throw new HttpException(409, "YouTube Video doesn't exist");
@@ -26,11 +26,11 @@ class VideosService {
     }
   }
 
-  public async deleteVideoForUser(youtubeId: string, userId: string): Promise<IVideos | VideosAttributes> {
+  public async deleteVideoForUser(youtubeId: string, userId: string): Promise<IVideo | VideosAttributes> {
     if (isEmpty(youtubeId)) throw new HttpException(400, 'youtubeId is empty');
     if (isEmpty(userId)) throw new HttpException(400, 'userId is empty');
     if (CURRENT_DATABASE == 'mongodb') {
-      const videoById: IVideos = await MongoVideosModel.findOne({
+      const videoById = await MongoVideosModel.findOne({
         youtube_id: youtubeId,
       });
       if (!videoById) throw new HttpException(409, "Video doesn't exist");
@@ -39,7 +39,7 @@ class VideosService {
       if (!userById) throw new HttpException(409, "User doesn't exist");
 
       const audioDescriptions = await MongoAudio_Descriptions_Model.findOne({
-        where: { user: userId, video: videoById.video_id },
+        where: { user: userId, video: videoById._id },
       });
       if (!audioDescriptions) throw new HttpException(409, "Audio Description doesn't exist");
 
@@ -56,13 +56,13 @@ class VideosService {
           where: { audio_description: audioDescriptions._id },
         });
       await MongoAudioClipsModel.deleteOne({
-        where: { audio_description: audioDescriptions._id, user: userId, video: videoById.video_id },
+        where: { audio_description: audioDescriptions._id, user: userId, video: videoById._id },
       });
       await MongoAudio_Descriptions_Model.deleteOne({
         where: { ad_id: audioDescriptions._id, user: userId },
       });
       await MongoVideosModel.deleteOne({
-        where: { youtube_id: videoById.video_id },
+        where: { youtube_id: videoById._id },
       });
       return videoById;
     } else {

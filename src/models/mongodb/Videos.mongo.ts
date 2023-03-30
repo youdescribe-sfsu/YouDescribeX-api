@@ -1,7 +1,8 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { IAudioDescription } from './AudioDescriptions.mongo';
 
 interface IVideo extends Document {
-  audio_descriptions: string[];
+  audio_descriptions: Array<IAudioDescription['_id']>;
   category: string;
   category_id: number;
   created_at: Date;
@@ -35,6 +36,7 @@ const VideoSchema: Schema = new Schema(
     created_at: {
       type: Date,
       required: true,
+      default: () => new Date(),
     },
     custom_tags: [
       {

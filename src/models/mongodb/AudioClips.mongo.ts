@@ -8,8 +8,8 @@ interface ITranscript {
 }
 
 interface IAudioClip extends Document {
-  _id: string;
-  audio_description: string;
+  // _id: string;
+  audio_description: Schema.Types.ObjectId;
   created_at: Date;
   description_type: string;
   description_text: string;
@@ -30,10 +30,10 @@ interface IAudioClip extends Document {
 
 const AudioClipSchema: Schema = new Schema(
   {
-    _id: {
-      type: String,
-      default: () => new mongoose.Types.ObjectId().toString(),
-    },
+    // _id: {
+    //   type: String,
+    //   default: () => new mongoose.Types.ObjectId().toString(),
+    // },
     audio_description: {
       type: Schema.Types.ObjectId,
       ref: 'AudioDescription',

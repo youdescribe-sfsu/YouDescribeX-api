@@ -1,4 +1,5 @@
 import { model } from 'mongoose';
+import { logger } from '../../utils/logger';
 import AdminSchema, { IAdmin } from './Admin.mongo';
 import AudioClipSchema, { IAudioClip } from './AudioClips.mongo';
 import AudioDescriptionRatingSchema, { IAudioDescriptionRating } from './AudioDescriptionRating.mongo';
@@ -17,25 +18,75 @@ import VisitSchema, { IVisit } from './Visit.mongo';
 import WishlistSchema, { IWishList } from './Wishlist.mongo';
 
 function initModels() {
-  const Admin = model<IAdmin>('Admin', AdminSchema);
-  const UserModel = model<IUser>('User', UserSchema);
   const VideosModel = model<IVideo>('Video', VideoSchema);
+  const UserModel = model<IUser>('User', UserSchema);
   const Dialog_Timestamps = model<DialogTimestamps>('Dialog_Timestamps', DialogTimestampsSchema);
-  const AudioDescriptionRating = model<IAudioDescriptionRating>('AudioDescriptionRating', AudioDescriptionRatingSchema);
-  const Category = model<ICategory>('Category', CategorySchema);
-
   const AudioDescriptionModel = model<IAudioDescription>('AudioDescription', AudioDescriptionsSchema);
   const NotesModel = model<INotes>('Notes', NotesSchema);
-
   const AudioClipModel = model<IAudioClip>('AudioClip', AudioClipSchema);
   const ParticipantsModel = model<ParticipantsAttributes>('Participants', ParticipantsSchema);
   const TimingsModel = model<TimingsDocument>('Timings', TimingSchema);
+  const Admin = model<IAdmin>('Admin', AdminSchema);
+  const AudioDescriptionRating = model<IAudioDescriptionRating>('AudioDescriptionRating', AudioDescriptionRatingSchema);
+  const Category = model<ICategory>('Category', CategorySchema);
   const Language = model<ILanguage>('Language', LanguageSchema);
   const Transcription = model<ITranscription>('Transcription', TranscriptionSchema);
 
   const UserVotesModel = model<IUserVotes>('UserVotes', UserVotesSchema);
   const VisitModel = model<IVisit>('Visit', VisitSchema);
   const WishListModel = model<IWishList>('WishList', WishlistSchema);
+
+  logger.info('MongoDB Models initialized');
+  logger.info(JSON.stringify(AudioClipModel.schema));
+  VideosModel.createCollection().then(function (collection) {
+    console.log('Video COnnection is created!');
+  });
+  UserModel.createCollection().then(function (collection) {
+    console.log('User COnnection is created!');
+  });
+  Dialog_Timestamps.createCollection().then(function (collection) {
+    console.log('Dialog_Timestamps COnnection is created!');
+  });
+
+  Admin.createCollection().then(function (collection) {
+    console.log('Admin COnnection is created!');
+  });
+  AudioDescriptionRating.createCollection().then(function (collection) {
+    console.log('AudioDescriptionRating COnnection is created!');
+  });
+  Category.createCollection().then(function (collection) {
+    console.log('Category COnnection is created!');
+  });
+  AudioDescriptionModel.createCollection().then(function (collection) {
+    console.log('AudioDescriptionModel COnnection is created!');
+  });
+  NotesModel.createCollection().then(function (collection) {
+    console.log('NotesModel COnnection is created!');
+  });
+  AudioClipModel.createCollection().then(function (collection) {
+    console.log('AudioClipModel COnnection is created!');
+  });
+  ParticipantsModel.createCollection().then(function (collection) {
+    console.log('ParticipantsModel COnnection is created!');
+  });
+  TimingsModel.createCollection().then(function (collection) {
+    console.log('TimingsModel COnnection is created!');
+  });
+  Language.createCollection().then(function (collection) {
+    console.log('Language COnnection is created!');
+  });
+  Transcription.createCollection().then(function (collection) {
+    console.log('Transcription COnnection is created!');
+  });
+  UserVotesModel.createCollection().then(function (collection) {
+    console.log('UserVotesModel COnnection is created!');
+  });
+  VisitModel.createCollection().then(function (collection) {
+    console.log('VisitModel COnnection is created!');
+  });
+  WishListModel.createCollection().then(function (collection) {
+    console.log('WishListModel COnnection is created!');
+  });
 
   // videosSchema.virtual('AudioDescriptions', {
   //     ref: 'AudioDescriptions',

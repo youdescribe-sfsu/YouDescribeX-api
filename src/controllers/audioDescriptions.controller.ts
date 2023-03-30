@@ -1,7 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
-import { Audio_DescriptionsAttributes } from '../models/postgres/Audio_Descriptions';
 import AudioDescriptionsService from '../services/audioDescriptions.service';
-import { IAudioDescriptions } from '../interfaces/audioDescriptions.interface';
 import { NewAiDescriptionDto } from '../dtos/audioDescriptions.dto';
 
 class AudioDescripionsController {
@@ -11,10 +9,7 @@ class AudioDescripionsController {
     try {
       const videoId: string = req.params.videoId;
       const userId: string = req.params.userId;
-      const userAudioDescriptions: IAudioDescriptions | Audio_DescriptionsAttributes = await this.audioDescriptionsService.getUserAudioDescriptionData(
-        videoId,
-        userId,
-      );
+      const userAudioDescriptions = await this.audioDescriptionsService.getUserAudioDescriptionData(videoId, userId);
 
       res.status(200).json(userAudioDescriptions);
     } catch (error) {
@@ -25,7 +20,7 @@ class AudioDescripionsController {
   public newAiDescription = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const newAiDescriptionData: NewAiDescriptionDto = req.body;
-      const newAIDescription: IAudioDescriptions | Audio_DescriptionsAttributes = await this.audioDescriptionsService.newAiDescription(newAiDescriptionData);
+      const newAIDescription = await this.audioDescriptionsService.newAiDescription(newAiDescriptionData);
       res.status(200).json(newAIDescription);
     } catch (error) {
       next(error);
