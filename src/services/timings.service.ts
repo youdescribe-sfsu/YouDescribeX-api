@@ -14,7 +14,7 @@ class TimingsService {
     if (CURRENT_DATABASE == 'mongodb') {
       const addTotalTime = await MongoTimingsModel.create({
         ParticipantParticipantId: participant_id,
-        youtube_video_id: video_id,
+        youtube_id: video_id,
         total_time: time,
       });
       if (!addTotalTime) throw new HttpException(409, 'Unable To add total time');

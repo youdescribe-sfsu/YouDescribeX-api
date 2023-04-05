@@ -47,10 +47,10 @@ class UserService {
       });
       if (findUser) throw new HttpException(409, `This email ${userData.email} already exists`);
       const createUserData = await MongoUsersModel.create({
-        user_type: 'volunteer',
+        user_type: userData.isAI ? 'AI' : 'Volunteer',
         admin_level: 0,
         email: userData.email,
-        alias: userData.name,
+        name: userData.name,
         // TODO: add the rest of the fields
       });
       return createUserData;
@@ -94,56 +94,66 @@ class UserService {
     if (isEmpty(youtubeVideoId)) throw new HttpException(400, 'youtubeVideoId is empty');
     // ##TODO
     if (CURRENT_DATABASE == 'mongodb') {
-      const videoIdStatus = await MongoVideosModel.findOne({
-        where: { youtube_video_id: youtubeVideoId },
-      });
+      const videoIdStatus = await MongoVideosModel.findOne({ youtube_id: youtubeVideoId });
       if (!videoIdStatus) throw new HttpException(409, "Video doesn't exist");
       const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
-        where: { video: videoIdStatus._id, user: userId },
+        video: videoIdStatus._id,
+        user: userId,
       });
       if (checkIfAudioDescriptionExists) throw new HttpException(409, 'Audio Description already exists');
-      const checkIfAIUserExists = await MongoUsersModel.findOne({
-        where: { user_id: aiUserId },
-      });
+      const checkIfAIUserExists = await MongoUsersModel.findById(aiUserId);
       if (!checkIfAIUserExists) throw new HttpException(409, "AI User doesn't exist");
       const checkIfAIDescriptionsExists = await MongoAudio_Descriptions_Model.findOne({
-        where: { video: videoIdStatus._id, user: aiUserId },
+        video: videoIdStatus._id,
+        user: aiUserId,
       })
-        .populate('Audio_Clips')
+        .populate({ path: 'AudioClip', strictPopulate: false })
         .exec();
       if (!checkIfAIDescriptionsExists) throw new HttpException(409, "AI Descriptions doesn't exist");
-      const createNewAudioDescription = await MongoAudio_Descriptions_Model.create({
+      const createNewAudioDescription = new MongoAudio_Descriptions_Model({
+        admin_review: false,
+        audio_clips: [],
+        created_at: new Date(),
+        language: 'en',
+        legacy_notes: '',
+        updated_at: new Date(),
         video: videoIdStatus._id,
         user: userId,
       });
       if (!createNewAudioDescription) throw new HttpException(409, "Audio Description couldn't be created");
 
-      const createNewAudioClips = await MongoAudioClipsModel.insertMany(
-        checkIfAIDescriptionsExists.audio_clips.map((clip: IAudioClip) => {
-          return {
-            audio_description: clip._id,
-            created_at: new Date(),
-            description_type: clip.description_type,
-            description_text: clip.description_text,
-            duration: clip.duration,
-            end_time: clip.end_time,
-            file_mime_type: clip.file_mime_type,
-            file_name: clip.file_name,
-            file_path: clip.file_path,
-            file_size_bytes: clip.file_size_bytes,
-            label: clip.label,
-            playback_type: clip.playback_type,
-            start_time: clip.start_time,
-            transcript: [],
-            updated_at: new Date(),
-            user: userId,
-            video: videoIdStatus._id,
-            is_recorded: false,
-          };
-        }),
-      );
+      const audioClipArray = [];
+
+      for (let i = 0; i < checkIfAIDescriptionsExists.audio_clips.length; i++) {
+        const clip = await MongoAudioClipsModel.findById(checkIfAIDescriptionsExists.audio_clips[i]);
+        const createNewAudioClip = new MongoAudioClipsModel({
+          audio_description: createNewAudioDescription._id,
+          created_at: new Date(),
+          description_type: clip.description_type,
+          description_text: clip.description_text,
+          duration: clip.duration,
+          end_time: clip.end_time,
+          file_mime_type: clip.file_mime_type,
+          file_name: clip.file_name,
+          file_path: clip.file_path,
+          file_size_bytes: clip.file_size_bytes,
+          label: clip.label,
+          playback_type: clip.playback_type,
+          start_time: clip.start_time,
+          transcript: [],
+          updated_at: new Date(),
+          user: userId,
+          video: videoIdStatus._id,
+          is_recorded: false,
+        });
+        if (!createNewAudioClip) throw new HttpException(409, "Audio Clip couldn't be created");
+        audioClipArray.push(createNewAudioClip);
+      }
+
+      const createNewAudioClips = await MongoAudioClipsModel.insertMany(audioClipArray);
       if (!createNewAudioClips) throw new HttpException(409, "Audio Clips couldn't be created");
       createNewAudioClips.forEach(async clip => createNewAudioDescription.audio_clips.push(clip));
+      createNewAudioClips.forEach(async clip => clip.save());
       createNewAudioDescription.save();
       return createNewAudioDescription._id;
     } else {

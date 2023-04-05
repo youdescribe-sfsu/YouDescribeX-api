@@ -28,19 +28,19 @@ const UserSchema: Schema = new Schema(
     },
     alias: {
       type: String,
-      required: true,
+      required: false,
     },
     google_user_id: {
       type: String,
-      required: true,
+      required: false,
     },
     last_login: {
       type: Date,
-      required: true,
+      required: false,
     },
     dialects: {
       type: String,
-      required: true,
+      required: false,
     },
     name: {
       type: String,
@@ -49,22 +49,23 @@ const UserSchema: Schema = new Schema(
     opt_in: {
       type: Boolean,
       required: true,
+      default: false,
     },
     picture: {
       type: String,
-      required: true,
+      required: false,
     },
     policy_review: {
       type: Boolean,
-      required: true,
+      required: false,
     },
     token: {
       type: String,
-      required: true,
+      required: false,
     },
     updated_at: {
       type: Date,
-      required: true,
+      required: false,
     },
     user_type: {
       type: String,

@@ -30,10 +30,6 @@ interface IAudioClip extends Document {
 
 const AudioClipSchema: Schema = new Schema(
   {
-    // _id: {
-    //   type: String,
-    //   default: () => new mongoose.Types.ObjectId().toString(),
-    // },
     audio_description: {
       type: Schema.Types.ObjectId,
       ref: 'AudioDescription',
@@ -52,27 +48,27 @@ const AudioClipSchema: Schema = new Schema(
     },
     duration: {
       type: Number,
-      required: true,
+      required: false,
     },
     end_time: {
       type: Number,
-      required: true,
+      required: false,
     },
     file_mime_type: {
       type: String,
-      required: true,
+      required: false,
     },
     file_name: {
       type: String,
-      required: true,
+      required: false,
     },
     file_path: {
       type: String,
-      required: true,
+      required: false,
     },
     file_size_bytes: {
       type: Number,
-      required: true,
+      required: false,
     },
     label: {
       type: String,

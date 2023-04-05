@@ -16,7 +16,15 @@ class VideosService {
         youtube_id: youtubeId,
       });
       if (!findVideoById) throw new HttpException(409, "YouTube Video doesn't exist");
-      return findVideoById;
+      const return_val = {
+        video_id: findVideoById._id,
+        youtube_video_id: findVideoById.youtube_id,
+        video_name: findVideoById.title,
+        video_length: findVideoById.duration,
+        createdAt: findVideoById.created_at,
+        updatedAt: findVideoById.updated_at,
+      };
+      return return_val;
     } else {
       const findVideoById: VideosAttributes = await PostGres_Videos.findOne({
         where: { youtube_video_id: youtubeId },
