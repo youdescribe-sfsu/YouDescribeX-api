@@ -15,9 +15,9 @@ import {
   processCurrentClip,
 } from './audioClips.util';
 import { logger } from '../utils/logger';
-import { MongoAudioClipsModel, MongoAudio_Descriptions_Model } from '../models/mongodb/init-models.mongo';
+import { MongoAudioClipsModel, MongoAudio_Descriptions_Model, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
-import { Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
 
 interface IProcessedClips {
@@ -75,26 +75,42 @@ class AudioClipsService {
     if (CURRENT_DATABASE == 'mongodb') {
       const audioDescriptions = await MongoAudioClipsModel.find({
         audio_description: audioDescriptionAdId,
-      })
-        .populate({
-          path: 'audio_description',
-          model: MongoAudio_Descriptions_Model,
-          // as: 'Audio_Description',
-          select: 'user video',
-          populate: {
-            path: 'video',
-            // as: 'Video',
-            select: 'youtube_id duration',
-          },
-        })
-        .exec();
+      });
       if (!audioDescriptions) throw new HttpException(409, "Audio Descriptions couldn't be found");
-      const nudgeStatus = await nudgeStartTimeIfZero(audioDescriptions);
-      // console.log(audioDescriptions);
-      logger.info(audioDescriptions);
+      const populatedAudioClip: PopulatedAudioDescription[] = [];
+      for (let i = 0; i < audioDescriptions.length; i++) {
+        const audioDescription: IAudioClip = audioDescriptions[i];
+        const populatedAudioDescription = await MongoAudio_Descriptions_Model.findById(audioDescription.audio_description);
+        const populatedVideo = await MongoVideosModel.findById(populatedAudioDescription.video);
+        const obj = {
+          _id: audioDescription._id,
+          audio_description: audioDescription.audio_description,
+          created_at: audioDescription.created_at,
+          description_type: audioDescription.description_type,
+          description_text: audioDescription.description_text,
+          label: audioDescription.label,
+          playback_type: audioDescription.playback_type,
+          start_time: audioDescription.start_time,
+          transcript: audioDescription.transcript,
+          updated_at: audioDescription.updated_at,
+          user: audioDescription.user,
+          video: audioDescription.video,
+          Audio_Description: {
+            user: populatedAudioDescription.user,
+            video: populatedAudioDescription.video,
+            Video: {
+              youtube_id: populatedVideo.youtube_id,
+              duration: populatedVideo.duration,
+            },
+          },
+        } as PopulatedAudioDescription;
+        populatedAudioClip.push(obj);
+      }
+
+      const nudgeStatus = await nudgeStartTimeIfZero(populatedAudioClip);
       if (nudgeStatus.data === null) throw new HttpException(409, nudgeStatus.message);
-      const descriptionTexts = audioDescriptions.map(clip => {
-        const typeCastedClip = clip as unknown as PopulatedAudioDescription;
+      const descriptionTexts = populatedAudioClip.map(clip => {
+        const typeCastedClip = clip;
         return {
           clip_id: typeCastedClip._id,
           clip_description_type: typeCastedClip.description_type,
@@ -106,20 +122,22 @@ class AudioClipsService {
         };
       });
       const statusData = [];
-      const generateMp3Status = await Promise.all(
-        descriptionTexts.map(async desc => {
-          const data = {
-            textToSpeechOutput: await generateMp3forDescriptionText(desc.user_id, desc.youtube_id, desc.clip_description_text, desc.clip_description_type),
-            clip_id: desc.clip_id,
-            video_id: desc.video_id,
-            ad_id: audioDescriptionAdId,
-            description_type: desc.clip_description_type,
-            video_length: desc.video_length,
-          };
-          statusData.push(data);
-        }),
-      );
-      if (!generateMp3Status) throw new HttpException(409, "Audio Descriptions couldn't be generated");
+
+      for (let index = 0; index < descriptionTexts.length; index++) {
+        const desc = descriptionTexts[index];
+        const textToSpeechOutput = await generateMp3forDescriptionText(desc.user_id, desc.youtube_id, desc.clip_description_text, desc.clip_description_type);
+        const data = {
+          textToSpeechOutput,
+          clip_id: desc.clip_id,
+          video_id: desc.video_id,
+          ad_id: audioDescriptionAdId,
+          description_type: desc.clip_description_type,
+          video_length: desc.video_length,
+        };
+        statusData.push(data);
+      }
+
+      if (statusData.some(data => !data.textToSpeechOutput.status)) throw new HttpException(409, "Audio Descriptions couldn't be generated");
       const updateStatusOfAllClips: IProcessedClips[] = [];
       await Promise.all(
         statusData.map(async data => {

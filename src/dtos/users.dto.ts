@@ -1,10 +1,12 @@
-import { IsEmail, IsString } from 'class-validator';
+import { IsBoolean, IsEmail, IsString } from 'class-validator';
 
 export class CreateUserDto {
   @IsEmail()
   public email: string;
   @IsString()
   public name: string;
+  @IsBoolean()
+  public isAI: boolean;
 }
 
 export class CreateUserAudioDescriptionDto {

@@ -13,7 +13,6 @@ class AudioClipsRoute implements Routes {
   }
 
   private initializeRoutes() {
-    console.log(``);
     this.router.get(`${this.path}/processAllClipsInDB/:adId`, this.audioClipController.processAllClipsInDB);
     this.router.put(`${this.path}/update-clip-title/:clipId`, this.audioClipController.updateAudioClipTitle);
     this.router.put(`${this.path}/update-clip-playback-type/:clipId`, this.audioClipController.updateAudioClipPlaybackType);

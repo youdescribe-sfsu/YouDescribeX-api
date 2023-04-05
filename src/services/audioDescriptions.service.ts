@@ -2,6 +2,7 @@ import {
   MongoAudioClipsModel,
   MongoAudio_Descriptions_Model,
   MongoDialog_Timestamps_Model,
+  MongoNotesModel,
   MongoUsersModel,
   MongoVideosModel,
 } from '../models/mongodb/init-models.mongo';
@@ -20,6 +21,7 @@ import {
 import { logger } from '../utils/logger';
 import { isEmpty } from '../utils/util';
 import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
+import { ObjectId } from 'mongodb';
 
 const fs = require('fs');
 
@@ -29,14 +31,49 @@ class AudioDescriptionsService {
     if (isEmpty(userId)) throw new HttpException(400, 'User ID is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
-      const audioDescription = await MongoAudio_Descriptions_Model.findOne({
+      const audioDescriptions = await MongoAudio_Descriptions_Model.findOne({
         video: videoId,
         user: userId,
-      })
-        .populate('audio_clips')
-        .populate('dialog_timestamps')
-        .exec();
-      return audioDescription;
+      });
+      console.log(audioDescriptions);
+      if (!audioDescriptions) throw new HttpException(409, "Audio Description for this YouTube Video doesn't exist");
+      const audio_clips = audioDescriptions.audio_clips;
+      const newAudioClipArr = [];
+      for (let i = 0; i < audio_clips.length; i++) {
+        const audioClip = audio_clips[i];
+        console.log('audioClip', audioClip);
+        const findAudioClip = await MongoAudioClipsModel.findById(audioClip);
+        const transformedAudioClip = {
+          clip_id: findAudioClip._id,
+          clip_title: findAudioClip.label,
+          description_type: findAudioClip.description_type,
+          description_text: findAudioClip.description_text,
+          playback_type: findAudioClip.playback_type,
+          clip_start_time: findAudioClip.start_time,
+          clip_end_time: findAudioClip.end_time,
+          clip_duration: findAudioClip.duration,
+          clip_audio_path: findAudioClip.file_path,
+          is_recorded: false,
+          createdAt: findAudioClip.created_at,
+          updatedAt: findAudioClip.updated_at,
+          AudioDescriptionAdId: audioClip,
+        };
+        newAudioClipArr.push(transformedAudioClip);
+      }
+
+      const notes = await MongoNotesModel.find({ audio_description: audioDescriptions._id });
+      const newObj = {
+        Audio_Clips: newAudioClipArr,
+        Notes: notes,
+        UserUserId: userId,
+        VideoVideoId: videoId,
+        ad_id: audioDescriptions._id,
+        createdAt: audioDescriptions.created_at,
+        updatedAt: audioDescriptions.updated_at,
+        is_published: true,
+      };
+
+      return newObj;
     } else {
       const audioDescriptions: Audio_DescriptionsAttributes = await PostGres_Audio_Descriptions.findOne({
         where: {
@@ -62,44 +99,44 @@ class AudioDescriptionsService {
   }
 
   public async newAiDescription(newAIDescription: NewAiDescriptionDto): Promise<IAudioDescription | Audio_DescriptionsAttributes> {
-    const { dialog_timestamps, audio_clips, aiUserId = 'db72cc2a-b054-4b00-9f85-851b45649be0', youtube_id, video_name, video_length } = newAIDescription;
-    if (isEmpty(dialog_timestamps)) throw new HttpException(400, 'dialog is empty');
+    const { dialogue_timestamps, audio_clips, aiUserId = 'db72cc2a-b054-4b00-9f85-851b45649be0', youtube_id, video_name, video_length } = newAIDescription;
+    if (isEmpty(dialogue_timestamps)) throw new HttpException(400, 'dialog is empty');
     if (isEmpty(audio_clips)) throw new HttpException(400, 'audio clips is empty');
     if (isEmpty(youtube_id)) throw new HttpException(400, 'youtube video id is empty');
     if (isEmpty(video_name)) throw new HttpException(400, 'video name is empty');
     if (isEmpty(video_length)) throw new HttpException(400, 'video length is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
-      const aiUser = await MongoUsersModel.findById(aiUserId);
+      const aiUserObjectId = new ObjectId(aiUserId);
+      const aiUser = await MongoUsersModel.findById(aiUserObjectId);
       if (!aiUser) throw new HttpException(404, "ai User doesn't exist");
-      let vid: any = await MongoVideosModel.find({ youtube_video_id: youtube_id });
-      if (!vid) throw new HttpException(404, "Video doesn't exist");
+      let vid: any = await MongoVideosModel.findOne({ youtube_id: youtube_id });
       const ad = new MongoAudio_Descriptions_Model();
       if (!ad) throw new HttpException(409, "Audio Descriptions couldn't be created");
       if (vid) {
         ad.set('video', vid._id);
       } else {
-        const newVid = new MongoVideosModel();
-        newVid.set('audio_descriptions', []);
-        newVid.set('category', '');
-        newVid.set('category_id', 0);
-        newVid.set('youtube_id', youtube_id);
-        newVid.set('title', video_name);
-        newVid.set('duration', video_length);
-        newVid.set('description', '');
-        newVid.set('tags', []);
-        newVid.set('custom_tags', []);
-        newVid.set('views', 0);
-        newVid.set('youtube_status', 'ready');
-        newVid.set('updated_at', new Date());
-
+        const newVid = new MongoVideosModel({
+          audio_descriptions: [],
+          category: '',
+          category_id: 0,
+          youtube_id: youtube_id,
+          title: video_name,
+          duration: video_length,
+          description: '',
+          tags: [],
+          custom_tags: [],
+          views: 0,
+          youtube_status: 'ready',
+          updated_at: new Date(),
+        });
         const newSavedVideo = await newVid.save();
         if (!newSavedVideo) throw new HttpException(409, "Video couldn't be created");
         ad.set('video', newSavedVideo._id);
-        vid = newVid;
+        vid = newSavedVideo;
       }
       ad.set('user', aiUser);
-      const new_clip = await MongoAudioClipsModel.create(
+      const new_clip = await MongoAudioClipsModel.insertMany(
         audio_clips.map(clip => {
           return {
             audio_description: ad._id,
@@ -114,11 +151,16 @@ class AudioDescriptionsService {
         }),
       );
       if (!new_clip) throw new HttpException(409, "Audio Clips couldn't be created");
+      ad.set(
+        'audio_clips',
+        new_clip.map(clip => clip._id),
+      );
 
       const new_timestamp = await MongoDialog_Timestamps_Model.create(
-        dialog_timestamps.map(timestamp => {
+        dialogue_timestamps.map(timestamp => {
           return {
             video: vid,
+            dialog_sequence_num: timestamp.sequence_num,
             dialog_start_time: timestamp.start_time,
             dialog_end_time: timestamp.end_time,
             dialog_duration: timestamp.duration,
@@ -126,6 +168,8 @@ class AudioDescriptionsService {
         }),
       );
       if (!new_timestamp) throw new HttpException(409, "Dialog Timestamps couldn't be created");
+
+      ad.save();
       return ad;
     } else {
       const aiUser = await PostGres_Users.findOne({
@@ -138,7 +182,6 @@ class AudioDescriptionsService {
       let vid = await PostGres_Videos.findOne({
         where: { youtube_video_id: youtube_id },
       });
-      if (!vid) throw new HttpException(404, "Video doesn't exist");
 
       const ad = await PostGres_Audio_Descriptions.create({
         is_published: false,
@@ -174,7 +217,7 @@ class AudioDescriptionsService {
       if (!new_clip) throw new HttpException(409, "Audio Clips couldn't be created");
 
       const new_timestamp = await PostGres_Dialog_Timestamps.bulkCreate(
-        dialog_timestamps.map(timestamp => {
+        dialogue_timestamps.map(timestamp => {
           return {
             dialog_sequence_num: timestamp.sequence_num,
             dialog_start_time: timestamp.start_time,

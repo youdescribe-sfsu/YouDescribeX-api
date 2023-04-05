@@ -67,7 +67,7 @@ class UsersController {
 
   public getUserByEmail = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userEmail: string = req.params.email;
+      const userEmail: string = req.query.email as string;
       const findOneUserData = await this.userService.findUserByEmail(userEmail);
 
       res.status(200).json({ data: findOneUserData, message: 'findOne' });

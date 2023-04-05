@@ -27,11 +27,11 @@ const VideoSchema: Schema = new Schema(
     ],
     category: {
       type: String,
-      required: true,
+      required: false,
     },
     category_id: {
       type: Number,
-      required: true,
+      required: false,
     },
     created_at: {
       type: Date,
@@ -46,7 +46,7 @@ const VideoSchema: Schema = new Schema(
     ],
     description: {
       type: String,
-      required: true,
+      required: false,
     },
     duration: {
       type: Number,
@@ -55,7 +55,7 @@ const VideoSchema: Schema = new Schema(
     tags: [
       {
         type: String,
-        required: true,
+        required: false,
       },
     ],
     title: {

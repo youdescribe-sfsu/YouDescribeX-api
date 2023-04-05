@@ -19,10 +19,6 @@ interface IAudioDescription extends Document {
 
 const AudioDescriptionSchema: Schema = new Schema(
   {
-    _id: {
-      type: String,
-      default: () => new mongoose.Types.ObjectId().toString(),
-    },
     admin_review: {
       type: Boolean,
       default: false,
@@ -39,7 +35,7 @@ const AudioDescriptionSchema: Schema = new Schema(
     },
     language: {
       type: String,
-      required: true,
+      required: false,
     },
     legacy_notes: {
       type: String,
@@ -59,6 +55,7 @@ const AudioDescriptionSchema: Schema = new Schema(
     status: {
       type: String,
       required: true,
+      default: 'draft',
     },
     updated_at: {
       type: Date,

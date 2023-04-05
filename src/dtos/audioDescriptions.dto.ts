@@ -15,7 +15,7 @@ interface Dialog {
 }
 
 export class NewAiDescriptionDto {
-  public dialog_timestamps: Array<Dialog>;
+  public dialogue_timestamps: Array<Dialog>;
   public audio_clips: Array<AudioClips>;
   @IsString()
   public aiUserId: string;

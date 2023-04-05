@@ -6,7 +6,7 @@ import AudioDescriptionRatingSchema, { IAudioDescriptionRating } from './AudioDe
 import AudioDescriptionsSchema, { IAudioDescription } from './AudioDescriptions.mongo';
 import CategorySchema, { ICategory } from './Category.mongo';
 import DialogTimestampsSchema, { DialogTimestamps } from './DialogTimeStamps.mongo';
-import LanguageSchema, { ILanguage } from './language.mongo';
+import LanguageSchema, { ILanguage } from './Language.mongo';
 import NotesSchema, { INotes } from './Notes.mongo';
 import ParticipantsSchema, { ParticipantsAttributes } from './Participants.mongo';
 import TimingSchema, { TimingsDocument } from './Timings.mongo';
@@ -36,57 +36,57 @@ function initModels() {
   const VisitModel = model<IVisit>('Visit', VisitSchema);
   const WishListModel = model<IWishList>('WishList', WishlistSchema);
 
-  logger.info('MongoDB Models initialized');
-  logger.info(JSON.stringify(AudioClipModel.schema));
-  VideosModel.createCollection().then(function (collection) {
-    console.log('Video COnnection is created!');
-  });
-  UserModel.createCollection().then(function (collection) {
-    console.log('User COnnection is created!');
-  });
-  Dialog_Timestamps.createCollection().then(function (collection) {
-    console.log('Dialog_Timestamps COnnection is created!');
-  });
+  // logger.info('MongoDB Models initialized');
+  // logger.info(JSON.stringify(AudioClipModel.schema));
+  // VideosModel.createCollection().then(function (collection) {
+  //   console.log('Video COnnection is created!');
+  // });
+  // UserModel.createCollection().then(function (collection) {
+  //   console.log('User COnnection is created!');
+  // });
+  // Dialog_Timestamps.createCollection().then(function (collection) {
+  //   console.log('Dialog_Timestamps COnnection is created!');
+  // });
 
-  Admin.createCollection().then(function (collection) {
-    console.log('Admin COnnection is created!');
-  });
-  AudioDescriptionRating.createCollection().then(function (collection) {
-    console.log('AudioDescriptionRating COnnection is created!');
-  });
-  Category.createCollection().then(function (collection) {
-    console.log('Category COnnection is created!');
-  });
-  AudioDescriptionModel.createCollection().then(function (collection) {
-    console.log('AudioDescriptionModel COnnection is created!');
-  });
-  NotesModel.createCollection().then(function (collection) {
-    console.log('NotesModel COnnection is created!');
-  });
-  AudioClipModel.createCollection().then(function (collection) {
-    console.log('AudioClipModel COnnection is created!');
-  });
-  ParticipantsModel.createCollection().then(function (collection) {
-    console.log('ParticipantsModel COnnection is created!');
-  });
-  TimingsModel.createCollection().then(function (collection) {
-    console.log('TimingsModel COnnection is created!');
-  });
-  Language.createCollection().then(function (collection) {
-    console.log('Language COnnection is created!');
-  });
-  Transcription.createCollection().then(function (collection) {
-    console.log('Transcription COnnection is created!');
-  });
-  UserVotesModel.createCollection().then(function (collection) {
-    console.log('UserVotesModel COnnection is created!');
-  });
-  VisitModel.createCollection().then(function (collection) {
-    console.log('VisitModel COnnection is created!');
-  });
-  WishListModel.createCollection().then(function (collection) {
-    console.log('WishListModel COnnection is created!');
-  });
+  // Admin.createCollection().then(function (collection) {
+  //   console.log('Admin COnnection is created!');
+  // });
+  // AudioDescriptionRating.createCollection().then(function (collection) {
+  //   console.log('AudioDescriptionRating COnnection is created!');
+  // });
+  // Category.createCollection().then(function (collection) {
+  //   console.log('Category COnnection is created!');
+  // });
+  // AudioDescriptionModel.createCollection().then(function (collection) {
+  //   console.log('AudioDescriptionModel COnnection is created!');
+  // });
+  // NotesModel.createCollection().then(function (collection) {
+  //   console.log('NotesModel COnnection is created!');
+  // });
+  // AudioClipModel.createCollection().then(function (collection) {
+  //   console.log('AudioClipModel COnnection is created!');
+  // });
+  // ParticipantsModel.createCollection().then(function (collection) {
+  //   console.log('ParticipantsModel COnnection is created!');
+  // });
+  // TimingsModel.createCollection().then(function (collection) {
+  //   console.log('TimingsModel COnnection is created!');
+  // });
+  // Language.createCollection().then(function (collection) {
+  //   console.log('Language COnnection is created!');
+  // });
+  // Transcription.createCollection().then(function (collection) {
+  //   console.log('Transcription COnnection is created!');
+  // });
+  // UserVotesModel.createCollection().then(function (collection) {
+  //   console.log('UserVotesModel COnnection is created!');
+  // });
+  // VisitModel.createCollection().then(function (collection) {
+  //   console.log('VisitModel COnnection is created!');
+  // });
+  // WishListModel.createCollection().then(function (collection) {
+  //   console.log('WishListModel COnnection is created!');
+  // });
 
   // videosSchema.virtual('AudioDescriptions', {
   //     ref: 'AudioDescriptions',
