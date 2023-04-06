@@ -40,6 +40,9 @@ class AudioDescriptionsService {
       const newAudioClipArr = [];
       for (let i = 0; i < audio_clips.length; i++) {
         const audioClip = audio_clips[i];
+
+        logger.info(`Finding Audio Clip: ${audioClip}`);
+
         const findAudioClip = await MongoAudioClipsModel.findById(audioClip);
         const transformedAudioClip = {
           clip_id: findAudioClip._id,
@@ -113,6 +116,7 @@ class AudioDescriptionsService {
       if (!ad) throw new HttpException(409, "Audio Descriptions couldn't be created");
       if (vid) {
         ad.set('video', vid._id);
+        // TODO: Add Audio Description to Video Audio Description Array for consistency with old MongodB and YD Classic logic
       } else {
         const newVid = new MongoVideosModel({
           audio_descriptions: [],
