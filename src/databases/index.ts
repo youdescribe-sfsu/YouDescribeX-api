@@ -1,5 +1,5 @@
 // Import configuration variables
-import { MONGO_DB_DATABASE, MONGO_DB_HOST, MONGO_DB_PORT } from '../config';
+import { MONGO_DB_DATABASE, MONGO_DB_HOST, MONGO_DB_PORT, MONGO_DB_USER, MONGO_DB_PASSWORD } from '../config';
 import { POSTGRES_DB_NAME, POSTGRES_DB_USER, POSTGRES_DB_PASSWORD, POSTGRES_DB_HOST, POSTGRES_DB_PORT } from '../config';
 
 // Import database libraries
@@ -9,7 +9,7 @@ import { Sequelize, Options } from 'sequelize';
 import { CURRENT_DATABASE } from '../config';
 import { logger } from '../utils/logger';
 // MongoDB connection string
-const MONGODB_CONNECTION_STRING = `mongodb://${MONGO_DB_HOST}:${MONGO_DB_PORT}/${MONGO_DB_DATABASE}`;
+const MONGODB_CONNECTION_STRING = `mongodb://${MONGO_DB_USER}:${MONGO_DB_PASSWORD}@${MONGO_DB_HOST}:${MONGO_DB_PORT}/${MONGO_DB_DATABASE}`;
 // PostgreSQL connection object
 const POSTGRESQL_OPTIONS: Options = {
   host: POSTGRES_DB_HOST,

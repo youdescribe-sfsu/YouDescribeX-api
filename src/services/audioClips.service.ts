@@ -611,6 +611,19 @@ class AudioClipsService {
         transcript: [],
         label: newACTitle,
       });
+
+      const updatedAudioDescription = await MongoAudio_Descriptions_Model.findOneAndUpdate(newAudioClip.audio_description, {
+        $push: {
+          audio_clips: {
+            $each: [{ _id: newAudioClip._id }],
+            $sort: { _id: 1 },
+          },
+        },
+      });
+
+      if (!updatedAudioDescription) throw new HttpException(409, "Audio Description couldn't be updated");
+
+      // TODO: Add Audio Clip to Audio Description audio_clip Array
       if (!newAudioClip) throw new HttpException(409, "Audio Description couldn't be created");
       const playBackTypeMsg = newPlaybackType === newACPlaybackType ? '' : `Note: The playback type of the new clip is modified to ${newPlaybackType}`;
       return playBackTypeMsg;
@@ -676,10 +689,23 @@ class AudioClipsService {
       if (!deleteOldAudioFileStatus) {
         throw new HttpException(409, 'Problem saving audio. Please try again.');
       }
+      // TODO: When switching to new MongoDB Database Schema, might not need this since Audio Description schema may not have Audio Clip Array
+      let audioClipToDelete: IAudioClip;
+      let audioDescription: IAudioDescription;
 
       let deletedAudioClip;
       if (CURRENT_DATABASE === 'mongodb') {
+        audioClipToDelete = await MongoAudioClipsModel.findById(clipId);
+
+        // Get Audio Description of Audio Clip
+        audioDescription = await MongoAudio_Descriptions_Model.findByIdAndUpdate(audioClipToDelete.audio_description, {
+          $pull: { audio_clips: { _id: clipId } },
+        });
+
+        logger.info(`After Remove: ${audioDescription.audio_clips}`);
+
         deletedAudioClip = await MongoAudioClipsModel.findByIdAndDelete(clipId);
+        // TODO: Also need to delete from Audio Clip Array in Audio Description Object
       } else {
         deletedAudioClip = await PostGres_Audio_Clips.destroy({
           where: { clip_id: clipId },
