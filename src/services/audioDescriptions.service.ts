@@ -35,24 +35,22 @@ class AudioDescriptionsService {
         video: videoId,
         user: userId,
       });
-      console.log(audioDescriptions);
       if (!audioDescriptions) throw new HttpException(409, "Audio Description for this YouTube Video doesn't exist");
       const audio_clips = audioDescriptions.audio_clips;
       const newAudioClipArr = [];
       for (let i = 0; i < audio_clips.length; i++) {
         const audioClip = audio_clips[i];
-        console.log('audioClip', audioClip);
         const findAudioClip = await MongoAudioClipsModel.findById(audioClip);
         const transformedAudioClip = {
           clip_id: findAudioClip._id,
           clip_title: findAudioClip.label,
           description_type: findAudioClip.description_type,
-          description_text: findAudioClip.description_text,
+          description_text: findAudioClip.description_text || findAudioClip.transcript.map(obj => obj.sentence).join(' '),
           playback_type: findAudioClip.playback_type,
           clip_start_time: findAudioClip.start_time,
           clip_end_time: findAudioClip.end_time,
           clip_duration: findAudioClip.duration,
-          clip_audio_path: findAudioClip.file_path,
+          clip_audio_path: findAudioClip.file_name ? findAudioClip.file_path + '/' + findAudioClip.file_name : findAudioClip.file_path,
           is_recorded: false,
           createdAt: findAudioClip.created_at,
           updatedAt: findAudioClip.updated_at,
