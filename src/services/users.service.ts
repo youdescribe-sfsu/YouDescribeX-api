@@ -9,6 +9,7 @@ import { PostGres_Audio_Clips } from '../models/postgres/init-models';
 import { MongoAudioClipsModel, MongoAudio_Descriptions_Model, MongoUsersModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import { IUser } from '../models/mongodb/User.mongo';
 import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
+import { logger } from '../utils/logger';
 class UserService {
   public async findAllUser(): Promise<IUser[] | UsersAttributes[]> {
     if (CURRENT_DATABASE == 'mongodb') {
@@ -155,6 +156,18 @@ class UserService {
       createNewAudioClips.forEach(async clip => createNewAudioDescription.audio_clips.push(clip));
       createNewAudioClips.forEach(async clip => clip.save());
       createNewAudioDescription.save();
+
+      // Add Audio Description to Video Audio Description Array for consistency with old MongodB and YD Classic logic
+      await MongoVideosModel.findByIdAndUpdate(videoIdStatus._id, {
+        $push: {
+          audio_descriptions: {
+            $each: [{ _id: createNewAudioDescription._id }],
+          },
+        },
+      }).catch(err => {
+        logger.error(err);
+        throw new HttpException(409, "Video couldn't be updated.");
+      });
       return createNewAudioDescription._id;
     } else {
       // Check if Video exists
