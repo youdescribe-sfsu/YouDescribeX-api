@@ -37,6 +37,7 @@ class AudioDescriptionsService {
       });
       if (!audioDescriptions) throw new HttpException(409, "Audio Description for this YouTube Video doesn't exist");
       const audio_clips = audioDescriptions.audio_clips;
+      // TODO: Change this to a MongoAudioClipsModel.findAll() and sort by clip_start_time and clip_end_time, still need to make transformedAudioClip with the for loop, but only need one call to DB
       const newAudioClipArr = [];
       for (let i = 0; i < audio_clips.length; i++) {
         const audioClip = audio_clips[i];
@@ -116,7 +117,17 @@ class AudioDescriptionsService {
       if (!ad) throw new HttpException(409, "Audio Descriptions couldn't be created");
       if (vid) {
         ad.set('video', vid._id);
-        // TODO: Add Audio Description to Video Audio Description Array for consistency with old MongodB and YD Classic logic
+        // Add Audio Description to Video Audio Description Array for consistency with old MongodB and YD Classic logic
+        await MongoVideosModel.findByIdAndUpdate(vid._id, {
+          $push: {
+            audio_descriptions: {
+              $each: [{ _id: ad._id }],
+            },
+          },
+        }).catch(err => {
+          logger.error(err);
+          throw new HttpException(409, "Video couldn't be updated.");
+        });
       } else {
         const newVid = new MongoVideosModel({
           audio_descriptions: [],

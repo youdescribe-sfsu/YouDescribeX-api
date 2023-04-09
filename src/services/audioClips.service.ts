@@ -17,7 +17,6 @@ import {
 import { logger } from '../utils/logger';
 import { MongoAudioClipsModel, MongoAudio_Descriptions_Model, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
-import mongoose, { Types } from 'mongoose';
 import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
 
 interface IProcessedClips {
@@ -612,18 +611,22 @@ class AudioClipsService {
         label: newACTitle,
       });
 
-      const updatedAudioDescription = await MongoAudio_Descriptions_Model.findOneAndUpdate(newAudioClip.audio_description, {
-        $push: {
-          audio_clips: {
-            $each: [{ _id: newAudioClip._id }],
-            $sort: { _id: 1 },
+      const updatedAudioDescription = await MongoAudio_Descriptions_Model.findOneAndUpdate(
+        newAudioClip.audio_description,
+        {
+          $push: {
+            audio_clips: {
+              $each: [{ _id: newAudioClip._id }],
+              $sort: { _id: 1 },
+            },
           },
         },
-      });
+        {
+          new: true, // return updated row
+        },
+      );
 
       if (!updatedAudioDescription) throw new HttpException(409, "Audio Description couldn't be updated");
-
-      // TODO: Add Audio Clip to Audio Description audio_clip Array
       if (!newAudioClip) throw new HttpException(409, "Audio Description couldn't be created");
       const playBackTypeMsg = newPlaybackType === newACPlaybackType ? '' : `Note: The playback type of the new clip is modified to ${newPlaybackType}`;
       return playBackTypeMsg;
@@ -689,7 +692,6 @@ class AudioClipsService {
       if (!deleteOldAudioFileStatus) {
         throw new HttpException(409, 'Problem saving audio. Please try again.');
       }
-      // TODO: When switching to new MongoDB Database Schema, might not need this since Audio Description schema may not have Audio Clip Array
       let audioClipToDelete: IAudioClip;
       let audioDescription: IAudioDescription;
 
@@ -697,15 +699,25 @@ class AudioClipsService {
       if (CURRENT_DATABASE === 'mongodb') {
         audioClipToDelete = await MongoAudioClipsModel.findById(clipId);
 
-        // Get Audio Description of Audio Clip
-        audioDescription = await MongoAudio_Descriptions_Model.findByIdAndUpdate(audioClipToDelete.audio_description, {
-          $pull: { audio_clips: { _id: clipId } },
+        logger.info(`Before Remove: ${audioDescription.audio_clips.length}`);
+
+        // Delete Audio Clip from Audio Clip Array in Audio Description Object
+        audioDescription = await MongoAudio_Descriptions_Model.findByIdAndUpdate(
+          audioClipToDelete.audio_description,
+          {
+            $pull: { audio_clips: { _id: clipId } },
+          },
+          {
+            new: true,
+          },
+        ).catch(err => {
+          logger.error(err);
+          throw new HttpException(409, "Audio clip couldn't be deleted.");
         });
 
-        logger.info(`After Remove: ${audioDescription.audio_clips}`);
+        logger.info(`After Remove: ${audioDescription.audio_clips.length}`);
 
         deletedAudioClip = await MongoAudioClipsModel.findByIdAndDelete(clipId);
-        // TODO: Also need to delete from Audio Clip Array in Audio Description Object
       } else {
         deletedAudioClip = await PostGres_Audio_Clips.destroy({
           where: { clip_id: clipId },

@@ -13,10 +13,12 @@ class NotesService {
 
     if (CURRENT_DATABASE == 'mongodb') {
       if (isEmpty(noteId)) {
+        logger.info(`No Notes for Audio Description ${adId}, creating new Note`);
         const newNote = await MongoNotesModel.create({
           notes_text: notes,
           audio_description: adId,
         });
+        logger.info(newNote);
         return newNote;
       } else {
         logger.info(`noteId, ${noteId}`);
@@ -25,17 +27,15 @@ class NotesService {
         });
         if (!audioDescriptionID) throw new HttpException(409, "Audio Description doesn't exist");
 
-        const updatedNotes = await MongoNotesModel.update(
+        const updatedNotes = await MongoNotesModel.findOneAndUpdate(
+          audioDescriptionID._id,
           { notes_text: notes },
-          {
-            where: {
-              audio_description: adId,
-            },
-            returning: true, // returns the updated row
-          },
-        );
-        if (!updatedNotes) throw new HttpException(409, 'Notes not updated');
-        return updatedNotes.modifiedCount;
+          { new: true }, // return updated row
+        ).catch(err => {
+          logger.error(err);
+          throw new HttpException(409, 'Notes not updated');
+        });
+        return updatedNotes;
       }
     } else {
       // Create a new note

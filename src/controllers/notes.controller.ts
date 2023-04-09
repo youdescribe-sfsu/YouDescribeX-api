@@ -13,20 +13,15 @@ class NotesController {
       const videoByYoutubeID: any = await this.notesService.postNoteByAdId(notesBody);
       if (typeof videoByYoutubeID === 'number') {
         res.status(200).json({
-          data: {
-            notes_id: notesBody.noteId,
-            ad_id: notesBody.adId,
-          },
+          notes_id: notesBody.noteId,
+          ad_id: notesBody.adId,
           message: 'updated',
         });
       } else if (typeof videoByYoutubeID === 'object') {
         res.status(200).json({
-          data: {
-            notes_id: notesBody.noteId,
-            ad_id: notesBody.adId,
-          },
-          noteId: videoByYoutubeID.notes_id || videoByYoutubeID._id,
-          message: 'created',
+          notes_id: notesBody.noteId || videoByYoutubeID.notes_id || videoByYoutubeID._id,
+          ad_id: notesBody.adId,
+          message: 'posted',
         });
       }
     } catch (error) {
