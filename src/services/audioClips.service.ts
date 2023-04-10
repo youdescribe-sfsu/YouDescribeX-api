@@ -403,6 +403,9 @@ class AudioClipsService {
             duration: updatedAudioDuration,
             end_time: updatedClipEndTime,
             playback_type: playbackType,
+            file_name: generatedMP3Response.filename,
+            file_mime_type: generatedMP3Response.file_mime_type,
+            file_size_bytes: generatedMP3Response.file_size_bytes,
           },
         },
       );
@@ -443,8 +446,10 @@ class AudioClipsService {
     if (isEmpty(recordedClipDuration)) throw new HttpException(400, 'Recorded Clip Duration is empty');
     if (isEmpty(audioDescriptionId)) throw new HttpException(400, 'Audio Description ID is empty');
     if (file === undefined) throw new HttpException(400, 'Audio File is empty');
-
+    const fileName = String(file.filename);
     const filePath = String(file.path);
+    const file_mime_type = file.mimetype;
+    const file_size_bytes = file.size;
     const clipAudioFilePath = `.` + filePath.substring(filePath.indexOf('/audio/'));
     logger.info(`Database Updated Audio Clip Path: ${clipAudioFilePath}`);
 
@@ -479,6 +484,9 @@ class AudioClipsService {
             end_time: newClipEndTime,
             duration: Number(recordedClipDuration),
             file_path: clipAudioFilePath,
+            file_name: fileName,
+            file_mime_type: file_mime_type,
+            file_size_bytes: file_size_bytes,
             description_text: clipDescriptionText,
             is_recorded: true,
           },
@@ -521,10 +529,16 @@ class AudioClipsService {
 
     let newClipAudioFilePath: string;
     let newAudioDuration: string;
+    let fileName: string;
+    let file_size_bytes: number;
+    let file_mime_type: string;
     if (file && isRecorded && newACDuration !== null) {
       const filePath = String(file.path);
       newClipAudioFilePath = `.` + filePath.substring(filePath.indexOf('/audio/'));
       newAudioDuration = newACDuration;
+      fileName = String(file.filename);
+      file_size_bytes = file.size;
+      file_mime_type = file.mimetype;
     } else {
       // User didn't record an audio clip, need to generate it using text-to-speech
       const generatedMP3Response = await generateMp3forDescriptionText(userId, youtubeVideoId, newACDescriptionText, newACType);
@@ -533,6 +547,9 @@ class AudioClipsService {
       const clipDurationStatus = await getAudioDuration(newClipAudioFilePath);
       if (clipDurationStatus.data === null) throw new HttpException(409, clipDurationStatus.message);
       newAudioDuration = clipDurationStatus.data;
+      fileName = generatedMP3Response.filename;
+      file_size_bytes = generatedMP3Response.file_size_bytes;
+      file_mime_type = generatedMP3Response.file_mime_type;
     }
     const newClipEndTime = Number((parseFloat(newACStartTime) + parseFloat(newAudioDuration)).toFixed(2));
     const getVideoIdStatus = await getVideoFromYoutubeId(youtubeVideoId);
@@ -558,6 +575,9 @@ class AudioClipsService {
         end_time: newClipEndTime,
         duration: Number(newAudioDuration),
         file_path: newClipAudioFilePath,
+        file_name: fileName,
+        file_mime_type: file_mime_type,
+        file_size_bytes: file_size_bytes,
         audio_description: adId,
         user: userId,
         video: videoId,

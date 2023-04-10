@@ -10,6 +10,7 @@ import { AUDIO_DIRECTORY, CURRENT_DATABASE } from '../config';
 import { logger } from '../utils/logger';
 import { MongoAudioClipsModel, MongoDialog_Timestamps_Model, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
+import mime from 'mime-types';
 
 interface NudgeStartTimeIfZeroResult {
   data: [] | null;
@@ -88,6 +89,9 @@ export const nudgeStartTimeIfZero = async (audioClips: Audio_Clips[] | IAudioCli
 interface GenerateMp3forDescriptionTextResponse {
   status: boolean;
   filepath: string | null;
+  filename: string | null;
+  file_mime_type: string | null;
+  file_size_bytes: number;
 }
 
 export const generateMp3forDescriptionText = async (
@@ -136,19 +140,29 @@ export const generateMp3forDescriptionText = async (
     if (fs.existsSync(dir)) {
       // store a variable ocr to add to the path of the audio file
       const type = clipDescriptionType === 'Visual' ? 'nonOCR' : 'OCR';
-      const filepath = `${dir}/${type}-${uniqueId}.mp3`;
+      const fileName = `${type}-${uniqueId}.mp3`;
+      const filepath = `${dir}/${fileName}`;
       // Write the binary audio content to a local file
       const writeFile = util.promisify(fs.writeFile);
       await writeFile(filepath, response.audioContent, 'binary');
+
+      const fileMimeType = mime.lookup(filepath);
+      const fileSizeBytes = fs.statSync(filepath).size;
       // remove public from the file path
-      const servingFilepath = `./audio/${youtubeVideoId}/${userId}/${type}-${uniqueId}.mp3`;
+      const servingFilepath = `./audio/${youtubeVideoId}/${userId}/${fileName}`;
       logger.info(`Converted Text to Speech:Serving file path ${servingFilepath}`);
-      return { status: true, filepath: servingFilepath };
+      return {
+        status: true,
+        filepath: servingFilepath,
+        filename: fileName,
+        file_mime_type: fileMimeType ? fileMimeType : 'audio/mpeg',
+        file_size_bytes: fileSizeBytes,
+      };
     }
-    return { status: false, filepath: null };
+    return { status: false, filepath: null, filename: null, file_mime_type: null, file_size_bytes: -1 };
   } catch (error) {
     logger.info(error);
-    return { status: false, filepath: null };
+    return { status: false, filepath: null, filename: null, file_mime_type: null, file_size_bytes: -1 };
   }
 };
 
@@ -537,6 +551,9 @@ export const processCurrentClip = async data => {
               file_path: data.textToSpeechOutput.filepath,
               duration: parseFloat(clipDuration),
               end_time: clipEndTime,
+              file_name: data.textToSpeechOutput.filename,
+              file_mime_type: data.textToSpeechOutput.file_mime_type,
+              file_size_bytes: data.textToSpeechOutput.file_size_bytes,
             },
           )
             .then(async () => {
