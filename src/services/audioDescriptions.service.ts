@@ -38,29 +38,40 @@ class AudioDescriptionsService {
       if (!audioDescriptions) throw new HttpException(409, "Audio Description for this YouTube Video doesn't exist");
       const audio_clips = audioDescriptions.audio_clips;
       // TODO: Change this to a MongoAudioClipsModel.findAll() and sort by clip_start_time and clip_end_time, still need to make transformedAudioClip with the for loop, but only need one call to DB
-      const newAudioClipArr = [];
-      for (let i = 0; i < audio_clips.length; i++) {
-        const audioClip = audio_clips[i];
+      const audioClipArr = await MongoAudioClipsModel.find({
+        audio_description: audioDescriptions._id,
+      })
+        .sort({
+          start_time: 'asc',
+          end_time: 'asc',
+        })
+        .exec();
 
-        logger.info(`Finding Audio Clip: ${audioClip}`);
-
-        const findAudioClip = await MongoAudioClipsModel.findById(audioClip);
+      if (audio_clips.length !== audioClipArr.length) {
+        logger.error(
+          `Number of Audio Clips in Audio Description Collection (${audio_clips.length})does not match actual number of AUdio Clips (${audioClipArr.length}).`,
+        );
+        throw new HttpException(409, 'Something went wrong getting Audio Clips for Audio Description');
+      }
+      const transformedAudioClipArr = [];
+      for (let i = 0; i < audioClipArr.length; i++) {
+        const audioClip = audioClipArr[i];
         const transformedAudioClip = {
-          clip_id: findAudioClip._id,
-          clip_title: findAudioClip.label,
-          description_type: findAudioClip.description_type,
-          description_text: findAudioClip.description_text || findAudioClip.transcript.map(obj => obj.sentence).join(' '),
-          playback_type: findAudioClip.playback_type,
-          clip_start_time: findAudioClip.start_time,
-          clip_end_time: findAudioClip.end_time,
-          clip_duration: findAudioClip.duration,
-          clip_audio_path: findAudioClip.file_name ? findAudioClip.file_path + '/' + findAudioClip.file_name : findAudioClip.file_path,
+          clip_id: audioClip._id,
+          clip_title: audioClip.label,
+          description_type: audioClip.description_type,
+          description_text: audioClip.description_text || audioClip.transcript.map(obj => obj.sentence).join(' '),
+          playback_type: audioClip.playback_type,
+          clip_start_time: audioClip.start_time,
+          clip_end_time: audioClip.end_time,
+          clip_duration: audioClip.duration,
+          clip_audio_path: audioClip.file_name ? audioClip.file_path + '/' + audioClip.file_name : audioClip.file_path,
           is_recorded: false,
-          createdAt: findAudioClip.created_at,
-          updatedAt: findAudioClip.updated_at,
+          createdAt: audioClip.created_at,
+          updatedAt: audioClip.updated_at,
           AudioDescriptionAdId: audioClip,
         };
-        newAudioClipArr.push(transformedAudioClip);
+        transformedAudioClipArr.push(transformedAudioClip);
       }
 
       const notes = await MongoNotesModel.find({ audio_description: audioDescriptions._id });
@@ -74,7 +85,7 @@ class AudioDescriptionsService {
       });
 
       const newObj = {
-        Audio_Clips: newAudioClipArr,
+        Audio_Clips: transformedAudioClipArr,
         Notes: transformedNotes,
         UserUserId: userId,
         VideoVideoId: videoId,
