@@ -64,9 +64,18 @@ class AudioDescriptionsService {
       }
 
       const notes = await MongoNotesModel.find({ audio_description: audioDescriptions._id });
+
+      const transformedNotes = notes.map(note => {
+        return {
+          notes_id: note._id,
+          notes_text: note.notes_text,
+          AudioDescriptionAdId: note.audio_description,
+        };
+      });
+
       const newObj = {
         Audio_Clips: newAudioClipArr,
-        Notes: notes,
+        Notes: transformedNotes,
         UserUserId: userId,
         VideoVideoId: videoId,
         ad_id: audioDescriptions._id,
