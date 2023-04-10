@@ -37,7 +37,6 @@ class AudioDescriptionsService {
       });
       if (!audioDescriptions) throw new HttpException(409, "Audio Description for this YouTube Video doesn't exist");
       const audio_clips = audioDescriptions.audio_clips;
-      // TODO: Change this to a MongoAudioClipsModel.findAll() and sort by clip_start_time and clip_end_time, still need to make transformedAudioClip with the for loop, but only need one call to DB
       const audioClipArr = await MongoAudioClipsModel.find({
         audio_description: audioDescriptions._id,
       })
