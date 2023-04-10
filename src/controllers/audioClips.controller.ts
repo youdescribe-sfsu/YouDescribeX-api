@@ -87,8 +87,8 @@ class AudioClipsController {
   public deleteAudioClip = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const clipId = req.params.clipId;
-      const addedAudioClip = await this.audioClipsService.deleteAudioClip(clipId);
-      res.status(200).json(addedAudioClip);
+      const deletedAudioClip = await this.audioClipsService.deleteAudioClip(clipId);
+      res.status(200).json(deletedAudioClip);
     } catch (error) {
       console.error('error', error);
       logger.error(error);

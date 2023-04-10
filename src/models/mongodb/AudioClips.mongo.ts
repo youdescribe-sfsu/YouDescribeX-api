@@ -19,6 +19,7 @@ interface IAudioClip extends Document {
   file_name: string;
   file_path: string;
   file_size_bytes: number;
+  is_recorded: boolean;
   label: string;
   playback_type: string;
   start_time: number;
@@ -69,6 +70,11 @@ const AudioClipSchema: Schema = new Schema(
     file_size_bytes: {
       type: Number,
       required: false,
+    },
+    is_recorded: {
+      type: Boolean,
+      required: true,
+      default: false,
     },
     label: {
       type: String,
