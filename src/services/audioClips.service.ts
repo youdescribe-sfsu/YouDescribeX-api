@@ -522,7 +522,8 @@ class AudioClipsService {
     let newClipAudioFilePath: string;
     let newAudioDuration: string;
     if (file && isRecorded && newACDuration !== null) {
-      newClipAudioFilePath = String(file.path).split('\\').join('/').replace('public', '.');
+      const filePath = String(file.path);
+      newClipAudioFilePath = `.` + filePath.substring(filePath.indexOf('/audio/'));
       newAudioDuration = newACDuration;
     } else {
       // User didn't record an audio clip, need to generate it using text-to-speech
