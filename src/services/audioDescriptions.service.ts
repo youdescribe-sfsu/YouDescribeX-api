@@ -33,7 +33,7 @@ class AudioDescriptionsService {
     if (CURRENT_DATABASE == 'mongodb') {
       const audioDescriptions = await MongoAudio_Descriptions_Model.findOne({
         video: videoId,
-        user: adId,
+        _id: adId,
       });
       if (!audioDescriptions) throw new HttpException(409, "Audio Description for this YouTube Video doesn't exist");
       const audio_clips = audioDescriptions.audio_clips;
@@ -267,7 +267,7 @@ class AudioDescriptionsService {
   public async deleteUserADAudios(youtube_video_id: string, adId: string) {
     if (isEmpty(youtube_video_id)) throw new HttpException(400, 'Youtube Video ID is empty');
     if (isEmpty(adId)) throw new HttpException(400, 'Audio Description ID is empty');
-
+    // TODO: Change this so that it grabs from the DB and gets the individual paths for each audio clip since the path to folder may change
     // if (CURRENT_DATABASE == 'mongodb') {
     // } else {
     const pathToFolder = `${AUDIO_DIRECTORY}/audio/${youtube_video_id}/${adId}`;
