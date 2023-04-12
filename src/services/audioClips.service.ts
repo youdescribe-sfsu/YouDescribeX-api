@@ -557,7 +557,9 @@ class AudioClipsService {
       const generatedMP3Response = await generateMp3forDescriptionText(adId, youtubeVideoId, newACDescriptionText, newACType);
       if (generatedMP3Response.status === null) throw new HttpException(409, 'Unable to generate Text to Speech!! Please try again');
       newClipAudioFilePath = generatedMP3Response.filepath;
-      const clipDurationStatus = await getAudioDuration(newClipAudioFilePath);
+      const newAudioClipName = generatedMP3Response.filename;
+      const fullAudioClipPath = newAudioClipName == null || newAudioClipName.length <= 0 ? newClipAudioFilePath : newClipAudioFilePath + '/' + newAudioClipName;
+      const clipDurationStatus = await getAudioDuration(fullAudioClipPath);
       if (clipDurationStatus.data === null) throw new HttpException(409, clipDurationStatus.message);
       newAudioDuration = clipDurationStatus.data;
       fileName = generatedMP3Response.filename;
