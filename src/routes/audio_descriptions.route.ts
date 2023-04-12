@@ -12,9 +12,9 @@ class AudioDescriptionsRoute implements Routes {
   }
 
   private initializeRoutes() {
-    this.router.get(`${this.path}/get-user-ad/:videoId&:userId`, this.audioDescriptionsController.getUserAudioDescriptionData);
+    this.router.get(`${this.path}/get-user-ad/:videoId&:adId`, this.audioDescriptionsController.getUserAudioDescriptionData);
     this.router.post(`${this.path}/newaidescription`, this.audioDescriptionsController.newAiDescription);
-    this.router.delete(`${this.path}/delete-user-ad-audios/:youtubeVideoId&:userId`, this.audioDescriptionsController.deleteUserADAudios);
+    this.router.delete(`${this.path}/delete-user-ad-audios/:youtubeVideoId&:adId`, this.audioDescriptionsController.deleteUserADAudios);
   }
 }
 
