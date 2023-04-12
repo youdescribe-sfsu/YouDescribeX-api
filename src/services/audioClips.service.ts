@@ -377,9 +377,11 @@ class AudioClipsService {
     const generatedMP3Response = await generateMp3forDescriptionText(audioDescriptionId, youtubeVideoId, clipDescriptionText, clipDescriptionType);
     if (generatedMP3Response.filepath === null) throw new HttpException(409, "Audio Description couldn't be generated");
     const newAudioClipPath = generatedMP3Response.filepath;
+    const newAudioClipName = generatedMP3Response.filename;
+    const fullAudioClipPath = newAudioClipName == null || newAudioClipName.length <= 0 ? newAudioClipPath : newAudioClipPath + '/' + newAudioClipName;
     const oldAudioFilePathStatus = await getOldAudioFilePath(clipId);
     if (oldAudioFilePathStatus.data === null) throw new HttpException(409, oldAudioFilePathStatus.message);
-    const clipDurationStatus = await getAudioDuration(newAudioClipPath);
+    const clipDurationStatus = await getAudioDuration(fullAudioClipPath);
     if (clipDurationStatus.data === null) throw new HttpException(409, clipDurationStatus.message);
     const getVideoIdStatus = await getVideoFromYoutubeId(youtubeVideoId);
     if (getVideoIdStatus.data === null) throw new HttpException(409, getVideoIdStatus.message);
