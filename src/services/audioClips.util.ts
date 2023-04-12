@@ -95,7 +95,7 @@ interface GenerateMp3forDescriptionTextResponse {
 }
 
 export const generateMp3forDescriptionText = async (
-  userId: string,
+  adId: string,
   youtubeVideoId: string,
   clipDescriptionText: string,
   clipDescriptionType: string,
@@ -129,9 +129,9 @@ export const generateMp3forDescriptionText = async (
 
     // add a folder for video ID and a sub folder for user ID
 
-    const dir = `${AUDIO_DIRECTORY}/audio/${youtubeVideoId}/${userId}`;
+    const dir = `${AUDIO_DIRECTORY}/audio/${youtubeVideoId}/${adId}`;
     logger.info(`dir: ${dir}`);
-    // creates the folder structure if it doesn't exist -- ${youtubeVideoId}/${userId}
+    // creates the folder structure if it doesn't exist -- ${youtubeVideoId}/${adId}
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
@@ -149,7 +149,7 @@ export const generateMp3forDescriptionText = async (
       const fileMimeType = mime.lookup(filepath);
       const fileSizeBytes = fs.statSync(filepath).size;
       // remove public from the file path
-      const servingFilepath = `./audio/${youtubeVideoId}/${userId}/${fileName}`;
+      const servingFilepath = `./audio/${youtubeVideoId}/${adId}/${fileName}`;
       logger.info(`Converted Text to Speech:Serving file path ${servingFilepath}`);
       return {
         status: true,
@@ -694,7 +694,8 @@ const storage = multer.diskStorage({
     cb(null, `${newACType}-${uniqueId}.mp3`);
   },
   destination: function (req, _file, cb) {
-    const dir = `${AUDIO_DIRECTORY}/audio/${req.body.youtubeVideoId}/${req.body.userId}`;
+    const audioDescriptionId = req.params.adId || req.body.audioDescriptionId;
+    const dir = `${AUDIO_DIRECTORY}/audio/${req.body.youtubeVideoId}/${audioDescriptionId}`;
     // const dir = path.join(__dirname, '../../', `.${AUDIO_DIRECTORY}/${req.body.youtubeVideoId}/${req.body.userId}`);
     cb(null, dir);
   },

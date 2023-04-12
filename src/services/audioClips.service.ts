@@ -124,7 +124,12 @@ class AudioClipsService {
 
       for (let index = 0; index < descriptionTexts.length; index++) {
         const desc = descriptionTexts[index];
-        const textToSpeechOutput = await generateMp3forDescriptionText(desc.user_id, desc.youtube_id, desc.clip_description_text, desc.clip_description_type);
+        const textToSpeechOutput = await generateMp3forDescriptionText(
+          audioDescriptionAdId,
+          desc.youtube_id,
+          desc.clip_description_text,
+          desc.clip_description_type,
+        );
         const data = {
           textToSpeechOutput,
           clip_id: desc.clip_id,
@@ -190,7 +195,12 @@ class AudioClipsService {
       const generateMp3Status = await Promise.all(
         descriptionTexts.map(async desc => {
           const data = {
-            textToSpeechOutput: await generateMp3forDescriptionText(desc.user_id, desc.youtube_id, desc.clip_description_text, desc.clip_description_type),
+            textToSpeechOutput: await generateMp3forDescriptionText(
+              audioDescriptionAdId,
+              desc.youtube_id,
+              desc.clip_description_text,
+              desc.clip_description_type,
+            ),
             clip_id: desc.clip_id,
             video_id: desc.video_id,
             ad_id: audioDescriptionAdId,
@@ -364,7 +374,7 @@ class AudioClipsService {
     if (isEmpty(userId)) throw new HttpException(400, 'User ID is empty');
     if (isEmpty(audioDescriptionId)) throw new HttpException(400, 'Audio Description ID is empty');
 
-    const generatedMP3Response = await generateMp3forDescriptionText(userId, youtubeVideoId, clipDescriptionText, clipDescriptionType);
+    const generatedMP3Response = await generateMp3forDescriptionText(audioDescriptionId, youtubeVideoId, clipDescriptionText, clipDescriptionType);
     if (generatedMP3Response.filepath === null) throw new HttpException(409, "Audio Description couldn't be generated");
     const newAudioClipPath = generatedMP3Response.filepath;
     const oldAudioFilePathStatus = await getOldAudioFilePath(clipId);
@@ -406,6 +416,7 @@ class AudioClipsService {
             file_name: generatedMP3Response.filename,
             file_mime_type: generatedMP3Response.file_mime_type,
             file_size_bytes: generatedMP3Response.file_size_bytes,
+            is_recorded: false,
           },
         },
       );
@@ -541,7 +552,7 @@ class AudioClipsService {
       file_mime_type = file.mimetype;
     } else {
       // User didn't record an audio clip, need to generate it using text-to-speech
-      const generatedMP3Response = await generateMp3forDescriptionText(userId, youtubeVideoId, newACDescriptionText, newACType);
+      const generatedMP3Response = await generateMp3forDescriptionText(adId, youtubeVideoId, newACDescriptionText, newACType);
       if (generatedMP3Response.status === null) throw new HttpException(409, 'Unable to generate Text to Speech!! Please try again');
       newClipAudioFilePath = generatedMP3Response.filepath;
       const clipDurationStatus = await getAudioDuration(newClipAudioFilePath);

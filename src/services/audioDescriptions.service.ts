@@ -26,14 +26,14 @@ import { ObjectId } from 'mongodb';
 const fs = require('fs');
 
 class AudioDescriptionsService {
-  public async getUserAudioDescriptionData(videoId: string, userId: string): Promise<IAudioDescription | Audio_DescriptionsAttributes> {
+  public async getUserAudioDescriptionData(videoId: string, adId: string): Promise<IAudioDescription | Audio_DescriptionsAttributes> {
     if (isEmpty(videoId)) throw new HttpException(400, 'Video ID is empty');
-    if (isEmpty(userId)) throw new HttpException(400, 'User ID is empty');
+    if (isEmpty(adId)) throw new HttpException(400, 'Audio Description ID is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
       const audioDescriptions = await MongoAudio_Descriptions_Model.findOne({
         video: videoId,
-        user: userId,
+        user: adId,
       });
       if (!audioDescriptions) throw new HttpException(409, "Audio Description for this YouTube Video doesn't exist");
       const audio_clips = audioDescriptions.audio_clips;
@@ -86,7 +86,7 @@ class AudioDescriptionsService {
       const newObj = {
         Audio_Clips: transformedAudioClipArr,
         Notes: transformedNotes,
-        UserUserId: userId,
+        UserUserId: audioDescriptions.user,
         VideoVideoId: videoId,
         ad_id: audioDescriptions._id,
         createdAt: audioDescriptions.created_at,
@@ -99,7 +99,7 @@ class AudioDescriptionsService {
       const audioDescriptions: Audio_DescriptionsAttributes = await PostGres_Audio_Descriptions.findOne({
         where: {
           VideoVideoId: videoId,
-          UserUserId: userId,
+          ad_id: adId,
         },
         // nesting Audio_Clips & Notes data too
         include: [
@@ -264,15 +264,15 @@ class AudioDescriptionsService {
     }
   }
 
-  public async deleteUserADAudios(youtube_video_id: string, userId: string) {
+  public async deleteUserADAudios(youtube_video_id: string, adId: string) {
     if (isEmpty(youtube_video_id)) throw new HttpException(400, 'Youtube Video ID is empty');
-    if (isEmpty(userId)) throw new HttpException(400, 'User ID is empty');
+    if (isEmpty(adId)) throw new HttpException(400, 'Audio Description ID is empty');
 
     // if (CURRENT_DATABASE == 'mongodb') {
     // } else {
-    const pathToFolder = `${AUDIO_DIRECTORY}/audio/${youtube_video_id}/${userId}`;
+    const pathToFolder = `${AUDIO_DIRECTORY}/audio/${youtube_video_id}/${adId}`;
     logger.info(`pathToFolder: ${pathToFolder}`);
-    // const pathToFolder = path.join(__dirname, '../../', `.${AUDIO_DIRECTORY}/${youtube_video_id}/${userId}`);
+    // const pathToFolder = path.join(__dirname, '../../', `.${AUDIO_DIRECTORY}/${youtube_video_id}/${adId}`);
     const files = fs.readdir(pathToFolder);
     if (!files) throw new HttpException(409, 'Error Reading Folder. Please check later!');
 

@@ -8,8 +8,8 @@ class AudioDescripionsController {
   public getUserAudioDescriptionData = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const videoId: string = req.params.videoId;
-      const userId: string = req.params.userId;
-      const userAudioDescriptions = await this.audioDescriptionsService.getUserAudioDescriptionData(videoId, userId);
+      const adId: string = req.params.adId;
+      const userAudioDescriptions = await this.audioDescriptionsService.getUserAudioDescriptionData(videoId, adId);
 
       res.status(200).json(userAudioDescriptions);
     } catch (error) {
@@ -34,9 +34,9 @@ class AudioDescripionsController {
   public deleteUserADAudios = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const youtube_video_id: string = req.params.youtubeVideoId;
-      const userId: string = req.params.userId;
+      const adId: string = req.params.adId;
 
-      const deletedUserADAudios: any = this.audioDescriptionsService.deleteUserADAudios(youtube_video_id, userId);
+      const deletedUserADAudios: any = this.audioDescriptionsService.deleteUserADAudios(youtube_video_id, adId);
 
       res.status(200).json(deletedUserADAudios);
     } catch (error) {
