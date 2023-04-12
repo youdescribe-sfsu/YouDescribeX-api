@@ -404,7 +404,7 @@ class AudioClipsService {
     const oldAudioFilePath = oldAudioFilePathStatus.data;
 
     if (CURRENT_DATABASE == 'mongodb') {
-      const updatedAudioClip = await MongoAudioClipsModel.updateMany(
+      const updatedAudioClip = await MongoAudioClipsModel.updateOne(
         {
           _id: clipId,
         },
