@@ -395,7 +395,7 @@ export const getOldAudioFilePath = async (clipId: string) => {
       .then(clip => {
         return {
           message: 'Success',
-          data: clip.file_path,
+          data: clip.file_name ? clip.file_path + '/' + clip.file_name : clip.file_path,
         };
       })
       .catch(err => {
@@ -518,7 +518,11 @@ export const processCurrentClip = async data => {
   else {
     // calculate audio duration
     logger.info('Generating Audio Duration');
-    const clipDurationStatus = await getAudioDuration(data.textToSpeechOutput.filepath);
+    const clipPath =
+      data.textToSpeechOutput.filename == null || data.textToSpeechOutput.filename.length <= 0
+        ? data.textToSpeechOutput.filepath
+        : data.textToSpeechOutput.filepath + '/' + data.textToSpeechOutput.filename;
+    const clipDurationStatus = await getAudioDuration(clipPath);
     // check if the returned data is null - an error in generating Audio Duration
     if (clipDurationStatus.data === null) {
       return {
