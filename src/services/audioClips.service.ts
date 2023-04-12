@@ -410,7 +410,7 @@ class AudioClipsService {
         },
         {
           $set: {
-            description: clipDescriptionText,
+            description_text: clipDescriptionText,
             file_path: newAudioClipPath,
             duration: updatedAudioDuration,
             end_time: updatedClipEndTime,
