@@ -1,6 +1,8 @@
 import { Router } from 'express';
+import passport from 'passport';
 import AuthController from '../controllers/auth.controller';
 import { Routes } from '../interfaces/routes.interface';
+import { PASSPORT_REDIRECT_URL } from '../config/index';
 
 class AuthRoute implements Routes {
   public path = '/auth';
