@@ -1,40 +1,65 @@
-// import { NextFunction, Request, Response } from 'express';
-// import { CreateUserDto } from '@dtos/users.dto';
-// import { RequestWithUser } from '@interfaces/auth.interface';
-// import { User } from '@interfaces/users.interface';
-// import AuthService from '@services/auth.service';
+import { NextFunction, Request, Response } from 'express';
+import passport from 'passport';
+import { PASSPORT_REDIRECT_URL } from '../config/index';
+import { logger } from '../utils/logger';
 
 class AuthController {
-  // public authService = new AuthService();
-  // public signUp = async (req: Request, res: Response, next: NextFunction) => {
-  //   try {
-  //     const userData: CreateUserDto = req.body;
-  //     const signUpUserData: User = await this.authService.signup(userData);
-  //     res.status(201).json({ data: signUpUserData, message: 'signup' });
-  //   } catch (error) {
-  //     next(error);
-  //   }
-  // };
-  // public logIn = async (req: Request, res: Response, next: NextFunction) => {
-  //   try {
-  //     const userData: CreateUserDto = req.body;
-  //     const { cookie, findUser } = await this.authService.login(userData);
-  //     res.setHeader('Set-Cookie', [cookie]);
-  //     res.status(200).json({ data: findUser, message: 'login' });
-  //   } catch (error) {
-  //     next(error);
-  //   }
-  // };
-  // public logOut = async (req: RequestWithUser, res: Response, next: NextFunction) => {
-  //   try {
-  //     const userData: User = req.user;
-  //     const logOutUserData: User = await this.authService.logout(userData);
-  //     res.setHeader('Set-Cookie', ['Authorization=; Max-age=0']);
-  //     res.status(200).json({ data: logOutUserData, message: 'logout' });
-  //   } catch (error) {
-  //     next(error);
-  //   }
-  // };
+  public initAuthentication = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      passport.authenticate('google', { scope: ['profile', 'email', 'openid'] })(req, res, next);
+    } catch (error) {
+      logger.error('Error signing in: ', error);
+      next(error);
+    }
+  };
+  public handleGoogleCallback = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      passport.authenticate('google', {
+        successRedirect: PASSPORT_REDIRECT_URL,
+        failureRedirect: PASSPORT_REDIRECT_URL,
+        failureFlash: 'Sign In Unsuccessful. Please try again!',
+      })(req, res, next);
+    } catch (error) {
+      logger.error('Error with Google Callback: ', error);
+      next(error);
+    }
+  };
+  public logIn = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (req.user) {
+        const ret = {
+          type: 'success',
+          code: 1012,
+          status: 200,
+          message: 'The user was successfully updated',
+          result: req.user,
+        };
+        res.status(ret.status).json(ret);
+      } else {
+        const ret = {
+          type: 'system_error',
+          code: 1,
+          status: 500,
+          message: 'Internal server error',
+        };
+        res.status(ret.status).json(ret);
+      }
+    } catch (error) {
+      next(error);
+    }
+  };
+  public logOut = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      req.logout((err: Error) => {
+        if (err) {
+          logger.error('Error during logout: ', err);
+        }
+      });
+      res.redirect(PASSPORT_REDIRECT_URL);
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export default AuthController;
