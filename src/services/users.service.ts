@@ -93,7 +93,38 @@ class UserService {
     if (isEmpty(aiUserId)) throw new HttpException(400, 'aiUserId is empty');
     if (isEmpty(userId)) throw new HttpException(400, 'userId is empty');
     if (isEmpty(youtubeVideoId)) throw new HttpException(400, 'youtubeVideoId is empty');
-    // ##TODO
+    // TODO - Need to change this route to search for an AI Audio Description given a Youtube Video ID
+
+    // [
+    //   {
+    //     '$match': {
+    //       'youtube_id': 'll8cTIg2rwM'
+    //     }
+    //   }, {
+    //     '$lookup': {
+    //       'from': 'audio_descriptions',
+    //       'localField': 'audio_descriptions',
+    //       'foreignField': '_id',
+    //       'as': 'video_ad'
+    //     }
+    //   }, {
+    //     '$unwind': {
+    //       'path': '$video_ad'
+    //     }
+    //   }, {
+    //     '$lookup': {
+    //       'from': 'users',
+    //       'localField': 'video_ad.user',
+    //       'foreignField': '_id',
+    //       'as': 'video_ad_user'
+    //     }
+    //   }, {
+    //     '$match': {
+    //       'user_type': 'AI'
+    //     }
+    //   }
+    // ]
+
     if (CURRENT_DATABASE == 'mongodb') {
       const videoIdStatus = await MongoVideosModel.findOne({ youtube_id: youtubeVideoId });
       if (!videoIdStatus) throw new HttpException(409, "Video doesn't exist");
