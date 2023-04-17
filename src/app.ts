@@ -53,7 +53,25 @@ class App {
   }
 
   private initializeMiddlewares() {
-    this.app.use(cors());
+    const allowedOrigins = [
+      'https://youdescribe.org',
+      'https://test.youdescribe.org',
+      'https://ydx.youdescribe.org',
+      'https://ydx-dev.youdescribe.org',
+      'http://localhost:3000',
+    ];
+
+    const corsOptions = {
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error(`${origin} Not allowed by CORS`));
+        }
+      },
+      credentials: true,
+    };
+    this.app.use(cors(corsOptions));
     this.app.use(compression());
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
