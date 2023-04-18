@@ -1,5 +1,7 @@
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
+import cookieSession from 'cookie-session';
+import passport from 'passport';
 import cors from 'cors';
 import express, { Application } from 'express';
 import { NODE_ENV, PORT, CURRENT_DATABASE, AUDIO_DIRECTORY } from './config';
@@ -51,11 +53,38 @@ class App {
   }
 
   private initializeMiddlewares() {
-    this.app.use(cors());
+    const allowedOrigins = [
+      'https://youdescribe.org',
+      'https://test.youdescribe.org',
+      'https://ydx.youdescribe.org',
+      'https://ydx-dev.youdescribe.org',
+      'http://localhost:3000',
+    ];
+
+    const corsOptions = {
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error(`${origin} Not allowed by CORS`));
+        }
+      },
+      credentials: true,
+    };
+    this.app.use(cors(corsOptions));
     this.app.use(compression());
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
     this.app.use(cookieParser());
+    this.app.use(
+      cookieSession({
+        name: 'auth-session',
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+        secret: 'YouDescribe Secret',
+      }),
+    );
+    this.app.use(passport.initialize());
+    this.app.use(passport.session());
     logger.info(`AUDIO_DIRECTORY: ${AUDIO_DIRECTORY}`);
     this.app.use('/api/static', express.static(AUDIO_DIRECTORY));
   }

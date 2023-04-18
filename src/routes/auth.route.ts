@@ -1,9 +1,11 @@
 import { Router } from 'express';
+import passport from 'passport';
 import AuthController from '../controllers/auth.controller';
 import { Routes } from '../interfaces/routes.interface';
+import { PASSPORT_REDIRECT_URL } from '../config/index';
 
 class AuthRoute implements Routes {
-  public path = '/';
+  public path = '/auth';
   public router = Router();
   public authController = new AuthController();
 
@@ -12,9 +14,17 @@ class AuthRoute implements Routes {
   }
 
   private initializeRoutes() {
-    // this.router.post(`${this.path}signup`, validationMiddleware(CreateUserDto, 'body'), this.authController.signUp);
-    // this.router.post(`${this.path}login`, validationMiddleware(CreateUserDto, 'body'), this.authController.logIn);
-    // this.router.post(`${this.path}logout`, authMiddleware, this.authController.logOut);
+    this.router.get(`${this.path}/google`, this.authController.initAuthentication);
+    // this.router.get(`${this.path}/google`, passport.authenticate("google", { scope: ["profile","email","openid"] }) );
+    this.router.get(`${this.path}/google/callback`, this.authController.handleGoogleCallback);
+    // this.router.get(`${this.path}/google/callback`, passport.authenticate("google",
+    //                                                 {
+    //                                                   successRedirect: PASSPORT_REDIRECT_URL,
+    //                                                   failureRedirect: PASSPORT_REDIRECT_URL,
+    //                                                   failureFlash: "Sign In Unsuccessful. Please try again!"
+    //                                                 }) );
+    this.router.get(`${this.path}/login/success`, this.authController.logIn);
+    this.router.get(`${this.path}/logout`, this.authController.logOut);
   }
 }
 
