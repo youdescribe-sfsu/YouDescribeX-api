@@ -8,6 +8,7 @@ import TimingsRoute from './routes/timings.route';
 import ParticipantsRoute from './routes/participants.route';
 import AudioDescriptionsRoute from './routes/audio_descriptions.route';
 import AudioClipsRoute from './routes/audioClips.route';
+import AuthRoute from './routes/auth.route';
 
 validateEnv();
 
@@ -20,6 +21,7 @@ const app = new App([
   new ParticipantsRoute(),
   new AudioDescriptionsRoute(),
   new AudioClipsRoute(),
+  new AuthRoute(),
 ]);
 
 app.listen();
