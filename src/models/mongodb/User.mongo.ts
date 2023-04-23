@@ -91,11 +91,9 @@ const UserModel = mongoose.model<IUser>('User', UserSchema);
 
 passport.use(UserModel.createStrategy());
 passport.serializeUser((user: any, done) => {
-  logger.info('Serializing User: ', user);
   done(null, user.id);
 });
 passport.deserializeUser((id, done) => {
-  logger.info('Deserializing User with ID: ', id);
   UserModel.findById(id, function (err, user) {
     done(err, user);
   });

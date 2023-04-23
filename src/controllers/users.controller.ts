@@ -2,6 +2,8 @@ import { NextFunction, Request, Response } from 'express';
 import { CreateUserAudioDescriptionDto, CreateUserDto } from '../dtos/users.dto';
 import { IUsers } from '../interfaces/users.interface';
 import userService from '../services/users.service';
+import { logger } from '../utils/logger';
+import { HOST } from '../config';
 
 class UsersController {
   public userService = new userService();
@@ -144,11 +146,10 @@ class UsersController {
   public createNewUserAudioDescription = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const newUserAudioDescription: CreateUserAudioDescriptionDto = req.body;
-      const audioDescriptionID = await this.userService.createNewUserAudioDescription(newUserAudioDescription);
-
+      const audioDescriptionID = await this.userService.createNewUserAudioDescription(newUserAudioDescription, req.user);
       res.status(201).json({
         message: `Success OK!! Use https://ydx.youdescribe.org/api/audio-clips/processAllClipsInDB/${audioDescriptionID} to generate audio files for the new Audio Description.`,
-        url: `https://ydx.youdescribe.org/api/audio-clips/processAllClipsInDB/${audioDescriptionID}`,
+        url: `${HOST}/${newUserAudioDescription.youtubeVideoId}/${audioDescriptionID}`,
       });
     } catch (error) {
       next(error);
