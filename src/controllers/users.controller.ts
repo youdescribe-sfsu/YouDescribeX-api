@@ -2,9 +2,13 @@ import { NextFunction, Request, Response } from 'express';
 import { CreateUserAudioDescriptionDto, CreateUserDto } from '../dtos/users.dto';
 import { IUsers } from '../interfaces/users.interface';
 import userService from '../services/users.service';
+import AudioClipsService from '../services/audioClips.service';
+import { logger } from '../utils/logger';
+import { HOST } from '../config';
 
 class UsersController {
   public userService = new userService();
+  public audioClipsService = new AudioClipsService();
   /**
    * @swagger
    * /create-user-links/get-all-users:
@@ -144,11 +148,15 @@ class UsersController {
   public createNewUserAudioDescription = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const newUserAudioDescription: CreateUserAudioDescriptionDto = req.body;
-      const audioDescriptionID = await this.userService.createNewUserAudioDescription(newUserAudioDescription);
+      const { audioDescriptionId, fromAI } = await this.userService.createNewUserAudioDescription(newUserAudioDescription, req.user);
+
+      if (fromAI) {
+        await this.audioClipsService.processAllClipsInDB(audioDescriptionId);
+      }
 
       res.status(201).json({
-        message: `Success OK!! Use https://ydx.youdescribe.org/api/audio-clips/processAllClipsInDB/${audioDescriptionID} to generate audio files for the new Audio Description.`,
-        url: `https://ydx.youdescribe.org/api/audio-clips/processAllClipsInDB/${audioDescriptionID}`,
+        message: `Successfully created new user Audio Description`,
+        url: `${newUserAudioDescription.youtubeVideoId}/${audioDescriptionId}`,
       });
     } catch (error) {
       next(error);
