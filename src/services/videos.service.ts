@@ -8,16 +8,15 @@ import { PostGres_Audio_Clips } from '../models/postgres/init-models';
 import { MongoAudioClipsModel, MongoAudio_Descriptions_Model, MongoNotesModel, MongoUsersModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import { IVideo } from '../models/mongodb/Videos.mongo';
 import { logger } from '../utils/logger';
+import { getVideoDataByYoutubeId } from './videos.util';
 class VideosService {
   public async getVideobyYoutubeId(youtubeId: string): Promise<IVideo | VideosAttributes> {
     if (isEmpty(youtubeId)) throw new HttpException(400, 'youtubeId is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
-      logger.info(youtubeId);
       const findVideoById = await MongoVideosModel.findOne({
         youtube_id: youtubeId,
       });
-      logger.info(findVideoById);
       if (!findVideoById) throw new HttpException(409, "YouTube Video doesn't exist");
       const return_val = {
         video_id: findVideoById._id,
