@@ -14,11 +14,9 @@ class VideosService {
     if (isEmpty(youtubeId)) throw new HttpException(400, 'youtubeId is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
-      logger.info(youtubeId);
       const findVideoById = await MongoVideosModel.findOne({
         youtube_id: youtubeId,
       });
-      logger.info(findVideoById);
       if (!findVideoById) throw new HttpException(409, "YouTube Video doesn't exist");
       const return_val = {
         video_id: findVideoById._id,
