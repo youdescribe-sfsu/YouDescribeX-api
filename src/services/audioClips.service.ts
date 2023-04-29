@@ -463,7 +463,10 @@ class AudioClipsService {
     const filePath = String(file.path);
     const file_mime_type = file.mimetype;
     const file_size_bytes = file.size;
-    const clipAudioFilePath = `.` + filePath.substring(filePath.indexOf('/audio/'));
+    let clipAudioFilePath = `.` + filePath.substring(filePath.indexOf('/audio/'));
+    if (clipAudioFilePath.includes('.mp3')) {
+      clipAudioFilePath = clipAudioFilePath.split('/').slice(0, -1).join('/');
+    }
     logger.info(`Database Updated Audio Clip Path: ${clipAudioFilePath}`);
 
     const newClipEndTime = Number((parseFloat(clipStartTime) + parseFloat(recordedClipDuration)).toFixed(2));
@@ -547,9 +550,15 @@ class AudioClipsService {
     let file_mime_type: string;
     if (file && isRecorded && newACDuration !== null) {
       const filePath = String(file.path);
+      logger.info(`File Path: ${filePath}`);
       newClipAudioFilePath = `.` + filePath.substring(filePath.indexOf('/audio/'));
+      if (newClipAudioFilePath.includes('.mp3')) {
+        newClipAudioFilePath = newClipAudioFilePath.split('/').slice(0, -1).join('/');
+      }
+      logger.info(`newClipAudioFilePath Path: ${newClipAudioFilePath}`);
       newAudioDuration = newACDuration;
       fileName = String(file.filename);
+      logger.info(`File Name: ${fileName}`);
       file_size_bytes = file.size;
       file_mime_type = file.mimetype;
     } else {

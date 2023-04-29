@@ -9,6 +9,8 @@ import { INotes } from '../models/mongodb/Notes.mongo';
 class NotesService {
   public async postNoteByAdId(notesBody: PostNoteByAdIdDto): Promise<INotes | NotesAttributes | number> {
     const { adId, noteId, notes } = notesBody;
+    logger.info(`adId, ${adId}`);
+    logger.info(`notesBody, ${JSON.stringify(notesBody)}`);
     if (isEmpty(adId)) throw new HttpException(400, 'Audio Description ID is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
@@ -27,15 +29,17 @@ class NotesService {
         });
         if (!audioDescriptionID) throw new HttpException(409, "Audio Description doesn't exist");
 
-        const updatedNotes = await MongoNotesModel.findOneAndUpdate(
-          audioDescriptionID._id,
-          { notes_text: notes },
-          { new: true }, // return updated row
-        ).catch(err => {
-          logger.error(err);
+        try {
+          const updatedNotes = await MongoNotesModel.findOneAndUpdate(
+            audioDescriptionID._id,
+            { notes_text: notes },
+            { new: true }, // return updated row
+          );
+          return updatedNotes;
+        } catch (error) {
+          logger.error(error);
           throw new HttpException(409, 'Notes not updated');
-        });
-        return updatedNotes;
+        }
       }
     } else {
       // Create a new note
