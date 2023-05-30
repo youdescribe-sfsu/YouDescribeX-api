@@ -112,6 +112,56 @@ class VideosService {
       return videoById;
     }
   }
+
+  public async getVideosForUserId(userId: string): Promise<IVideo[] | VideosAttributes[]> {
+    if (!userId) throw new HttpException(400, 'userId is empty');
+    if (CURRENT_DATABASE == 'mongodb') {
+      const audioDescriptions = await MongoAudio_Descriptions_Model.find({ user: userId });
+      if (!audioDescriptions) throw new HttpException(409, "Audio Description doesn't exist");
+      const videoIds = audioDescriptions.map((ad) => ad.video);
+      const videos = await MongoVideosModel.find({ _id: { $in: videoIds } });
+
+      // Merge Audio Descriptions and Videos
+      const return_val = videos.map((video) => {
+        const audioDescription = audioDescriptions.find((ad) => ad.video == video._id);
+        return {
+          video_id: video._id,
+          youtube_video_id: video.youtube_id,
+          video_name: video.title,
+          video_length: video.duration,
+          createdAt: video.created_at,
+          updatedAt: video.updated_at,
+          audio_description_id: audioDescription._id,
+          status: audioDescription.status,
+          overall_rating_votes_average: audioDescription.overall_rating_votes_average,
+          overall_rating_votes_counter: audioDescription.overall_rating_votes_counter,
+          overall_rating_votes_sum: audioDescription.overall_rating_votes_sum,
+        };
+      });
+      return return_val;
+    } else {
+      // Implementation in Postgres
+      const audioDescriptions = await PostGres_Audio_Descriptions.findAll({ where: { UserUserId: userId } });
+      if (!audioDescriptions) throw new HttpException(409, "Audio Description doesn't exist");
+      const videoIds = audioDescriptions.map((ad) => ad.VideoVideoId);
+      const videos = await PostGres_Videos.findAll({ where: { video_id: videoIds } });
+      // Merge Audio Descriptions and Videos
+      const return_val = videos.map((video) => {
+        const audioDescription = audioDescriptions.find((ad) => ad.VideoVideoId == video.video_id);
+        return {
+          video_id: video.video_id,
+          youtube_video_id: video.youtube_video_id,
+          video_name: video.video_name,
+          video_length: video.video_length,
+          createdAt: video.createdAt,
+          updatedAt: video.updatedAt,
+          audio_description_id: audioDescription.ad_id,
+        };
+      });
+      return return_val;
+    }
+
+  }
 }
 
 export default VideosService;
