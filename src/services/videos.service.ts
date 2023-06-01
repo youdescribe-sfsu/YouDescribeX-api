@@ -116,14 +116,22 @@ class VideosService {
   public async getVideosForUserId(userId: string): Promise<IVideo[] | VideosAttributes[]> {
     if (!userId) throw new HttpException(400, 'userId is empty');
     if (CURRENT_DATABASE == 'mongodb') {
+      logger.info(`Retrieving audio descriptions for ${userId}`);
       const audioDescriptions = await MongoAudio_Descriptions_Model.find({ user: userId });
       if (!audioDescriptions) throw new HttpException(409, "Audio Description doesn't exist");
-      const videoIds = audioDescriptions.map((ad) => ad.video);
+
+      logger.info(`Finding videos for ${audioDescriptions.length} accompanying audio descriptions: ${audioDescriptions.map(ad => ad.video)}`);
+
+      const videoIds = audioDescriptions.map(ad => ad.video);
+
       const videos = await MongoVideosModel.find({ _id: { $in: videoIds } });
 
+      logger.info(`Found videos: ${videos.map(video => video.youtube_id)}`);
+
       // Merge Audio Descriptions and Videos
-      const return_val = videos.map((video) => {
-        const audioDescription = audioDescriptions.find((ad) => ad.video == video._id);
+      const return_val = videos.map(video => {
+        const audioDescription = audioDescriptions.find(ad => ad.video == `${video._id}`);
+
         return {
           video_id: video._id,
           youtube_video_id: video.youtube_id,
@@ -143,11 +151,11 @@ class VideosService {
       // Implementation in Postgres
       const audioDescriptions = await PostGres_Audio_Descriptions.findAll({ where: { UserUserId: userId } });
       if (!audioDescriptions) throw new HttpException(409, "Audio Description doesn't exist");
-      const videoIds = audioDescriptions.map((ad) => ad.VideoVideoId);
+      const videoIds = audioDescriptions.map(ad => ad.VideoVideoId);
       const videos = await PostGres_Videos.findAll({ where: { video_id: videoIds } });
       // Merge Audio Descriptions and Videos
-      const return_val = videos.map((video) => {
-        const audioDescription = audioDescriptions.find((ad) => ad.VideoVideoId == video.video_id);
+      const return_val = videos.map(video => {
+        const audioDescription = audioDescriptions.find(ad => ad.VideoVideoId == video.video_id);
         return {
           video_id: video.video_id,
           youtube_video_id: video.youtube_video_id,
@@ -160,7 +168,6 @@ class VideosService {
       });
       return return_val;
     }
-
   }
 }
 
