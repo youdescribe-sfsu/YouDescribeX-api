@@ -30,15 +30,15 @@ class NotesService {
         if (!audioDescriptionID) throw new HttpException(409, "Audio Description doesn't exist");
 
         try {
-          const updatedNotes = await MongoNotesModel.findOneAndUpdate(
-            audioDescriptionID._id,
+          const updatedNotes = await MongoNotesModel.findByIdAndUpdate(
+            noteId,
             { notes_text: notes },
             { new: true }, // return updated row
-          );
+          )
           return updatedNotes;
         } catch (error) {
           logger.error(error);
-          throw new HttpException(409, 'Notes not updated');
+          throw new HttpException(409, 'Notes not updated'); 
         }
       }
     } else {
