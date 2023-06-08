@@ -34,11 +34,11 @@ class NotesService {
             noteId,
             { notes_text: notes },
             { new: true }, // return updated row
-          )
+          );
           return updatedNotes;
         } catch (error) {
           logger.error(error);
-          throw new HttpException(409, 'Notes not updated'); 
+          throw new HttpException(409, 'Notes not updated');
         }
       }
     } else {
