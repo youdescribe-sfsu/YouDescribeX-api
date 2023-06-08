@@ -9,6 +9,7 @@ import ParticipantsRoute from './routes/participants.route';
 import AudioDescriptionsRoute from './routes/audio_descriptions.route';
 import AudioClipsRoute from './routes/audioClips.route';
 import AuthRoute from './routes/auth.route';
+import WishListRoute from './routes/wishlist.route';
 
 validateEnv();
 
@@ -22,6 +23,7 @@ const app = new App([
   new AudioDescriptionsRoute(),
   new AudioClipsRoute(),
   new AuthRoute(),
+  new WishListRoute(),
 ]);
 
 app.listen();

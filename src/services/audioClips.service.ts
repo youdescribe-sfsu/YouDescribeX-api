@@ -464,7 +464,7 @@ class AudioClipsService {
     const file_mime_type = file.mimetype;
     const file_size_bytes = file.size;
     let clipAudioFilePath = `.` + filePath.substring(filePath.indexOf('/audio/'));
-    if(clipAudioFilePath.includes('.mp3')){
+    if (clipAudioFilePath.includes('.mp3')) {
       clipAudioFilePath = clipAudioFilePath.split('/').slice(0, -1).join('/');
     }
     logger.info(`Database Updated Audio Clip Path: ${clipAudioFilePath}`);
@@ -552,7 +552,7 @@ class AudioClipsService {
       const filePath = String(file.path);
       logger.info(`File Path: ${filePath}`);
       newClipAudioFilePath = `.` + filePath.substring(filePath.indexOf('/audio/'));
-      if(newClipAudioFilePath.includes('.mp3')){
+      if (newClipAudioFilePath.includes('.mp3')) {
         newClipAudioFilePath = newClipAudioFilePath.split('/').slice(0, -1).join('/');
       }
       logger.info(`newClipAudioFilePath Path: ${newClipAudioFilePath}`);
