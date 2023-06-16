@@ -149,9 +149,8 @@ class UsersController {
     try {
       const newUserAudioDescription: CreateUserAudioDescriptionDto = req.body;
       const { audioDescriptionId, fromAI } = await this.userService.createNewUserAudioDescription(newUserAudioDescription, req.user);
-
       if (fromAI) {
-        await this.audioClipsService.processAllClipsInDB(audioDescriptionId);
+        await this.audioClipsService.processAllClipsInDB(audioDescriptionId.toString());
       }
 
       res.status(201).json({

@@ -164,6 +164,16 @@ class AudioDescriptionsService {
         });
         const newSavedVideo = await newVid.save();
         if (!newSavedVideo) throw new HttpException(409, "Video couldn't be created");
+        await MongoVideosModel.findByIdAndUpdate(newVid._id, {
+          $push: {
+            audio_descriptions: {
+              $each: [{ _id: ad._id }],
+            },
+          },
+        }).catch(err => {
+          logger.error(err);
+          throw new HttpException(409, "Video couldn't be updated.");
+        });
         ad.set('video', newSavedVideo._id);
         vid = newSavedVideo;
       }
@@ -200,7 +210,7 @@ class AudioDescriptionsService {
         }),
       );
       if (!new_timestamp) throw new HttpException(409, "Dialog Timestamps couldn't be created");
-
+      console.log('new_timestamp', ad);
       ad.save();
       return ad;
     } else {
