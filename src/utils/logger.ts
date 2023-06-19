@@ -5,13 +5,13 @@ import winstonDaily from 'winston-daily-rotate-file';
 import { LOG_DIR } from '../config';
 
 // logs dir
-const logDir: string = join(__dirname, LOG_DIR);
+const logDir = LOG_DIR;
 
 console.log('logDir: ', logDir);
 
-if (!existsSync(logDir)) {
-  mkdirSync(logDir);
-}
+// if (!existsSync(logDir)) {
+//   mkdirSync(logDir);
+// }
 
 // Define log format
 const logFormat = winston.format.printf(({ timestamp, level, message }) => `${timestamp} ${level}: ${message}`);
@@ -32,8 +32,8 @@ const logger = winston.createLogger({
     new winstonDaily({
       level: 'debug',
       datePattern: 'YYYY-MM-DD',
-      dirname: logDir + '/debug', // log file /logs/debug/*.log in save
-      filename: `%DATE%.log`,
+      dirname: logDir,
+      filename: `%DATE%.debug.log`,
       maxFiles: 30, // 30 Days saved
       json: true,
       zippedArchive: true,
@@ -42,8 +42,8 @@ const logger = winston.createLogger({
     new winstonDaily({
       level: 'error',
       datePattern: 'YYYY-MM-DD',
-      dirname: logDir + '/error', // log file /logs/error/*.log in save
-      filename: `%DATE%.log`,
+      dirname: logDir,
+      filename: `%DATE%.error.log`,
       maxFiles: 30, // 30 Days saved
       handleExceptions: true,
       json: true,
