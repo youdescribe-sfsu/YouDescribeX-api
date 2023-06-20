@@ -12,7 +12,7 @@ class WishListRoute implements Routes {
   }
 
   private initializeRoutes() {
-    this.router.get(`${this.path}/get-all-wishlist`, this.usersController.getAllWishlist);
+    this.router.post(`${this.path}/get-all-wishlist`, this.usersController.getAllWishlist);
   }
 }
 
