@@ -338,52 +338,58 @@ class UserService {
   }
 
   public async createNewUser(newUserData: NewUserDto) {
-    console.log('createNewUser');
     if (!newUserData) {
       throw new HttpException(400, 'No data provided');
     }
     const { email, name, given_name, picture, locale, google_user_id, token, opt_in, admin_level, user_type } = newUserData;
-    if (CURRENT_DATABASE === 'mongodb') {
-      const user = await MongoUsersModel.find({ google_user_id: google_user_id });
 
-      if (user) {
-        const updateduser = await MongoUsersModel.findOneAndUpdate(
-          { google_user_id: google_user_id },
-          {
-            $set: {
-              last_login: moment().utc().format('YYYYMMDDHHmmss'),
-              updated_at: moment().utc().format('YYYYMMDDHHmmss'),
-              token: token,
+    try {
+      if (CURRENT_DATABASE === 'mongodb') {
+        const user = await MongoUsersModel.findOne({
+          google_user_id: google_user_id,
+        });
+
+        if (user) {
+          const updateduser = await MongoUsersModel.findOneAndUpdate(
+            { google_user_id: google_user_id },
+            {
+              $set: {
+                last_login: moment().utc().format('YYYYMMDDHHmmss'),
+                updated_at: moment().utc().format('YYYYMMDDHHmmss'),
+                token: token,
+              },
             },
-          },
-          { new: true },
-        );
-        return updateduser;
+            { new: true },
+          );
+          return updateduser;
+        } else {
+          const newUser = await MongoUsersModel.create({
+            email,
+            name,
+            given_name,
+            picture,
+            locale,
+            google_user_id,
+            token,
+            opt_in,
+            admin_level,
+            user_type,
+            last_login: moment().utc().format('YYYYMMDDHHmmss'),
+          });
+
+          return newUser;
+        }
       } else {
-        const newUser = await MongoUsersModel.create({
-          email,
-          name,
-          given_name,
-          picture,
-          locale,
-          google_user_id,
-          token,
-          opt_in,
-          admin_level,
-          user_type,
-          last_login: moment().utc().format('YYYYMMDDHHmmss'),
+        const newUser = await PostGres_Users.create({
+          is_ai: false,
+          name: name,
+          user_email: email,
         });
 
         return newUser;
       }
-    } else {
-      const newUser = await PostGres_Users.create({
-        is_ai: false,
-        name: name,
-        user_email: email,
-      });
-
-      return newUser;
+    } catch (error) {
+      throw new HttpException(409, error);
     }
   }
 }

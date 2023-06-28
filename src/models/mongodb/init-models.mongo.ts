@@ -21,7 +21,6 @@ import crypto from 'crypto';
 import moment from 'moment';
 import { PASSPORT_CALLBACK_URL, CRYPTO_SECRET, CRYPTO_SEED, PORT } from '../../config/index';
 import passport from 'passport';
-import UserService from '../../services/users.service';
 import axios from 'axios';
 
 function initModels() {
@@ -67,7 +66,8 @@ export const initPassport = () => {
   // const userService = new UserService();
   passport.use(MongoUsersModel.createStrategy());
   passport.serializeUser((user: any, done) => {
-    done(null, user.id);
+    console.log('serialized user');
+    done(null, user._id);
   });
   passport.deserializeUser((id, done) => {
     MongoUsersModel.findById(id, function (err, user) {
@@ -105,54 +105,10 @@ export const initPassport = () => {
             admin_level: 0,
             user_type: 'Volunteer',
           });
-          // const newUser = await userService.createNewUser({);
-          return cb(null, newUser);
+          return cb(null, newUser.data);
         } catch (error) {
           return cb(error, null);
         }
-
-        // MongoUsersModel.find({ google_user_id: googleUserId }, async (err, user) => {
-        //   if (user) {
-        //     MongoUsersModel.findOneAndUpdate(
-        //       { google_user_id: googleUserId },
-        //       {
-        //         $set: {
-        //           last_login: moment().utc().format('YYYYMMDDHHmmss'),
-        //           updated_at: moment().utc().format('YYYYMMDDHHmmss'),
-        //           token: newToken,
-        //         },
-        //       },
-        //       { new: true },
-        //       (err, user) => {
-        //         if (err) {
-        //           return cb(err, null);
-        //         }
-        //         if (user) {
-        //           return cb(null, user);
-        //         }
-        //       },
-        //     );
-        //   } else {
-        //     try {
-        //       const newUser = await MongoUsersModel.create({
-        //         email: payload.email,
-        //         name: payload.name,
-        //         given_name: payload.given_name,
-        //         picture: payload.picture,
-        //         locale: payload.locale,
-        //         google_user_id: googleUserId,
-        //         last_login: moment().utc().format('YYYYMMDDHHmmss'),
-        //         token: newToken,
-        //         opt_in: false,
-        //         admin_level: 0,
-        //         user_type: 'Volunteer',
-        //       });
-        //       return cb(null, newUser);
-        //     } catch (error) {
-        //       return cb(error, null);
-        //     }
-        //   }
-        // });
       },
     ),
   );
