@@ -4,9 +4,9 @@ console.log(`path: .env.${process.env.NODE_ENV || 'development'}.local`);
 
 config({ path: `.env.${process.env.NODE_ENV || 'development'}.local` });
 
-console.log('NODE_ENV', process.env.NODE_ENV);
+// console.log('NODE_ENV', process.env.NODE_ENV);
 
-console.log(process.env);
+// console.log(process.env);
 
 export const CREDENTIALS = process.env.CREDENTIALS === 'true';
 export const { NODE_ENV, HOST, PORT, SECRET_KEY, LOG_FORMAT, LOG_DIR, ORIGIN } = process.env;
