@@ -1,4 +1,4 @@
-import { CreateUserAudioDescriptionDto, CreateUserDto } from '../dtos/users.dto';
+import { CreateUserAudioDescriptionDto, CreateUserDto, NewUserDto } from '../dtos/users.dto';
 import { HttpException } from '../exceptions/HttpException';
 import { isEmpty } from '../utils/util';
 import { CURRENT_DATABASE } from '../config';
@@ -11,6 +11,7 @@ import { IUser } from '../models/mongodb/User.mongo';
 import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
 import { logger } from '../utils/logger';
 import { getVideoDataByYoutubeId } from './videos.util';
+import moment from 'moment';
 class UserService {
   public async findAllUser(): Promise<IUser[] | UsersAttributes[]> {
     if (CURRENT_DATABASE == 'mongodb') {
@@ -333,6 +334,55 @@ class UserService {
       //   audioDescriptionId: createNewAudioDescription.ad_id,
       //   fromAI: true,
       // };
+    }
+  }
+
+  public async createNewUser(newUserData: NewUserDto) {
+    if (!newUserData) {
+      throw new HttpException(400, 'No data provided');
+    }
+    const { email, name, given_name, picture, locale, google_user_id, token, opt_in, admin_level, user_type } = newUserData;
+    if (CURRENT_DATABASE === 'mongodb') {
+      const user = MongoUsersModel.find({ google_user_id: google_user_id });
+
+      if (user) {
+        const updateduser = await MongoUsersModel.findOneAndUpdate(
+          { google_user_id: google_user_id },
+          {
+            $set: {
+              last_login: moment().utc().format('YYYYMMDDHHmmss'),
+              updated_at: moment().utc().format('YYYYMMDDHHmmss'),
+              token: token,
+            },
+          },
+          { new: true },
+        );
+        return updateduser;
+      } else {
+        const newUser = await MongoUsersModel.create({
+          email,
+          name,
+          given_name,
+          picture,
+          locale,
+          google_user_id,
+          token,
+          opt_in,
+          admin_level,
+          user_type,
+          last_login: moment().utc().format('YYYYMMDDHHmmss'),
+        });
+
+        return newUser;
+      }
+    } else {
+      const newUser = await PostGres_Users.create({
+        is_ai: false,
+        name: name,
+        user_email: email,
+      });
+
+      return newUser;
     }
   }
 }

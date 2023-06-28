@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
-import { CreateUserAudioDescriptionDto, CreateUserDto } from '../dtos/users.dto';
+import { CreateUserAudioDescriptionDto, CreateUserDto, NewUserDto } from '../dtos/users.dto';
 import { IUsers } from '../interfaces/users.interface';
 import userService from '../services/users.service';
 import AudioClipsService from '../services/audioClips.service';
@@ -157,6 +157,17 @@ class UsersController {
         message: `Successfully created new user Audio Description`,
         url: `${newUserAudioDescription.youtubeVideoId}/${audioDescriptionId}`,
       });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public createNewUser = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const newUserData: NewUserDto = req.body;
+      const returnData = await this.userService.createNewUser(newUserData);
+
+      res.status(201).json(returnData);
     } catch (error) {
       next(error);
     }

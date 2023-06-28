@@ -16,6 +16,12 @@ import UserVotesSchema, { IUserVotes } from './UserVotes.mongo';
 import VideoSchema, { IVideo } from './Videos.mongo';
 import VisitSchema, { IVisit } from './Visit.mongo';
 import WishlistSchema, { IWishList } from './Wishlist.mongo';
+import { Strategy } from 'passport-google-oauth20';
+import crypto from 'crypto';
+import moment from 'moment';
+import { PASSPORT_CALLBACK_URL, CRYPTO_SECRET, CRYPTO_SEED } from '../../config/index';
+import passport from 'passport';
+import UserService from '../../services/users.service';
 
 function initModels() {
   const VideosModel = model<IVideo>('Video', VideoSchema);
@@ -36,109 +42,6 @@ function initModels() {
   const VisitModel = model<IVisit>('Visit', VisitSchema);
   const WishListModel = model<IWishList>('WishList', WishlistSchema);
 
-  // logger.info('MongoDB Models initialized');
-  // logger.info(JSON.stringify(AudioClipModel.schema));
-  // VideosModel.createCollection().then(function (collection) {
-  //   console.log('Video COnnection is created!');
-  // });
-  // UserModel.createCollection().then(function (collection) {
-  //   console.log('User COnnection is created!');
-  // });
-  // Dialog_Timestamps.createCollection().then(function (collection) {
-  //   console.log('Dialog_Timestamps COnnection is created!');
-  // });
-
-  // Admin.createCollection().then(function (collection) {
-  //   console.log('Admin COnnection is created!');
-  // });
-  // AudioDescriptionRating.createCollection().then(function (collection) {
-  //   console.log('AudioDescriptionRating COnnection is created!');
-  // });
-  // Category.createCollection().then(function (collection) {
-  //   console.log('Category COnnection is created!');
-  // });
-  // AudioDescriptionModel.createCollection().then(function (collection) {
-  //   console.log('AudioDescriptionModel COnnection is created!');
-  // });
-  // NotesModel.createCollection().then(function (collection) {
-  //   console.log('NotesModel COnnection is created!');
-  // });
-  // AudioClipModel.createCollection().then(function (collection) {
-  //   console.log('AudioClipModel COnnection is created!');
-  // });
-  // ParticipantsModel.createCollection().then(function (collection) {
-  //   console.log('ParticipantsModel COnnection is created!');
-  // });
-  // TimingsModel.createCollection().then(function (collection) {
-  //   console.log('TimingsModel COnnection is created!');
-  // });
-  // Language.createCollection().then(function (collection) {
-  //   console.log('Language COnnection is created!');
-  // });
-  // Transcription.createCollection().then(function (collection) {
-  //   console.log('Transcription COnnection is created!');
-  // });
-  // UserVotesModel.createCollection().then(function (collection) {
-  //   console.log('UserVotesModel COnnection is created!');
-  // });
-  // VisitModel.createCollection().then(function (collection) {
-  //   console.log('VisitModel COnnection is created!');
-  // });
-  // WishListModel.createCollection().then(function (collection) {
-  //   console.log('WishListModel COnnection is created!');
-  // });
-
-  // videosSchema.virtual('AudioDescriptions', {
-  //     ref: 'AudioDescriptions',
-  //     localField: 'video_id',
-  //     foreignField: 'VideoVideoId',
-  //     justOne: false,
-  // });
-
-  // videosSchema.virtual('DialogTimestamps', {
-  //     ref: 'DialogTimestamps',
-  //     localField: 'video_id',
-  //     foreignField: 'VideoVideoId',
-  //     justOne: false,
-  // });
-  // Dialog_TimestampsSchema.virtual('VideoVideo', {
-  //     ref: 'Videos',
-  //     localField: 'VideoVideoId',
-  //     foreignField: 'video_id',
-  //     justOne: true,
-  // });
-  // Audio_DescriptionsSchema.virtual('UserUser', {
-  //     ref: 'Users',
-  //     localField: 'UserUserId',
-  //     foreignField: 'user_id',
-  //     justOne: true,
-  // });
-
-  // Audio_DescriptionsSchema.virtual('VideoVideo', {
-  //     ref: 'Videos',
-  //     localField: 'VideoVideoId',
-  //     foreignField: 'video_id',
-  //     justOne: true,
-  // });
-
-  // audioClipsSchema.virtual('AudioDescriptionAd', {
-  //     ref: 'AudioDescriptions',
-  //     localField: 'AudioDescriptionAdId',
-  //     foreignField: '_id',
-  //     justOne: true,
-  // });
-  // ParticipantsSchema.virtual('Timings', {
-  //     ref: 'Timings',
-  //     localField: 'participant_id',
-  //     foreignField: 'ParticipantParticipantId',
-  // });
-  // TimingsSchema.virtual('ParticipantParticipant', {
-  //     ref: 'Participants',
-  //     localField: 'ParticipantParticipantId',
-  //     foreignField: '_id',
-  //     justOne: true,
-  // });
-
   return {
     MongoVideosModel: VideosModel,
     MongoUsersModel: UserModel,
@@ -158,6 +61,100 @@ function initModels() {
     MongoAdminModel: Admin,
   };
 }
+
+export const initPassport = () => {
+  const userService = new UserService();
+  passport.use(MongoUsersModel.createStrategy());
+  passport.serializeUser((user: any, done) => {
+    done(null, user.id);
+  });
+  passport.deserializeUser((id, done) => {
+    MongoUsersModel.findById(id, function (err, user) {
+      done(err, user);
+    });
+  });
+
+  passport.use(
+    new Strategy(
+      {
+        clientID: '1061361249208-9799kv6172rjgmk4gad077639dfrck82.apps.googleusercontent.com',
+        clientSecret: 'emqt6gfCSMNlhHfpADZCEgqf',
+        callbackURL: PASSPORT_CALLBACK_URL,
+        userProfileURL: 'https://www.googleapis.com/oauth2/v3/userinfo',
+      },
+      async function verify(accessToken, refreshToken, profile, cb) {
+        const payload = profile._json;
+        logger.info('payload: ', payload);
+        const googleUserId = payload.sub;
+        const newToken = crypto
+          .createHmac('sha256', CRYPTO_SECRET)
+          .update(CRYPTO_SEED + moment().utc().format('YYYYMMDDHHmmss'))
+          .digest('hex');
+
+        try {
+          const newUser = await userService.createNewUser({
+            email: payload.email,
+            name: payload.name,
+            given_name: payload.given_name,
+            picture: payload.picture,
+            locale: payload.locale,
+            google_user_id: googleUserId,
+            token: newToken,
+            opt_in: false,
+            admin_level: 0,
+            user_type: 'Volunteer',
+          });
+          return cb(null, newUser);
+        } catch (error) {
+          return cb(error, null);
+        }
+
+        // MongoUsersModel.find({ google_user_id: googleUserId }, async (err, user) => {
+        //   if (user) {
+        //     MongoUsersModel.findOneAndUpdate(
+        //       { google_user_id: googleUserId },
+        //       {
+        //         $set: {
+        //           last_login: moment().utc().format('YYYYMMDDHHmmss'),
+        //           updated_at: moment().utc().format('YYYYMMDDHHmmss'),
+        //           token: newToken,
+        //         },
+        //       },
+        //       { new: true },
+        //       (err, user) => {
+        //         if (err) {
+        //           return cb(err, null);
+        //         }
+        //         if (user) {
+        //           return cb(null, user);
+        //         }
+        //       },
+        //     );
+        //   } else {
+        //     try {
+        //       const newUser = await MongoUsersModel.create({
+        //         email: payload.email,
+        //         name: payload.name,
+        //         given_name: payload.given_name,
+        //         picture: payload.picture,
+        //         locale: payload.locale,
+        //         google_user_id: googleUserId,
+        //         last_login: moment().utc().format('YYYYMMDDHHmmss'),
+        //         token: newToken,
+        //         opt_in: false,
+        //         admin_level: 0,
+        //         user_type: 'Volunteer',
+        //       });
+        //       return cb(null, newUser);
+        //     } catch (error) {
+        //       return cb(error, null);
+        //     }
+        //   }
+        // });
+      },
+    ),
+  );
+};
 
 export const {
   MongoVideosModel,

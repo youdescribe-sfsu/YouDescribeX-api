@@ -12,6 +12,7 @@ class AuthController {
       next(error);
     }
   };
+
   public handleGoogleCallback = async (req: Request, res: Response, next: NextFunction) => {
     try {
       passport.authenticate('google', {
@@ -24,6 +25,7 @@ class AuthController {
       next(error);
     }
   };
+
   public logIn = async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (req.user) {
@@ -48,6 +50,7 @@ class AuthController {
       next(error);
     }
   };
+
   public logOut = async (req: Request, res: Response, next: NextFunction) => {
     try {
       req.logout((err: Error) => {

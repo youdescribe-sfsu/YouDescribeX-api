@@ -7,7 +7,7 @@ variables:
 stages:
   - build
   - deploy
- 
+
 cache:
   paths:
     - node_modules/
@@ -78,7 +78,7 @@ deploy-stage:
       -e MONGO_DB_PASSWORD=$MONGO_DB_PASSWORD
       -v ./public:/app/public
       -v ./logs:/app/logs
-      --name ${CI_PROJECT_NAME} 
+      --name ${CI_PROJECT_NAME}
       --restart unless-stopped -d -p 0.0.0.0:$PORT:$PORT ${CI_PROJECT_NAME}:${CI_COMMIT_REF_NAME}-1.${CI_PIPELINE_ID}
     - echo "Finished deploying YouDescribe Backend build to staging"
 
