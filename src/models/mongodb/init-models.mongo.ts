@@ -19,9 +19,10 @@ import WishlistSchema, { IWishList } from './Wishlist.mongo';
 import { Strategy } from 'passport-google-oauth20';
 import crypto from 'crypto';
 import moment from 'moment';
-import { PASSPORT_CALLBACK_URL, CRYPTO_SECRET, CRYPTO_SEED } from '../../config/index';
+import { PASSPORT_CALLBACK_URL, CRYPTO_SECRET, CRYPTO_SEED, PORT } from '../../config/index';
 import passport from 'passport';
 import UserService from '../../services/users.service';
+import axios from 'axios';
 
 function initModels() {
   const VideosModel = model<IVideo>('Video', VideoSchema);
@@ -63,7 +64,7 @@ function initModels() {
 }
 
 export const initPassport = () => {
-  const userService = new UserService();
+  // const userService = new UserService();
   passport.use(MongoUsersModel.createStrategy());
   passport.serializeUser((user: any, done) => {
     done(null, user.id);
@@ -92,7 +93,7 @@ export const initPassport = () => {
           .digest('hex');
 
         try {
-          const newUser = await userService.createNewUser({
+          const newUser = await axios.post(`http://localhost:${PORT}/api/create-user-links/create-user`, {
             email: payload.email,
             name: payload.name,
             given_name: payload.given_name,
@@ -104,6 +105,7 @@ export const initPassport = () => {
             admin_level: 0,
             user_type: 'Volunteer',
           });
+          // const newUser = await userService.createNewUser({);
           return cb(null, newUser);
         } catch (error) {
           return cb(error, null);
