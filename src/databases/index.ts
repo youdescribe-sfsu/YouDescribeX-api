@@ -3,13 +3,16 @@ import { MONGO_DB_DATABASE, MONGO_DB_HOST, MONGO_DB_PORT, MONGO_DB_USER, MONGO_D
 import { POSTGRES_DB_NAME, POSTGRES_DB_USER, POSTGRES_DB_PASSWORD, POSTGRES_DB_HOST, POSTGRES_DB_PORT } from '../config';
 
 // Import database libraries
-import { connect } from 'mongoose';
+import mongoose, { connect } from 'mongoose';
 import { Sequelize, Options } from 'sequelize';
 
 import { CURRENT_DATABASE } from '../config';
 import { logger } from '../utils/logger';
 // MongoDB connection string
-const MONGODB_CONNECTION_STRING = NODE_ENV === 'production' ? `mongodb://${MONGO_DB_USER}:${MONGO_DB_PASSWORD}@${MONGO_DB_HOST}:${MONGO_DB_PORT}/${MONGO_DB_DATABASE}` : `mongodb://${MONGO_DB_HOST}:${MONGO_DB_PORT}/${MONGO_DB_DATABASE}`;
+const MONGODB_CONNECTION_STRING =
+  NODE_ENV === 'production'
+    ? `mongodb://${MONGO_DB_USER}:${MONGO_DB_PASSWORD}@${MONGO_DB_HOST}:${MONGO_DB_PORT}/${MONGO_DB_DATABASE}`
+    : `mongodb://${MONGO_DB_HOST}:${MONGO_DB_PORT}/${MONGO_DB_DATABASE}`;
 
 // PostgreSQL connection object
 const POSTGRESQL_OPTIONS: Options = {

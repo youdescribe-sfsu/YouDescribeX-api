@@ -14,6 +14,7 @@ import swaggerUi from 'swagger-ui-express';
 import options from './swaggerOptions';
 import yaml from 'js-yaml';
 import fs from 'fs';
+import { initPassport } from './models/mongodb/init-models.mongo';
 
 class App {
   public app: Application;
@@ -28,11 +29,12 @@ class App {
     this.currentDatabase = CURRENT_DATABASE || 'mongo';
 
     // this.connectToDatabase();
+    this.testDatabase();
     this.initializeMiddlewares();
     this.initializeRoutes(routes);
     this.initializeErrorHandling();
-    this.testDatabase();
     this.initializeSwagger();
+    initPassport();
   }
 
   public listen() {
