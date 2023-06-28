@@ -338,12 +338,13 @@ class UserService {
   }
 
   public async createNewUser(newUserData: NewUserDto) {
+    console.log('createNewUser');
     if (!newUserData) {
       throw new HttpException(400, 'No data provided');
     }
     const { email, name, given_name, picture, locale, google_user_id, token, opt_in, admin_level, user_type } = newUserData;
     if (CURRENT_DATABASE === 'mongodb') {
-      const user = MongoUsersModel.find({ google_user_id: google_user_id });
+      const user = await MongoUsersModel.find({ google_user_id: google_user_id });
 
       if (user) {
         const updateduser = await MongoUsersModel.findOneAndUpdate(
