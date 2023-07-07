@@ -148,7 +148,11 @@ class UserService {
         video: videoIdStatus._id,
         user: user._id,
       });
-      if (checkIfAudioDescriptionExists) throw new HttpException(409, 'User already has an Audio Description for this video');
+      if (checkIfAudioDescriptionExists) {
+        return {
+          audioDescriptionId: checkIfAudioDescriptionExists._id,
+        };
+      }
 
       // Search for AI Audio Description for specified YouTube Video ID
       const aiAudioDescriptions = await MongoVideosModel.aggregate([
