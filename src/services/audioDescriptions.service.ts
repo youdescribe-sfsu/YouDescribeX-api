@@ -35,10 +35,6 @@ class AudioDescriptionsService {
         video: videoId,
         user: adId,
       });
-      logger.info("videoId",videoId)
-      logger.info("adId",adId)
-      console.log("adId",adId)
-      logger.info("audioDescriptions",audioDescriptions)
 
       if (!audioDescriptions) throw new HttpException(409, "Audio Description for this YouTube Video doesn't exist");
       const audio_clips = audioDescriptions.audio_clips;
