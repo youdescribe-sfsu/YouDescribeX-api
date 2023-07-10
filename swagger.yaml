@@ -1,0 +1,380 @@
+openapi: 3.0.0
+info:
+  title: YDX-AI-Backend API
+  version: 1.0.0
+basePath: /api
+components:
+  schemas:
+    Users:
+      type: object
+      properties:
+        user_id:
+          type: string
+        is_ai:
+          type: boolean
+        name:
+          type: string
+        user_email:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - user_id
+        - is_ai
+        - name
+        - createdAt
+        - updatedAt
+      additionalProperties: false
+    IAudioClips:
+      type: object
+      properties:
+        clip_id:
+          type: string
+          format: objectid
+        clip_title:
+          type: string
+        description_type:
+          type: string
+        description_text:
+          type: string
+        playback_type:
+          type: string
+        clip_start_time:
+          type: number
+          format: float
+        clip_end_time:
+          type: number
+          format: float
+        clip_duration:
+          type: number
+          format: float
+        clip_audio_path:
+          type: string
+        is_recorded:
+          type: boolean
+        AudioDescriptionAdId:
+          type: string
+          format: objectid
+      required:
+        - clip_id
+        - clip_title
+        - description_type
+        - description_text
+        - playback_type
+        - clip_start_time
+        - clip_end_time
+        - clip_duration
+        - clip_audio_path
+        - is_recorded
+        - AudioDescriptionAdId
+      additionalProperties: false
+    IAudioDescriptions:
+      type: object
+      properties:
+        ad_id:
+          type: string
+          format: objectid
+        is_published:
+          type: boolean
+        userUserId:
+          type:
+            - string
+            - 'null'
+          format: objectid
+        videoVideoId:
+          type:
+            - string
+            - 'null'
+          format: objectid
+      required:
+        - ad_id
+        - is_published
+      additionalProperties: false
+    IDialogTimeStamps:
+      type: object
+      properties:
+        dialog_id:
+          type: string
+          format: objectid
+        dialog_sequence_num:
+          type: integer
+        dialog_start_time:
+          type: number
+          format: float
+        dialog_end_time:
+          type: number
+          format: float
+        dialog_duration:
+          type: number
+          format: float
+      required:
+        - dialog_id
+        - dialog_sequence_num
+        - dialog_start_time
+        - dialog_end_time
+        - dialog_duration
+      additionalProperties: false
+    IVideos:
+      type: object
+      properties:
+        video_id:
+          type: string
+        youtube_video_id:
+          type: string
+        video_name:
+          type: string
+        video_length:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - video_id
+        - youtube_video_id
+        - video_name
+        - video_length
+        - createdAt
+        - updatedAt
+      additionalProperties: false
+    AddTotalTimeDto:
+      type: object
+      properties:
+        participant_id:
+          type: string
+        time:
+          type: number
+        video_id:
+          type: string
+      required:
+        - participant_id
+        - time
+        - video_id
+      additionalProperties: false
+    Timings:
+      type: object
+      properties:
+        id:
+          type: number
+        total_time:
+          type: number
+        youtube_video_id:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        ParticipantParticipantId:
+          type: string
+      required:
+        - id
+        - total_time
+        - youtube_video_id
+        - createdAt
+        - updatedAt
+    CreateUserAudioDescriptionDto:
+      type: object
+      properties:
+        userId:
+          type: string
+        youtubeVideoId:
+          type: string
+        aiUserId:
+          type: string
+      required:
+        - userId
+        - youtubeVideoId
+        - aiUserId
+      additionalProperties: false
+    CreateUserDto:
+      type: object
+      properties:
+        email:
+          type: string
+        name:
+          type: string
+      required:
+        - email
+        - name
+      additionalProperties: false
+paths:
+  /timings:
+    post:
+      summary: Add total time to video
+      tags:
+        - Timings
+      description: Add total time to video by youtube ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddTotalTimeDto'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Timings'
+        '400':
+          description: Bad request
+        '500':
+          description: Internal server error
+  /create-user-links/get-all-users:
+    get:
+      summary: Returns a list of all users
+      tags:
+        - Users
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Users'
+                    description: List of users
+                  message:
+                    type: string
+                    description: Success message
+  /create-user-links/{email}:
+    get:
+      summary: Get user by email
+      tags:
+        - Users
+      description: Retrieve a user by their email address.
+      parameters:
+        - in: path
+          name: email
+          schema:
+            type: string
+          required: true
+          description: The email address of the user to retrieve.
+      responses:
+        '200':
+          description: A user object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Users'
+        '404':
+          description: User not found
+        '500':
+          description: Internal server error
+  /create-user-links/add-new-user:
+    post:
+      summary: Create a new user.
+      tags:
+        - Users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserDto'
+      responses:
+        '201':
+          description: The created user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Users'
+        '400':
+          description: Invalid user data.
+  /create-user-links/create-new-user-ad:
+    post:
+      summary: >-
+        Creates a new user audio description and returns a URL to generate audio
+        files for the description
+      tags:
+        - Users
+      requestBody:
+        description: User audio description object
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserAudioDescriptionDto'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Success message
+                  url:
+                    type: string
+                    description: URL to generate audio files for the new audio description
+  /videos/{youtubeId}:
+    get:
+      summary: Get a video by its YouTube ID
+      tags:
+        - Videos
+      parameters:
+        - in: path
+          name: youtubeId
+          schema:
+            type: string
+          required: true
+          description: The YouTube ID of the video
+      responses:
+        '200':
+          description: A video object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IVideos'
+        '404':
+          description: The video was not found
+  /videos/{youtubeId}/{userId}:
+    delete:
+      summary: Delete a video for a user by its YouTube ID and user ID
+      tags:
+        - Videos
+      parameters:
+        - name: youtubeId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The YouTube ID of the video to delete
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the user who owns the video to delete
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: string
+                    example: >-
+                      Video with youtubeId: abc123 deleted for user with id:
+                      def456
+                  message:
+                    type: string
+                    example: deleted
+tags: []

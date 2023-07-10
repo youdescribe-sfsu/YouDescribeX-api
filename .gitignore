@@ -21,6 +21,7 @@ video-pipeline/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.*
 
 npm-debug.log*
 yarn-debug.log*
@@ -34,3 +35,7 @@ tts_api_key.json
 
 # audio files
 public/audio/
+dist/
+logs/
+
+package-lock.json
