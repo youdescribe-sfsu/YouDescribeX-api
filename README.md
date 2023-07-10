@@ -1,20 +1,25 @@
 <font color='Magenta'>**Application - YouDescribeX**</font>
+
 > This is the Backend Repository of the Express Server connecting PostgreSQL database and YouDescribeX Front End.
 
 <font color='cyan'>**GET Routes:**</font>
 
-*API to get Dialog Timestamps for the video*
-* <https://ydx.youdescribe.org/api/dialog-timestamps/get-video-dialog/:videoId>
+_API to get Dialog Timestamps for the video_
 
-*API to get Video data for a youtube video*
-* <https://ydx.youdescribe.org/api/videos/get-by-youtubeVideo/:youtubeVideoId>
+- <https://ydx.youdescribe.org/api/dialog-timestamps/get-video-dialog/:videoId>
 
-*API to get audio descriptions & Audio Clips related to videoId & userId*
-* https://ydx.youdescribe.org/api/audio-descriptions/get-user-ad/:videoId&:userId
+_API to get Video data for a youtube video_
+
+- <https://ydx.youdescribe.org/api/videos/get-by-youtubeVideo/:youtubeVideoId>
+
+_API to get audio descriptions & Audio Clips related to videoId & userId_
+
+- https://ydx.youdescribe.org/api/audio-descriptions/get-user-ad/:videoId&:userId
 
 <font color='cyan'>**PUT Routes:**</font>
 
-* *Handle update of Audio Clip Description Text*
+- _Handle update of Audio Clip Description Text_
+
 ```
 axios
   .put(`/api/audio-clips/update-clip-description/${clip_id}`, {
@@ -25,28 +30,36 @@ axios
     audioDescriptionId: props.audioDescriptionId,
   })
 ```
-* *Handle update of Audio Clip Playback Type (Inline/Extended)*
+
+- _Handle update of Audio Clip Playback Type (Inline/Extended)_
+
 ```
 axios
   .put(`/api/audio-clips/update-clip-playback-type/${clip_id}`, {
     clipPlaybackType: e.target.value,
   })
-```    
-* *Handle update of Audio Clip Title*
+```
+
+- _Handle update of Audio Clip Title_
+
 ```
 axios
   .put(`/api/audio-clips/update-clip-title/${clip_id}`, {
     adTitle: e.target.value,
   })
 ```
-* *Handle update of start time from handleLeftNudgeClick,handleRightNudgeClick, stopADBar*
+
+- _Handle update of start time from handleLeftNudgeClick,handleRightNudgeClick, stopADBar_
+
 ```
 axios
   .put(`/api/audio-clips/update-clip-start-time/${clip_id}`, {
     clipStartTime: updatedClipStartTime,
   })
 ```
-* *Handle Record & Replace Clip Audio*
+
+- _Handle Record & Replace Clip Audio_
+
 ```
 let formData = new FormData();
 formData.append('clipDescriptionText', clipDescriptionText);
@@ -69,7 +82,8 @@ axios
 
 <font color='cyan'>**POST Routes:**</font>
 
-* *Handle Save New Audio Clip*
+- _Handle Save New Audio Clip_
+
 ```
 let formData = new FormData();
 formData.append('newACTitle', newACTitle);
@@ -91,7 +105,8 @@ axios
   })
 ```
 
-* *API to post a new Note*
+- _API to post a new Note_
+
 ```
 axios
   .post('https://ydx.youdescribe.org/api/notes/post-note', {
@@ -103,28 +118,35 @@ axios
 
 <font color='cyan'>**DELETE Routes:**</font>
 
-* *API to delete a Note*
+- _API to delete a Note_
+
 ```
 axios
   .delete(`/api/audio-clips/delete-clip/${clip_id}`)
 ```
 
-* *API to delete User Audio Files - based on YoutubeVideoID & User ID*
+- _API to delete User Audio Files - based on YoutubeVideoID & User ID_
+
 ```
 http://ydx-youdescribe.org/api/audio-descriptions/delete-user-ad-audios/${youtubeVideoId}&${user_id}
 ```
 
-* *API to delete Video - based on YoutubeVideoID & User ID*
+- _API to delete Video - based on YoutubeVideoID & User ID_
+
 ```
 http://ydx-youdescribe.org/api/videos/delete-video/${youtubeVideoId}/${user_id}
 ```
 
 <font color='cyan'>**Developer Notes:**</font>
-1) Sequelize Lazy Loading Example:
+
+1. Sequelize Lazy Loading Example:
+
 ```
 const audioClips = await UserAudioDescription.getAudio_Clips();
 ```
-2) Sequelize Eager Loading Example:
+
+2. Sequelize Eager Loading Example:
+
 ```
 Audio_Clips.findAll({
     where: {
@@ -146,34 +168,41 @@ Audio_Clips.findAll({
 ```
 
 <font color='cyan'>**STEPS TO CREATE A USER LINK**</font>
-****
 
-> ***Step 1:** POST API to create a new user*
-  * ```https://ydx.youdescribe.org/api/create-user-links/add-new-user```
-  ``` 
-  body:
-    {
-        "name": "Bhavani Goruganthu",
-        "email": "test@gmail.com"
-    }
-  ```
+---
 
-> ***Step 2:** POST API to create a user Audio Description & Add Audio Clips*
-  * ```https://ydx.youdescribe.org/api/create-user-links/create-new-user-ad```
-  ```
-  body: 
+> **\*Step 1:** POST API to create a new user\*
+
+- `https://ydx.youdescribe.org/api/create-user-links/add-new-user`
+
+```
+body:
   {
-      "userId" : "0571fa0e-32df-4aa7-bdeb-a97706f8135a",
-      "youtubeVideoId" : "usTc08X1b4I"
+      "name": "Bhavani Goruganthu",
+      "email": "test@gmail.com"
   }
-  ```
- * Click on the link & note down the AD ID returned in the response from Step 2. Use it in step no 3.
+```
+
+> **\*Step 2:** POST API to create a user Audio Description & Add Audio Clips\*
+
+- `https://ydx.youdescribe.org/api/create-user-links/create-new-user-ad`
+
+```
+body:
+{
+    "userId" : "0571fa0e-32df-4aa7-bdeb-a97706f8135a",
+    "youtubeVideoId" : "usTc08X1b4I"
+}
+```
+
+- Click on the link & note down the AD ID returned in the response from Step 2. Use it in step no 3.
 
 <br>
 
-> ***Step 3:** GET API to process the audio clips of one Audio Description - generates Text to Speech, analyzes playback types in the Audio_Clips table - based on AudioDescriptionID*
-  * ```https://ydx.youdescribe.org/api/audio-clips/processAllClipsInDB/:adId```
+> **\*Step 3:** GET API to process the audio clips of one Audio Description - generates Text to Speech, analyzes playback types in the Audio_Clips table - based on AudioDescriptionID\*
 
-> ***Step 4:** Audio Clips have been Created. Use the below user link to test and share.*
-  * ```https://ydx.youdescribe.org/:youtubeVideoId/:userId```
+- `https://ydx.youdescribe.org/api/audio-clips/processAllClipsInDB/:adId`
 
+> **\*Step 4:** Audio Clips have been Created. Use the below user link to test and share.\*
+
+- `https://ydx.youdescribe.org/:youtubeVideoId/:userId`
