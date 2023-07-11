@@ -31,7 +31,7 @@ build-prod:
     - backend
     - prod
   rules:
-    - if: '$CI_COMMIT_BRANCH == "master"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
       when: always
   script:
     - echo "Building YouDescribe Backend in prod"
@@ -94,7 +94,7 @@ deploy-prod:
     - backend
     - prod
   rules:
-    - if: '$CI_COMMIT_BRANCH == "master"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
       when: on_success
   script:
     - echo "Stopping old YouDescribe Backend instance"
