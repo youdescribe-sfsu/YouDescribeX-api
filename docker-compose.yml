@@ -44,6 +44,6 @@ services:
     container_name: mongodb
     restart: always
     volumes:
-      - ./db/var:/data/db
+      - /home/ubuntu/ydx-mongo:/data/db
     ports:
       - 27017:27017
