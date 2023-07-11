@@ -58,7 +58,7 @@ deploy-stage:
     - echo "Deleting old YouDescribe Backend container"
     - docker rm ${CI_PROJECT_NAME} || true
     - echo "Starting up/Deploying newest YouDescribe Backend build"
-    - docker compose stop
+    - docker compose down
     - docker compose up -d
     - echo "Finished deploying YouDescribe Backend build to staging"
 
@@ -72,4 +72,16 @@ deploy-prod:
       when: on_success
   script:
     - echo "Stopping old YouDescribe Backend instance"
+    - echo "Stopping old $YOUR_VARIABLE_NAME Backend instance"
+    - echo "PORT $PORT"
+    - echo "NODE_ENV $NODE_ENV"
+    - echo "HOST $HOST"
+    - echo "LOG_DIR $LOG_DIR"
+    - echo "AUDIO_DIRECTORY $AUDIO_DIRECTORY"
     - docker stop ${CI_PROJECT_NAME} || true
+    - echo "Deleting old YouDescribe Backend container"
+    - docker rm ${CI_PROJECT_NAME} || true
+    - echo "Starting up/Deploying newest YouDescribe Backend build"
+    - docker compose down
+    - docker compose up -d
+    - echo "Finished deploying YouDescribe Backend build to staging"

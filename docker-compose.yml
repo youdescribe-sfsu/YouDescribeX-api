@@ -7,7 +7,7 @@ services:
     container_name: youdescribe-backend
     ports:
       - ${PORT}:${PORT}
-    restart: always
+    # restart: always
     volumes:
       - ./public:/app/public
       - ./logs:/app/logs
