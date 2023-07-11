@@ -58,6 +58,7 @@ deploy-stage:
     - echo "Deleting old YouDescribe Backend container"
     - docker rm ${CI_PROJECT_NAME} || true
     - echo "Starting up/Deploying newest YouDescribe Backend build"
+    - docker compose stop
     - docker compose up -d
     - echo "Finished deploying YouDescribe Backend build to staging"
 
