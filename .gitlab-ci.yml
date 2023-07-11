@@ -2,7 +2,7 @@ image:
   name: node:18-alpine
 
 variables:
-  CI_PROJECT_NAME: youdescribe-api
+  CI_PROJECT_NAME: youdescribeX-API
 
 stages:
   - build
