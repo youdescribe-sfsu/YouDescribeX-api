@@ -59,7 +59,6 @@ deploy-stage:
     - docker rm ${CI_PROJECT_NAME} || true
     - echo "Starting up/Deploying newest YouDescribe Backend build"
     - docker compose down
-    - docker-compose build
     - docker compose up -d
     - echo "Finished deploying YouDescribe Backend build to staging"
 
@@ -84,6 +83,5 @@ deploy-prod:
     - docker rm ${CI_PROJECT_NAME} || true
     - echo "Starting up/Deploying newest YouDescribe Backend build"
     - docker compose down
-    - docker-compose build
     - docker compose up -d
     - echo "Finished deploying YouDescribe Backend build to staging"
