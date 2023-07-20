@@ -22,7 +22,7 @@ build-stage:
       when: always
   script:
     - echo "Building YouDescribe Backend in staging"
-    - docker build --build-arg APP_PORT=$PORT -t "${CI_PROJECT_NAME}:${CI_COMMIT_REF_NAME}-1.${CI_PIPELINE_ID}" .
+    - docker build --build-arg APP_PORT=$PORT --build-arg GOOGLE_CRED_FILE=$GOOGLE_CRED_FILE --build-arg GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS -t "${CI_PROJECT_NAME}:${CI_COMMIT_REF_NAME}-1.${CI_PIPELINE_ID}" .
     - echo "Build complete"
 
 build-prod:
