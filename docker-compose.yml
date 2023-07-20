@@ -39,11 +39,11 @@ services:
       - MONGO_DB_USER=$MONGO_DB_USER
       - MONGO_DB_PASSWORD=$MONGO_DB_PASSWORD
 
-  mongodb:
-    image: mongo
-    container_name: mongodb
-    restart: always
-    volumes:
-      - ./db/var:/data/db
-    ports:
-      - 27017:27017
+  # mongodb:
+  #   image: mongo
+  #   container_name: mongodb
+  #   restart: always
+  #   volumes:
+  #     - ./db/var:/data/db
+  #   ports:
+  #     - 27017:27017
