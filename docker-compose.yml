@@ -9,11 +9,11 @@ services:
       - ${PORT}:${PORT}
     # restart: always
     volumes:
-      - ./public:/app/public
-      - ./logs:/app/logs
+      - /home/ubuntu/ydx_data/public:/app/public
+      - /home/ubuntu/ydx_data/logs:/app/logs
 
-    depends_on:
-      - mongodb
+    # depends_on:
+    #   - mongodb
     environment:
       - GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS
       - PORT=$PORT
