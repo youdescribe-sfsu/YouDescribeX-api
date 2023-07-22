@@ -7,6 +7,7 @@ services:
     container_name: youdescribe-backend
     ports:
       - ${PORT}:${PORT}
+      - ${MONGO_DB_PORT}:${MONGO_DB_PORT}
     # restart: always
     volumes:
       - /home/ubuntu/ydx_data/public:/app/public
