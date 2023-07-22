@@ -13,6 +13,8 @@ const MONGODB_CONNECTION_STRING =
   NODE_ENV === 'production'
     ? `mongodb://${MONGO_DB_USER}:${MONGO_DB_PASSWORD}@${MONGO_DB_HOST}:${MONGO_DB_PORT}/${MONGO_DB_DATABASE}`
     : `mongodb://${MONGO_DB_HOST}:${MONGO_DB_PORT}/${MONGO_DB_DATABASE}`;
+  
+console.log(`MONGODB_CONNECTION_STRING: ${MONGODB_CONNECTION_STRING}`)
 
 // PostgreSQL connection object
 const POSTGRESQL_OPTIONS: Options = {
