@@ -4,6 +4,7 @@ FROM node:18-alpine
 # Set the working directory inside the container
 WORKDIR /app
 
+RUN ls -la
 # Copy the rest of the application code
 COPY . .
 
@@ -21,7 +22,7 @@ RUN npm install
 
 RUN echo "$GOOGLE_CRED_FILE" | base64 -d -i - > ${GOOGLE_APPLICATION_CREDENTIALS}
 
-
+ADD ${GOOGLE_APPLICATION_CREDENTIALS}
 # Build the application
 RUN npm run build
 
