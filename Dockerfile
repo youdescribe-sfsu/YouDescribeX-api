@@ -4,6 +4,9 @@ FROM node:18-alpine
 # Set the working directory inside the container
 WORKDIR /app
 
+# Copy the rest of the application code
+COPY . .
+
 ARG GOOGLE_CRED_FILE
 ARG GOOGLE_APPLICATION_CREDENTIALS
 
@@ -13,13 +16,10 @@ RUN echo "GOOGLE_CRED_FILE=$GOOGLE_CRED_FILE"
 RUN echo "GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS"
 
 
-# Copy the rest of the application code
-COPY . .
-
 # Install the application dependencies
 RUN npm install
 
-RUN echo "$GOOGLE_CRED_FILE" | base64 -d -i - > tts_api_key.json
+RUN echo "$GOOGLE_CRED_FILE" | base64 -d -i - > ${GOOGLE_APPLICATION_CREDENTIALS}
 
 
 # Build the application
