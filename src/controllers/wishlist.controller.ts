@@ -8,6 +8,8 @@ class WishListController {
   public getAllWishlist = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const filterBody: WishListRequest = req.body;
+      console.log("in wishlist controller")
+      console.log(req.user)
       const wishlistResponse = await this.wishlistService.getAllWishlist(filterBody);
       res.status(201).json(wishlistResponse);
     } catch (error) {
