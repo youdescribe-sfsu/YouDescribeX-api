@@ -13,3 +13,4 @@ export const { POSTGRES_DB_NAME, POSTGRES_DB_USER, POSTGRES_DB_PASSWORD, POSTGRE
 export const { CURRENT_DATABASE } = process.env;
 export const { AUDIO_DIRECTORY = '/public/audio' } = process.env;
 export const { CURRENT_MONGO_DB = 'YDX' } = process.env;
+export const { GPU_HOST, GPU_PIPELINE_PORT } = process.env;
