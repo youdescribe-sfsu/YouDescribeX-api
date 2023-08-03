@@ -398,7 +398,7 @@ class UserService {
     }
   }
 
-  public async createAiDescription(userData: Express.User, youtube_id: string) {
+  public async createAiDescription(userData: IUser, youtube_id: string) {
     if (!userData) {
       throw new HttpException(400, 'No data provided');
     }
@@ -407,11 +407,19 @@ class UserService {
     }
 
     console.log(`User Data ::  ${JSON.stringify(userData)}`);
+    console.log(`BODY DATA ::  ${JSON.stringify({
+      youtube_id: youtube_id,
+      user_id: userData._id,
+      user_email: userData.email,
+      user_name: userData.name,
+    })}`);
 
     const response = await axios.post(`http://${GPU_HOST}:${GPU_PIPELINE_PORT}/generate_ai_caption`, {
       body: {
         youtube_id: youtube_id,
-        ...userData,
+        user_id: userData._id,
+        user_email: userData.email,
+        user_name: userData.name,
       },
     });
 

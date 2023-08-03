@@ -5,6 +5,7 @@ import userService from '../services/users.service';
 import AudioClipsService from '../services/audioClips.service';
 import { logger } from '../utils/logger';
 import { HOST } from '../config';
+import { IUser } from '../models/mongodb/User.mongo';
 
 class UsersController {
   public userService = new userService();
@@ -175,7 +176,7 @@ class UsersController {
 
   public createAiDescription = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userData: Express.User = req.user;
+      const userData = req.user as unknown as IUser;
       const youtube_id = req.body.youtube_id;
       const returnData = await this.userService.createAiDescription(userData, youtube_id);
 
