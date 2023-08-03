@@ -1,7 +1,7 @@
 import { CreateUserAudioDescriptionDto, CreateUserDto, NewUserDto } from '../dtos/users.dto';
 import { HttpException } from '../exceptions/HttpException';
 import { isEmpty } from '../utils/util';
-import { CURRENT_DATABASE } from '../config';
+import { CURRENT_DATABASE, GPU_HOST, GPU_PIPELINE_PORT } from '../config';
 import { PostGres_Users, UsersAttributes } from '../models/postgres/init-models';
 import { PostGres_Videos } from '../models/postgres/init-models';
 import { PostGres_Audio_Descriptions } from '../models/postgres/init-models';
@@ -12,6 +12,7 @@ import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
 import { logger } from '../utils/logger';
 import { getVideoDataByYoutubeId } from './videos.util';
 import moment from 'moment';
+import axios from 'axios';
 class UserService {
   public async findAllUser(): Promise<IUser[] | UsersAttributes[]> {
     if (CURRENT_DATABASE == 'mongodb') {
@@ -395,6 +396,26 @@ class UserService {
     } catch (error) {
       throw new HttpException(409, error);
     }
+  }
+
+  public async createAiDescription(userData: Express.User, youtube_id: string) {
+    if (!userData) {
+      throw new HttpException(400, 'No data provided');
+    }
+    if (!youtube_id) {
+      throw new HttpException(400, 'No youtube_id provided');
+    }
+
+    console.log(`User Data ::  ${JSON.stringify(userData)}`);
+
+    const response = await axios.post(`http://${GPU_HOST}:${GPU_PIPELINE_PORT}/generate_ai_caption`, {
+      body: {
+        youtube_id: youtube_id,
+        ...userData,
+      },
+    });
+
+    return response.data;
   }
 }
 

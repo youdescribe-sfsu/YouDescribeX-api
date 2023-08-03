@@ -172,6 +172,18 @@ class UsersController {
       next(error);
     }
   };
+
+  public createAiDescription = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userData: Express.User = req.user;
+      const youtube_id = req.body.youtube_id;
+      const returnData = await this.userService.createAiDescription(userData, youtube_id);
+
+      res.status(201).json(returnData);
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export default UsersController;
