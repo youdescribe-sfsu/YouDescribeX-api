@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from 'express';
 import passport from 'passport';
 import { PASSPORT_REDIRECT_URL } from '../config/index';
 import { logger } from '../utils/logger';
+import { MongoUsersModel } from '../models/mongodb/init-models.mongo';
 
 class AuthController {
   public initAuthentication = async (req: Request, res: Response, next: NextFunction) => {
@@ -38,6 +39,7 @@ class AuthController {
         };
         res.status(ret.status).json(ret);
       } else {
+        console.log('req.user is null');
         const ret = {
           type: 'system_error',
           code: 1,
@@ -60,6 +62,16 @@ class AuthController {
       });
       res.redirect(PASSPORT_REDIRECT_URL);
     } catch (error) {
+      next(error);
+    }
+  };
+
+  public localLogIn = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = await MongoUsersModel.findById(req.headers.authorization);
+      res.status(200).json({ result: user });
+    } catch (error) {
+      logger.error('Error with Google Callback: ', error);
       next(error);
     }
   };
