@@ -17,6 +17,8 @@ class AuthRoute implements Routes {
     this.router.get(`${this.path}/google`, this.authController.initAuthentication);
     // this.router.get(`${this.path}/google`, passport.authenticate("google", { scope: ["profile","email","openid"] }) );
     this.router.get(`${this.path}/google/callback`, this.authController.handleGoogleCallback);
+    // Local Strategy
+    this.router.get(`${this.path}/google/localhost`, this.authController.localLogIn);
     // this.router.get(`${this.path}/google/callback`, passport.authenticate("google",
     //                                                 {
     //                                                   successRedirect: PASSPORT_REDIRECT_URL,
