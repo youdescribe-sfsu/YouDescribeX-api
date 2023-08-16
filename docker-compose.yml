@@ -46,6 +46,7 @@ services:
       - CURRENT_YDX_HOST=$CURRENT_YDX_HOST
       - GMAIL_USER=$GMAIL_USER
       - GMAIL_PASSWORD=$GMAIL_PASSWORD
+      - AI_USER_ID=$AI_USER_ID
 
   # mongodb:
   #   image: mongo
