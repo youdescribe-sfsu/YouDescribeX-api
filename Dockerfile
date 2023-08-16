@@ -34,8 +34,11 @@ RUN ls -la
 
 ARG APP_PORT
 ENV APP_PORT=${APP_PORT}
+ARG GPU_HOST
+ENV GPU_HOST=${GPU_HOST}
 
 # Expose the specified port
+EXPOSE ${GPU_HOST}
 EXPOSE ${APP_PORT}
 RUN chmod +x ./dist/server.js
 
