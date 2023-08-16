@@ -17,7 +17,9 @@ class UsersRoute implements Routes {
     this.router.post(`${this.path}/add-new-user`, this.usersController.createUser);
     this.router.post(`${this.path}/create-new-user-ad`, this.usersController.createNewUserAudioDescription);
     this.router.post(`${this.path}/create-user`, this.usersController.createNewUser);
-    this.router.post(`${this.path}/create-ai-description`, this.usersController.createAiDescription);
+    this.router.post(`${this.path}/request-ai-descriptions-with-gpu`, this.usersController.requestAiDescriptionsWithGpu);
+
+    this.router.post(`${this.path}/generate-audio-desc-gpu`, this.usersController.generateAudioDescGpu);
   }
 }
 

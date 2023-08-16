@@ -1,11 +1,13 @@
 import { NextFunction, Request, Response } from 'express';
-import { CreateUserAudioDescriptionDto, CreateUserDto, NewUserDto } from '../dtos/users.dto';
+import { AudioDescGenerationRequestDTO, CreateUserAudioDescriptionDto, CreateUserDto, NewUserDto } from '../dtos/users.dto';
 import { IUsers } from '../interfaces/users.interface';
 import userService from '../services/users.service';
 import AudioClipsService from '../services/audioClips.service';
 import { logger } from '../utils/logger';
 import { HOST } from '../config';
 import { IUser } from '../models/mongodb/User.mongo';
+import { MongoUsersModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
+import sendEmail from '../utils/emailService';
 
 class UsersController {
   public userService = new userService();
@@ -174,13 +176,55 @@ class UsersController {
     }
   };
 
-  public createAiDescription = async (req: Request, res: Response, next: NextFunction) => {
+  public requestAiDescriptionsWithGpu = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userData = req.user as unknown as IUser;
       const youtube_id = req.body.youtube_id;
-      const returnData = await this.userService.createAiDescription(userData, youtube_id);
+      const hostname = req.hostname;
+      const returnData = await this.userService.requestAiDescriptionsWithGpu(userData, youtube_id, hostname);
 
       res.status(201).json(returnData);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public generateAudioDescGpu = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const newUserAudioDescription: AudioDescGenerationRequestDTO = req.body;
+      const user = await MongoUsersModel.findById(newUserAudioDescription.userId);
+      const videoInfo = await MongoVideosModel.findOne({ youtube_id: newUserAudioDescription.youtubeVideoId });
+      if (!user) {
+        throw new Error('User not found');
+      }
+      const { audioDescriptionId, fromAI } = await this.userService.createNewUserAudioDescription(
+        {
+          youtubeVideoId: newUserAudioDescription.youtubeVideoId,
+        },
+        user,
+      );
+      if (fromAI) {
+        await this.audioClipsService.processAllClipsInDB(audioDescriptionId.toString());
+      }
+      logger.info(`Sending email to ${user.email}`);
+
+      const YDX_APP_URL = `${newUserAudioDescription.ydx_app_host}/editor/${newUserAudioDescription.youtubeVideoId}/${audioDescriptionId}`;
+
+      logger.info(`URL :: ${YDX_APP_URL}`);
+
+      const email = await sendEmail(
+        user.email,
+        `Requested Audio Description for ${videoInfo.title} ready`,
+        `Your Audio Description is now available! You're invited to view it by following this link: ${YDX_APP_URL}`,
+      );
+
+      console.log(email);
+      logger.info(`Email sent to ${user.email}`);
+
+      res.status(201).json({
+        message: `Successfully created new user Audio Description`,
+        url: `${YDX_APP_URL}`,
+      });
     } catch (error) {
       next(error);
     }

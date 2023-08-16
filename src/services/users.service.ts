@@ -1,7 +1,7 @@
 import { CreateUserAudioDescriptionDto, CreateUserDto, NewUserDto } from '../dtos/users.dto';
 import { HttpException } from '../exceptions/HttpException';
 import { isEmpty } from '../utils/util';
-import { CURRENT_DATABASE, GPU_HOST, GPU_PIPELINE_PORT } from '../config';
+import { CURRENT_DATABASE, CURRENT_YDX_HOST, GPU_HOST, GPU_PIPELINE_PORT } from '../config';
 import { PostGres_Users, UsersAttributes } from '../models/postgres/init-models';
 import { PostGres_Videos } from '../models/postgres/init-models';
 import { PostGres_Audio_Descriptions } from '../models/postgres/init-models';
@@ -398,7 +398,7 @@ class UserService {
     }
   }
 
-  public async createAiDescription(userData: IUser, youtube_id: string) {
+  public async requestAiDescriptionsWithGpu(userData: IUser, youtube_id: string, ydx_app_host: string) {
     if (!userData) {
       throw new HttpException(400, 'No data provided');
     }
@@ -413,6 +413,7 @@ class UserService {
         user_id: userData._id,
         user_email: userData.email,
         user_name: userData.name,
+        ydx_app_host,
       })}`,
     );
 
@@ -420,8 +421,10 @@ class UserService {
       body: {
         youtube_id: youtube_id,
         user_id: userData._id,
-        user_email: userData.email,
-        user_name: userData.name,
+        ydx_app_host,
+        ydx_server: CURRENT_YDX_HOST,
+        // user_email: userData.email,
+        // user_name: userData.name,
       },
     });
 
