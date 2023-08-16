@@ -40,3 +40,14 @@ export class NewUserDto {
   @IsString()
   public user_type: string;
 }
+
+export class AudioDescGenerationRequestDTO {
+  @IsString()
+  public userId: string;
+  @IsString()
+  public youtubeVideoId: string;
+  @IsString()
+  public aiUserId: string;
+  @IsString()
+  public ydx_app_host: string;
+}
