@@ -1,0 +1,26 @@
+name: Node.js CI
+
+on:
+  push:
+    branches: ['main', 'dev']
+  pull_request:
+    branches: ['*']
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.2.0] # Only Node.js version 18
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      - run: npm ci
+      - run: CI=false npm run build
+    # - run: npm test
