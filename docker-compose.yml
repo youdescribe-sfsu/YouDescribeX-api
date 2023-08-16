@@ -7,7 +7,7 @@ services:
     container_name: youdescribe-backend
     ports:
       - ${PORT}:${PORT}
-      - ${GPU_HOST}:${GPU_HOST}
+      - ${GPU_PIPELINE_PORT}:${GPU_PIPELINE_PORT}
     extra_hosts:
       - 'host.docker.internal:host-gateway'
         # - ${MONGO_DB_PORT}:${MONGO_DB_PORT}
