@@ -419,7 +419,7 @@ class UserService {
     );
     console.log(`URL :: ${GPU_HOST}:${GPU_PIPELINE_PORT}/generate_ai_caption`);
     logger.info(`URL :: ${GPU_HOST}:${GPU_PIPELINE_PORT}/generate_ai_caption`);
-    const response = await axios.post(`${GPU_HOST}:${GPU_PIPELINE_PORT}/generate_ai_caption`, {
+    const response = await axios.post(`http://${GPU_HOST}:${GPU_PIPELINE_PORT}/generate_ai_caption`, {
       body: {
         youtube_id: youtube_id,
         user_id: userData._id,
