@@ -1,7 +1,7 @@
 import { CreateUserAudioDescriptionDto, CreateUserDto, NewUserDto } from '../dtos/users.dto';
 import { HttpException } from '../exceptions/HttpException';
 import { isEmpty } from '../utils/util';
-import { CURRENT_DATABASE, CURRENT_YDX_HOST, GPU_HOST, GPU_PIPELINE_PORT } from '../config';
+import { CURRENT_DATABASE, CURRENT_YDX_HOST, GPU_HOST, GPU_PIPELINE_PORT, AI_USER_ID } from '../config';
 import { PostGres_Users, UsersAttributes } from '../models/postgres/init-models';
 import { PostGres_Videos } from '../models/postgres/init-models';
 import { PostGres_Audio_Descriptions } from '../models/postgres/init-models';
@@ -414,6 +414,7 @@ class UserService {
         user_email: userData.email,
         user_name: userData.name,
         ydx_app_host,
+        AI_USER_ID: AI_USER_ID,
       })}`,
     );
 
@@ -423,6 +424,7 @@ class UserService {
         user_id: userData._id,
         ydx_app_host,
         ydx_server: CURRENT_YDX_HOST,
+        AI_USER_ID: AI_USER_ID,
         // user_email: userData.email,
         // user_name: userData.name,
       },

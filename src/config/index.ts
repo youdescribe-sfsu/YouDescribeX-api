@@ -14,5 +14,5 @@ export const { CURRENT_DATABASE } = process.env;
 export const { AUDIO_DIRECTORY = '/public/audio' } = process.env;
 export const { CURRENT_MONGO_DB = 'YDX' } = process.env;
 export const { GPU_HOST, GPU_PIPELINE_PORT } = process.env;
-export const { CURRENT_YDX_HOST } = process.env;
+export const { CURRENT_YDX_HOST, AI_USER_ID } = process.env;
 export const { GMAIL_USER, GMAIL_PASSWORD } = process.env;
