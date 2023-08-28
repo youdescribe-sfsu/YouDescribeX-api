@@ -96,6 +96,20 @@ class UserService {
     if (isEmpty(expressUser)) throw new HttpException(403, 'User not logged in');
     if (isEmpty(youtubeVideoId)) throw new HttpException(400, 'youtubeVideoId is empty');
 
+    const youtubeVideoData = await getVideoDataByYoutubeId(youtubeVideoId);
+
+    if (
+      !youtubeVideoData ||
+      !youtubeVideoData.title ||
+      !youtubeVideoData.description ||
+      !youtubeVideoData.category ||
+      !youtubeVideoData.category_id ||
+      !youtubeVideoData.duration ||
+      !youtubeVideoData.tags
+    ) {
+      throw new HttpException(400, 'No youtubeVideoData provided');
+    }
+
     const user: IUser = expressUser as IUser;
 
     if (CURRENT_DATABASE == 'mongodb') {
@@ -404,6 +418,20 @@ class UserService {
     }
     if (!youtube_id) {
       throw new HttpException(400, 'No youtube_id provided');
+    }
+
+    const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
+
+    if (
+      !youtubeVideoData ||
+      !youtubeVideoData.title ||
+      !youtubeVideoData.description ||
+      !youtubeVideoData.category ||
+      !youtubeVideoData.category_id ||
+      !youtubeVideoData.duration ||
+      !youtubeVideoData.tags
+    ) {
+      throw new HttpException(400, 'No youtubeVideoData provided');
     }
 
     console.log(`User Data ::  ${JSON.stringify(userData)}`);

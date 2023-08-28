@@ -18,6 +18,7 @@ import { logger } from '../utils/logger';
 import { MongoAudioClipsModel, MongoAudio_Descriptions_Model, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
 import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
+import { getVideoDataByYoutubeId } from './videos.util';
 
 interface IProcessedClips {
   clip_id: any;
@@ -81,6 +82,20 @@ class AudioClipsService {
         const audioDescription: IAudioClip = audioDescriptions[i];
         const populatedAudioDescription = await MongoAudio_Descriptions_Model.findById(audioDescription.audio_description);
         const populatedVideo = await MongoVideosModel.findById(populatedAudioDescription.video);
+
+        const youtubeVideoData = await getVideoDataByYoutubeId(populatedVideo.youtube_id);
+        if (
+          !youtubeVideoData ||
+          !youtubeVideoData.title ||
+          !youtubeVideoData.description ||
+          !youtubeVideoData.category ||
+          !youtubeVideoData.category_id ||
+          !youtubeVideoData.duration ||
+          !youtubeVideoData.tags
+        ) {
+          throw new HttpException(400, 'No youtubeVideoData provided');
+        }
+
         const obj = {
           _id: audioDescription._id,
           audio_description: audioDescription.audio_description,
