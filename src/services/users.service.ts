@@ -19,6 +19,7 @@ import { logger } from '../utils/logger';
 import { getVideoDataByYoutubeId, isVideoAvailable } from './videos.util';
 import moment from 'moment';
 import axios from 'axios';
+import mongoose, { Schema } from 'mongoose';
 class UserService {
   public async findAllUser(): Promise<IUser[] | UsersAttributes[]> {
     if (CURRENT_DATABASE == 'mongodb') {
@@ -410,7 +411,7 @@ class UserService {
     }
   }
 
-  public async increaseCounterAndNotify(youtube_id: string, user_id: string, user_email: string) {
+  public async increaseRequestCount(youtube_id: string, user_id: Schema.Types.ObjectId) {
     try {
       const captionRequest = await MongoAICaptionRequestModel.findOne({ youtube_id });
 
@@ -418,20 +419,13 @@ class UserService {
         // If the video has not been requested by anyone yet
         const newCaptionRequest = new MongoAICaptionRequestModel({
           youtube_id,
-          caption_requests: {
-            [user_id]: 1,
-          },
+          caption_requests: [user_id],
         });
         await newCaptionRequest.save();
-        console.log(`Notification sent to ${user_email}: Video caption request received.`);
-      } else if (!captionRequest.caption_requests[user_id]) {
+      } else if (!captionRequest.caption_requests.includes(user_id)) {
         // If the video has been requested by other users but not by the current user
-        captionRequest.caption_requests[user_id] = 1;
+        captionRequest.caption_requests.push(user_id);
         await captionRequest.save();
-        console.log(`Notification sent to ${user_email}: Video caption request received.`);
-      } else {
-        // If the video has already been requested by the current user
-        console.log(`Notification sent to ${user_email}: Video already requested.`);
       }
       return true;
     } catch (error) {
@@ -457,7 +451,7 @@ class UserService {
       throw new HttpException(400, 'No youtubeVideoData provided');
     }
 
-    const counterIncrement = await this.increaseCounterAndNotify(youtube_id, userData._id, userData.email);
+    const counterIncrement = await this.increaseRequestCount(youtube_id, userData._id);
 
     if (!counterIncrement) {
       throw new HttpException(500, 'Error incrementing counter');
