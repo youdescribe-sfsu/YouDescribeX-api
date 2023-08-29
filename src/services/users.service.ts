@@ -493,13 +493,15 @@ class UserService {
     if (!youtube_id) {
       throw new HttpException(400, 'No youtube_id provided');
     }
+    const userIdObject = await MongoUsersModel.findById(user_id);
 
     const captionRequest = await MongoAICaptionRequestModel.findOne({
       youtube_id,
-      'caption_requests.user_id': user_id,
     });
     console.log(`captionRequest ::  ${JSON.stringify(captionRequest)}`);
     logger.info(`captionRequest ::  ${JSON.stringify(captionRequest)}`);
+    if (captionRequest && userIdObject) return captionRequest.caption_requests.includes(userIdObject._id);
+
     return !!captionRequest;
   }
 }
