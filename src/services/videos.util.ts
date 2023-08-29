@@ -72,3 +72,27 @@ export const getVideoDataByYoutubeId = async (youtubeId: string): Promise<GetVid
     throw new HttpException(500, 'Not implemented error.');
   }
 };
+
+export const isVideoAvailable = async (youtubeId: string): Promise<boolean> => {
+  if (isEmpty(youtubeId)) throw new HttpException(400, 'youtubeId is empty');
+
+  if (CURRENT_DATABASE == 'mongodb') {
+    // Need to get from YouTube all of the necessary Video data
+    try {
+      const youtubeVideoResponse = await axios.get(
+        `${YOUTUBE_API_URL}/videos?id=${youtubeId}&part=contentDetails,snippet,statistics&forUsername=iamOTHER&key=${YOUTUBE_API_KEY}`,
+      );
+
+      if (youtubeVideoResponse.data.items.length <= 0) {
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      logger.error(err);
+      throw err;
+    }
+  } else {
+    throw new HttpException(500, 'Not implemented error.');
+  }
+};

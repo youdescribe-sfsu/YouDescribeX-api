@@ -5,23 +5,15 @@ import { PostGres_Timings, Timings } from '../models/postgres/init-models';
 import { isEmpty } from '../utils/util';
 import { MongoTimingsModel } from '../models/mongodb/init-models.mongo';
 import { TimingsDocument } from '../models/mongodb/Timings.mongo';
-import { getVideoDataByYoutubeId } from './videos.util';
+import { getVideoDataByYoutubeId, isVideoAvailable } from './videos.util';
 class TimingsService {
   public async addTotalTime(timingBody: AddTotalTimeDto): Promise<Timings | TimingsDocument> {
     const { participant_id, time, video_id } = timingBody;
     if (isEmpty(participant_id)) throw new HttpException(400, 'Participant ID is empty');
     if (isEmpty(video_id)) throw new HttpException(400, 'Video ID is empty');
-    const youtubeVideoData = await getVideoDataByYoutubeId(video_id);
+    const youtubeVideoData = await isVideoAvailable(video_id);
 
-    if (
-      !youtubeVideoData ||
-      !youtubeVideoData.title ||
-      !youtubeVideoData.description ||
-      !youtubeVideoData.category ||
-      !youtubeVideoData.category_id ||
-      !youtubeVideoData.duration ||
-      !youtubeVideoData.tags
-    ) {
+    if (!youtubeVideoData) {
       throw new HttpException(400, 'No youtubeVideoData provided');
     }
 
