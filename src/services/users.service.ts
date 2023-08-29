@@ -6,7 +6,13 @@ import { PostGres_Users, UsersAttributes } from '../models/postgres/init-models'
 import { PostGres_Videos } from '../models/postgres/init-models';
 import { PostGres_Audio_Descriptions } from '../models/postgres/init-models';
 import { PostGres_Audio_Clips } from '../models/postgres/init-models';
-import { MongoAudioClipsModel, MongoAudio_Descriptions_Model, MongoUsersModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
+import {
+  MongoAICaptionRequestModel,
+  MongoAudioClipsModel,
+  MongoAudio_Descriptions_Model,
+  MongoUsersModel,
+  MongoVideosModel,
+} from '../models/mongodb/init-models.mongo';
 import { IUser } from '../models/mongodb/User.mongo';
 import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
 import { logger } from '../utils/logger';
@@ -412,6 +418,36 @@ class UserService {
     }
   }
 
+  public async increaseCounterAndNotify(youtube_id: string, user_id: string, user_email: string) {
+    try {
+      const captionRequest = await MongoAICaptionRequestModel.findOne({ youtube_id });
+
+      if (!captionRequest) {
+        // If the video has not been requested by anyone yet
+        const newCaptionRequest = new MongoAICaptionRequestModel({
+          youtube_id,
+          caption_requests: {
+            [user_id]: 1,
+          },
+        });
+        await newCaptionRequest.save();
+        console.log(`Notification sent to ${user_email}: Video caption request received.`);
+      } else if (!captionRequest.caption_requests[user_id]) {
+        // If the video has been requested by other users but not by the current user
+        captionRequest.caption_requests[user_id] = 1;
+        await captionRequest.save();
+        console.log(`Notification sent to ${user_email}: Video caption request received.`);
+      } else {
+        // If the video has already been requested by the current user
+        console.log(`Notification sent to ${user_email}: Video already requested.`);
+      }
+      return true;
+    } catch (error) {
+      console.error('Error:', error);
+      return false;
+    }
+  }
+
   public async requestAiDescriptionsWithGpu(userData: IUser, youtube_id: string, ydx_app_host: string) {
     if (!userData) {
       throw new HttpException(400, 'No data provided');
@@ -432,6 +468,12 @@ class UserService {
       !youtubeVideoData.tags
     ) {
       throw new HttpException(400, 'No youtubeVideoData provided');
+    }
+
+    const counterIncrement = await this.increaseCounterAndNotify(youtube_id, userData._id, userData.email);
+
+    if (!counterIncrement) {
+      throw new HttpException(500, 'Error incrementing counter');
     }
 
     console.log(`User Data ::  ${JSON.stringify(userData)}`);
@@ -460,6 +502,21 @@ class UserService {
     });
 
     return response.data;
+  }
+
+  public async aiDescriptionStatus(user_id: string, youtube_id: string) {
+    if (!user_id) {
+      throw new HttpException(400, 'No data provided');
+    }
+    if (!youtube_id) {
+      throw new HttpException(400, 'No youtube_id provided');
+    }
+
+    const captionRequest = await MongoAICaptionRequestModel.findOne({
+      youtube_id,
+      'caption_requests.user_id': user_id,
+    });
+    return !!captionRequest;
   }
 }
 

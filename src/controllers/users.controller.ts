@@ -180,9 +180,8 @@ class UsersController {
     try {
       const userData = req.user as unknown as IUser;
       const youtube_id = req.body.youtube_id;
-      const hostname = req.hostname;
+      const hostname = req.headers.host;
       const returnData = await this.userService.requestAiDescriptionsWithGpu(userData, youtube_id, hostname);
-
       res.status(201).json(returnData);
     } catch (error) {
       next(error);
@@ -225,6 +224,27 @@ class UsersController {
         message: `Successfully created new user Audio Description`,
         url: `${YDX_APP_URL}`,
       });
+    } catch (error) {
+      next(error);
+    }
+  };
+  public aiDescriptionStatus = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userData = req.user as unknown as IUser;
+      console.log(userData);
+      const youtube_id = req.body.youtube_id;
+      // const videoInfo = await MongoVideosModel.findOne({ youtube_id: newUserAudioDescription.youtubeVideoId });
+
+      // if(!videoInfo) {
+      //   throw new Error('Video not found');
+      // }
+
+      if (!userData) {
+        throw new Error('User not found');
+      }
+      const response = await this.userService.aiDescriptionStatus(userData._id, youtube_id);
+
+      res.status(201).json(response);
     } catch (error) {
       next(error);
     }
