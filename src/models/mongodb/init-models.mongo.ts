@@ -22,6 +22,7 @@ import moment from 'moment';
 import { PASSPORT_CALLBACK_URL, CRYPTO_SECRET, CRYPTO_SEED, PORT } from '../../config/index';
 import passport from 'passport';
 import axios from 'axios';
+import AICaptionRequestSchema, { IAICaptionRequest } from './AICaptionRequests.mongo';
 
 function initModels() {
   const VideosModel = model<IVideo>('Video', VideoSchema);
@@ -41,6 +42,7 @@ function initModels() {
   const UserVotesModel = model<IUserVotes>('UserVotes', UserVotesSchema);
   const VisitModel = model<IVisit>('Visit', VisitSchema);
   const WishListModel = model<IWishList>('WishList', WishlistSchema);
+  const AICaptionRequestModel = model<IAICaptionRequest>('AICaptionRequest', AICaptionRequestSchema);
 
   return {
     MongoVideosModel: VideosModel,
@@ -59,6 +61,7 @@ function initModels() {
     MongoCategoryModel: Category,
     MongoAudioDescriptionRatingModel: AudioDescriptionRating,
     MongoAdminModel: Admin,
+    MongoAICaptionRequestModel: AICaptionRequestModel,
   };
 }
 
@@ -131,4 +134,5 @@ export const {
   MongoCategoryModel,
   MongoAudioDescriptionRatingModel,
   MongoAdminModel,
+  MongoAICaptionRequestModel,
 } = initModels();
