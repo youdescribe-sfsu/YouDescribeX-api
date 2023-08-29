@@ -498,6 +498,8 @@ class UserService {
       youtube_id,
       'caption_requests.user_id': user_id,
     });
+    console.log(`captionRequest ::  ${JSON.stringify(captionRequest)}`);
+    logger.info(`captionRequest ::  ${JSON.stringify(captionRequest)}`);
     return !!captionRequest;
   }
 }
