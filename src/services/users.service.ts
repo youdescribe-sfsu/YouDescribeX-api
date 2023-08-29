@@ -16,7 +16,7 @@ import {
 import { IUser } from '../models/mongodb/User.mongo';
 import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
 import { logger } from '../utils/logger';
-import { getVideoDataByYoutubeId } from './videos.util';
+import { getVideoDataByYoutubeId, isVideoAvailable } from './videos.util';
 import moment from 'moment';
 import axios from 'axios';
 class UserService {
@@ -102,17 +102,9 @@ class UserService {
     if (isEmpty(expressUser)) throw new HttpException(403, 'User not logged in');
     if (isEmpty(youtubeVideoId)) throw new HttpException(400, 'youtubeVideoId is empty');
 
-    const youtubeVideoData = await getVideoDataByYoutubeId(youtubeVideoId);
+    const youtubeVideoData = await isVideoAvailable(youtubeVideoId);
 
-    if (
-      !youtubeVideoData ||
-      !youtubeVideoData.title ||
-      !youtubeVideoData.description ||
-      !youtubeVideoData.category ||
-      !youtubeVideoData.category_id ||
-      !youtubeVideoData.duration ||
-      !youtubeVideoData.tags
-    ) {
+    if (!youtubeVideoData) {
       throw new HttpException(400, 'No youtubeVideoData provided');
     }
 
@@ -458,15 +450,10 @@ class UserService {
 
     const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
 
-    if (
-      !youtubeVideoData ||
-      !youtubeVideoData.title ||
-      !youtubeVideoData.description ||
-      !youtubeVideoData.category ||
-      !youtubeVideoData.category_id ||
-      !youtubeVideoData.duration ||
-      !youtubeVideoData.tags
-    ) {
+    console.log(`youtubeVideoData ::  ${JSON.stringify(youtubeVideoData)}`);
+    logger.info(`youtubeVideoData ::  ${JSON.stringify(youtubeVideoData)}`);
+
+    if (!youtubeVideoData) {
       throw new HttpException(400, 'No youtubeVideoData provided');
     }
 

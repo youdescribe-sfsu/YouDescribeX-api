@@ -22,7 +22,7 @@ import { logger } from '../utils/logger';
 import { isEmpty } from '../utils/util';
 import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
 import { ObjectId } from 'mongodb';
-import { getVideoDataByYoutubeId } from './videos.util';
+import { getVideoDataByYoutubeId, isVideoAvailable } from './videos.util';
 
 const fs = require('fs');
 
@@ -129,17 +129,9 @@ class AudioDescriptionsService {
     if (isEmpty(video_name)) throw new HttpException(400, 'video name is empty');
     if (isEmpty(video_length)) throw new HttpException(400, 'video length is empty');
 
-    const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
+    const youtubeVideoData = await isVideoAvailable(youtube_id);
 
-    if (
-      !youtubeVideoData ||
-      !youtubeVideoData.title ||
-      !youtubeVideoData.description ||
-      !youtubeVideoData.category ||
-      !youtubeVideoData.category_id ||
-      !youtubeVideoData.duration ||
-      !youtubeVideoData.tags
-    ) {
+    if (!youtubeVideoData) {
       throw new HttpException(400, 'No youtubeVideoData provided');
     }
 
