@@ -411,20 +411,23 @@ class UserService {
     }
   }
 
-  public async increaseRequestCount(youtube_id: string, user_id: Schema.Types.ObjectId) {
+  public async increaseRequestCount(youtube_id: string, user_id: string) {
     try {
+      const userIdObject = await MongoUsersModel.findById(user_id);
+      const userObjectId = userIdObject._id;
+
       const captionRequest = await MongoAICaptionRequestModel.findOne({ youtube_id });
 
       if (!captionRequest) {
         // If the video has not been requested by anyone yet
         const newCaptionRequest = new MongoAICaptionRequestModel({
           youtube_id,
-          caption_requests: [user_id],
+          caption_requests: [userIdObject],
         });
         await newCaptionRequest.save();
-      } else if (!captionRequest.caption_requests.includes(user_id)) {
+      } else if (!captionRequest.caption_requests.includes(userObjectId)) {
         // If the video has been requested by other users but not by the current user
-        captionRequest.caption_requests.push(user_id);
+        captionRequest.caption_requests.push(userObjectId);
         await captionRequest.save();
       }
       return true;
@@ -433,7 +436,6 @@ class UserService {
       return false;
     }
   }
-
   public async requestAiDescriptionsWithGpu(userData: IUser, youtube_id: string, ydx_app_host: string) {
     if (!userData) {
       throw new HttpException(400, 'No data provided');
@@ -449,12 +451,6 @@ class UserService {
 
     if (!youtubeVideoData) {
       throw new HttpException(400, 'No youtubeVideoData provided');
-    }
-
-    const counterIncrement = await this.increaseRequestCount(youtube_id, userData._id);
-
-    if (!counterIncrement) {
-      throw new HttpException(500, 'Error incrementing counter');
     }
 
     console.log(`User Data ::  ${JSON.stringify(userData)}`);
@@ -481,6 +477,11 @@ class UserService {
         // user_name: userData.name,
       },
     });
+    const counterIncrement = await this.increaseRequestCount(youtube_id, userData._id);
+
+    if (!counterIncrement) {
+      throw new HttpException(500, 'Error incrementing counter');
+    }
 
     return response.data;
   }
