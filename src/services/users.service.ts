@@ -20,7 +20,11 @@ import { getVideoDataByYoutubeId, isVideoAvailable } from './videos.util';
 import moment from 'moment';
 import axios from 'axios';
 import mongoose, { Schema } from 'mongoose';
+import AudioClipsService from './audioClips.service';
+import { ObjectId } from 'mongodb';
+
 class UserService {
+  public audioClipsService = new AudioClipsService();
   public async findAllUser(): Promise<IUser[] | UsersAttributes[]> {
     if (CURRENT_DATABASE == 'mongodb') {
       const users = await MongoUsersModel.find();
@@ -99,7 +103,7 @@ class UserService {
   }
 
   public async createNewUserAudioDescription(newUserAudioDescription: CreateUserAudioDescriptionDto, expressUser: Express.User) {
-    const { youtubeVideoId } = newUserAudioDescription;
+    const { youtubeVideoId, aiUserId } = newUserAudioDescription;
     if (isEmpty(expressUser)) throw new HttpException(403, 'User not logged in');
     if (isEmpty(youtubeVideoId)) throw new HttpException(400, 'youtubeVideoId is empty');
 
@@ -485,7 +489,7 @@ class UserService {
 
     return response.data;
   }
-  public async aiDescriptionStatus(user_id: string, youtube_id: string): Promise<{ status: string; requested: boolean }> {
+  public async aiDescriptionStatus(user_id: string, youtube_id: string): Promise<{ status: string; requested: boolean; url?: string }> {
     try {
       if (!user_id || !youtube_id) {
         throw new HttpException(400, 'Missing user_id or youtube_id');
@@ -508,12 +512,65 @@ class UserService {
 
       const requested = captionRequest.caption_requests.includes(userIdObject._id);
 
+      if (requested && captionRequest.status === 'completed') {
+        const videoIdStatus = await MongoVideosModel.findOne({ youtube_id });
+
+        if (!videoIdStatus) {
+          throw new HttpException(404, 'Video not found');
+        }
+
+        const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
+          video: videoIdStatus._id,
+          user: userIdObject._id,
+        });
+
+        if (checkIfAudioDescriptionExists) {
+          return {
+            status: captionRequest.status,
+            requested,
+
+            url: `${youtube_id}/${checkIfAudioDescriptionExists._id}`,
+          };
+        }
+        logger.info('Successfully created new Audio Description for existing Video that has an AI Audio Description');
+        return {
+          status: captionRequest.status,
+          requested,
+        };
+      }
+
       return { status: captionRequest.status, requested };
     } catch (error) {
       // Handle errors here or log them using your logger library.
       logger.error(`Error in aiDescriptionStatus: ${error.message}`);
       throw error;
     }
+  }
+
+  public async generateAudioDescGpu(newUserAudioDescription: CreateUserAudioDescriptionDto, user_id: string) {
+    const { youtubeVideoId, aiUserId } = newUserAudioDescription;
+
+    if (!youtubeVideoId) throw new HttpException(400, 'youtubeVideoId is empty');
+    if (!aiUserId) throw new HttpException(400, 'aiUserId is empty');
+
+    const videoIdStatus = await MongoVideosModel.findOne({ youtubeVideoId });
+    const userIdObject = await MongoUsersModel.findById(user_id);
+    const aiUserObjectId = new ObjectId(aiUserId);
+    const aiUser = await MongoUsersModel.findById(aiUserObjectId);
+    const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
+      video: videoIdStatus._id,
+      user: userIdObject,
+    });
+    if (!checkIfAudioDescriptionExists) {
+      // Create new Audio Description for existing Video that has an AI Audio Description
+      const createNewAudioDescription = await MongoAudio_Descriptions_Model.findOne({
+        user: aiUser,
+        video: videoIdStatus._id,
+      });
+      await this.audioClipsService.processAllClipsInDB(createNewAudioDescription._id.toString());
+
+      return checkIfAudioDescriptionExists._id;
+    } else return checkIfAudioDescriptionExists._id;
   }
 }
 
