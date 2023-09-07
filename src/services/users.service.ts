@@ -553,7 +553,7 @@ class UserService {
     if (!youtubeVideoId) throw new HttpException(400, 'youtubeVideoId is empty');
     if (!aiUserId) throw new HttpException(400, 'aiUserId is empty');
 
-    const videoIdStatus = await MongoVideosModel.findOne({ youtubeVideoId });
+    const videoIdStatus = await MongoVideosModel.findOne({ youtube_id: youtubeVideoId });
     const userIdObject = await MongoUsersModel.findById(user_id);
     const aiUserObjectId = new ObjectId(aiUserId);
     const aiUser = await MongoUsersModel.findById(aiUserObjectId);
