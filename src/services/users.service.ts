@@ -512,6 +512,9 @@ class UserService {
 
       const requested = captionRequest.caption_requests.includes(userIdObject._id);
 
+      console.log(`captionRequest.status :: ${captionRequest.status}`);
+      logger.info(`captionRequest.status :: ${captionRequest.status}`);
+
       if (requested && captionRequest.status === 'completed') {
         const videoIdStatus = await MongoVideosModel.findOne({ youtube_id });
 
@@ -521,13 +524,13 @@ class UserService {
 
         const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
           video: videoIdStatus._id,
-          user: userIdObject._id,
+          user: userIdObject,
         });
 
         if (checkIfAudioDescriptionExists) {
           return {
             status: captionRequest.status,
-            requested,
+            requested: true,
 
             url: `${youtube_id}/${checkIfAudioDescriptionExists._id}`,
           };
@@ -535,7 +538,7 @@ class UserService {
         logger.info('Successfully created new Audio Description for existing Video that has an AI Audio Description');
         return {
           status: captionRequest.status,
-          requested,
+          requested: true,
         };
       }
 
