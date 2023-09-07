@@ -14,8 +14,8 @@ export class CreateUserAudioDescriptionDto {
   // public userId: string;
   @IsString()
   public youtubeVideoId: string;
-  // @IsString()
-  // public aiUserId: string;
+  @IsString()
+  public aiUserId?: string;
 }
 
 export class NewUserDto {

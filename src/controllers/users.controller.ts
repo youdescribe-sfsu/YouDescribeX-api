@@ -196,15 +196,8 @@ class UsersController {
       if (!user) {
         throw new Error('User not found');
       }
-      const { audioDescriptionId, fromAI } = await this.userService.createNewUserAudioDescription(
-        {
-          youtubeVideoId: newUserAudioDescription.youtubeVideoId,
-        },
-        user,
-      );
-      if (fromAI) {
-        await this.audioClipsService.processAllClipsInDB(audioDescriptionId.toString());
-      }
+      const audioDescriptionId = await this.userService.generateAudioDescGpu(newUserAudioDescription, user._id);
+
       logger.info(`Sending email to ${user.email}`);
 
       const YDX_APP_URL = `${newUserAudioDescription.ydx_app_host}/editor/${newUserAudioDescription.youtubeVideoId}/${audioDescriptionId}`;
