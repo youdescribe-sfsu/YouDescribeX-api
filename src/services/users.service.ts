@@ -411,17 +411,19 @@ class UserService {
     }
   }
 
-  public async increaseRequestCount(youtube_id: string, user_id: string) {
+  public async increaseRequestCount(youtube_id: string, user_id: string, aiUserId: string) {
     try {
       const userIdObject = await MongoUsersModel.findById(user_id);
       const userObjectId = userIdObject._id;
 
-      const captionRequest = await MongoAICaptionRequestModel.findOne({ youtube_id });
+      const captionRequest = await MongoAICaptionRequestModel.findOne({ youtube_id, ai_user_id: aiUserId });
 
       if (!captionRequest) {
         // If the video has not been requested by anyone yet
         const newCaptionRequest = new MongoAICaptionRequestModel({
           youtube_id,
+          ai_user_id: aiUserId,
+          status: 'pending',
           caption_requests: [userIdObject],
         });
         await newCaptionRequest.save();
@@ -436,6 +438,7 @@ class UserService {
       return false;
     }
   }
+
   public async requestAiDescriptionsWithGpu(userData: IUser, youtube_id: string, ydx_app_host: string) {
     if (!userData) {
       throw new HttpException(400, 'No data provided');
@@ -458,26 +461,23 @@ class UserService {
       `BODY DATA ::  ${JSON.stringify({
         youtube_id: youtube_id,
         user_id: userData._id,
-        user_email: userData.email,
-        user_name: userData.name,
         ydx_app_host,
+        ydx_server: CURRENT_YDX_HOST,
         AI_USER_ID: AI_USER_ID,
       })}`,
     );
     console.log(`URL :: http://${GPU_HOST}:${GPU_PIPELINE_PORT}/generate_ai_caption`);
     logger.info(`URL :: http://${GPU_HOST}:${GPU_PIPELINE_PORT}/generate_ai_caption`);
     const response = await axios.post(`http://${GPU_HOST}:${GPU_PIPELINE_PORT}/generate_ai_caption`, {
-      body: {
-        youtube_id: youtube_id,
-        user_id: userData._id,
-        ydx_app_host,
-        ydx_server: CURRENT_YDX_HOST,
-        AI_USER_ID: AI_USER_ID,
-        // user_email: userData.email,
-        // user_name: userData.name,
-      },
+      youtube_id: youtube_id,
+      user_id: userData._id,
+      ydx_app_host,
+      ydx_server: CURRENT_YDX_HOST,
+      AI_USER_ID: AI_USER_ID,
+      // user_email: userData.email,
+      // user_name: userData.name,
     });
-    const counterIncrement = await this.increaseRequestCount(youtube_id, userData._id);
+    const counterIncrement = await this.increaseRequestCount(youtube_id, userData._id, AI_USER_ID);
 
     if (!counterIncrement) {
       throw new HttpException(500, 'Error incrementing counter');
@@ -485,24 +485,35 @@ class UserService {
 
     return response.data;
   }
+  public async aiDescriptionStatus(user_id: string, youtube_id: string): Promise<{ status: string; requested: boolean }> {
+    try {
+      if (!user_id || !youtube_id) {
+        throw new HttpException(400, 'Missing user_id or youtube_id');
+      }
 
-  public async aiDescriptionStatus(user_id: string, youtube_id: string) {
-    if (!user_id) {
-      throw new HttpException(400, 'No data provided');
+      const userIdObject = await MongoUsersModel.findById(user_id);
+
+      if (!userIdObject) {
+        throw new HttpException(400, 'User not found');
+      }
+
+      const captionRequest = await MongoAICaptionRequestModel.findOne({
+        youtube_id,
+        ai_user_id: AI_USER_ID,
+      });
+
+      if (!captionRequest) {
+        throw new HttpException(404, 'Caption request not found');
+      }
+
+      const requested = captionRequest.caption_requests.includes(userIdObject._id);
+
+      return { status: captionRequest.status, requested };
+    } catch (error) {
+      // Handle errors here or log them using your logger library.
+      logger.error(`Error in aiDescriptionStatus: ${error.message}`);
+      throw error;
     }
-    if (!youtube_id) {
-      throw new HttpException(400, 'No youtube_id provided');
-    }
-    const userIdObject = await MongoUsersModel.findById(user_id);
-
-    const captionRequest = await MongoAICaptionRequestModel.findOne({
-      youtube_id,
-    });
-    console.log(`captionRequest ::  ${JSON.stringify(captionRequest)}`);
-    logger.info(`captionRequest ::  ${JSON.stringify(captionRequest)}`);
-    if (captionRequest && userIdObject) return captionRequest.caption_requests.includes(userIdObject._id);
-
-    return !!captionRequest;
   }
 }
 

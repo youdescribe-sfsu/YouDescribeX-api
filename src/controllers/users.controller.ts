@@ -180,7 +180,7 @@ class UsersController {
     try {
       const userData = req.user as unknown as IUser;
       const youtube_id = req.body.youtube_id;
-      const hostname = req.headers.host;
+      const hostname = req.headers.origin;
       const returnData = await this.userService.requestAiDescriptionsWithGpu(userData, youtube_id, hostname);
       res.status(201).json(returnData);
     } catch (error) {

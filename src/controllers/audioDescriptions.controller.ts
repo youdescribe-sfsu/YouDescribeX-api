@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import AudioDescriptionsService from '../services/audioDescriptions.service';
 import { NewAiDescriptionDto } from '../dtos/audioDescriptions.dto';
+import { MongoAICaptionRequestModel } from '../models/mongodb/init-models.mongo';
 
 class AudioDescripionsController {
   public audioDescriptionsService = new AudioDescriptionsService();
@@ -21,6 +22,16 @@ class AudioDescripionsController {
     try {
       const newAiDescriptionData: NewAiDescriptionDto = req.body;
       const newAIDescription = await this.audioDescriptionsService.newAiDescription(newAiDescriptionData);
+      const captionRequest = await MongoAICaptionRequestModel.findOne({
+        youtube_id: newAiDescriptionData.youtube_id,
+        ai_user_id: newAiDescriptionData.aiUserId,
+      });
+      if (captionRequest) {
+        await MongoAICaptionRequestModel.updateOne(
+          { _id: captionRequest._id }, // Assuming _id is the unique identifier for the document
+          { $set: { status: 'completed' } },
+        ).exec();
+      }
       res.status(200).json(newAIDescription);
     } catch (error) {
       next(error);
