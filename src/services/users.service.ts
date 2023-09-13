@@ -557,12 +557,14 @@ class UserService {
     if (!aiUserId) throw new HttpException(400, 'aiUserId is empty');
 
     const videoIdStatus = await MongoVideosModel.findOne({ youtube_id: youtubeVideoId });
+    console.log(`videoIdStatus :: ${JSON.stringify(videoIdStatus._id)}`);
     const userIdObject = await MongoUsersModel.findById(user_id);
+    console.log(`userIdObject :: ${JSON.stringify(userIdObject._id)}`);
     const aiUserObjectId = new ObjectId(aiUserId);
     const aiUser = await MongoUsersModel.findById(aiUserObjectId);
     const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
       video: videoIdStatus._id,
-      user: userIdObject,
+      user: userIdObject._id,
     });
     if (!checkIfAudioDescriptionExists) {
       // Create new Audio Description for existing Video that has an AI Audio Description
@@ -572,7 +574,7 @@ class UserService {
       });
       await this.audioClipsService.processAllClipsInDB(createNewAudioDescription._id.toString());
 
-      return checkIfAudioDescriptionExists._id;
+      return createNewAudioDescription._id;
     } else return checkIfAudioDescriptionExists._id;
   }
 

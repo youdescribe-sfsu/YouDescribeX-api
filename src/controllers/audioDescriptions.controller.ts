@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from 'express';
 import AudioDescriptionsService from '../services/audioDescriptions.service';
 import { NewAiDescriptionDto } from '../dtos/audioDescriptions.dto';
 import { MongoAICaptionRequestModel } from '../models/mongodb/init-models.mongo';
+import { logger } from '../utils/logger';
 
 class AudioDescripionsController {
   public audioDescriptionsService = new AudioDescriptionsService();
@@ -34,6 +35,7 @@ class AudioDescripionsController {
       }
       res.status(200).json(newAIDescription);
     } catch (error) {
+      logger.error(error);
       next(error);
     }
   };

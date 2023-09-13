@@ -1,7 +1,7 @@
 import { config } from 'dotenv';
 
 console.log(`path: .env.${process.env.NODE_ENV || 'development'}.local`);
-console.log(process.env);
+// console.log(process.env);
 
 config({ path: `.env.${process.env.NODE_ENV || 'production'}.local` });
 
