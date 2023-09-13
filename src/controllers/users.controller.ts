@@ -218,6 +218,8 @@ class UsersController {
         url: `${YDX_APP_URL}`,
       });
     } catch (error) {
+      logger.error(error);
+      console.log(error);
       next(error);
     }
   };
