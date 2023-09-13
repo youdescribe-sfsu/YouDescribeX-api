@@ -575,6 +575,23 @@ class UserService {
       return checkIfAudioDescriptionExists._id;
     } else return checkIfAudioDescriptionExists._id;
   }
+
+  public async requestAllDescriptionVideos(user_id: string) {
+    if (!user_id) {
+      throw new HttpException(400, 'No data provided');
+    }
+
+    const userIdObject = await MongoUsersModel.findById(user_id);
+
+    const aiAudioDescriptions = await MongoAICaptionRequestModel.find({
+      caption_requests: userIdObject,
+    });
+
+    console.log(`aiAudioDescriptions ::  ${JSON.stringify(aiAudioDescriptions)}`);
+    logger.info(`aiAudioDescriptions ::  ${JSON.stringify(aiAudioDescriptions)}`);
+
+    return aiAudioDescriptions;
+  }
 }
 
 export default UserService;

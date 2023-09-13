@@ -22,6 +22,8 @@ class UsersRoute implements Routes {
     this.router.post(`${this.path}/generate-audio-desc-gpu`, this.usersController.generateAudioDescGpu);
 
     this.router.post(`${this.path}/ai-description-status`, this.usersController.aiDescriptionStatus);
+
+    this.router.post(`${this.path}/request-all-description-videos`, this.usersController.requestAllDescriptionVideos);
   }
 }
 
