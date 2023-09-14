@@ -22,6 +22,7 @@ import axios from 'axios';
 import mongoose, { Schema } from 'mongoose';
 import AudioClipsService from './audioClips.service';
 import { ObjectId } from 'mongodb';
+import sendEmail from '../utils/emailService';
 
 class UserService {
   public audioClipsService = new AudioClipsService();
@@ -448,6 +449,136 @@ class UserService {
     }
   }
 
+  private async checkIfVideoHasAudioDescription(youtubeVideoId: string, aiUserId: string, userId: string) {
+    const userIdObject = await MongoUsersModel.findById(userId);
+
+    if (!userIdObject) throw new HttpException(409, "User couldn't be found");
+
+    const aiUserObjectId = new ObjectId(aiUserId);
+    const videoIdStatus = await MongoVideosModel.findOne({ youtube_id: youtubeVideoId });
+
+    if (!videoIdStatus) throw new HttpException(409, "Video couldn't be found");
+
+    const aiUser = await MongoUsersModel.findById(aiUserObjectId);
+
+    if (!aiUser) throw new HttpException(409, "AI User couldn't be found");
+
+    const aiAudioDescriptions = await MongoVideosModel.aggregate([
+      {
+        $match: {
+          youtube_id: youtubeVideoId,
+        },
+      },
+      {
+        $unwind: {
+          path: '$audio_descriptions',
+          preserveNullAndEmptyArrays: false,
+        },
+      },
+      {
+        $lookup: {
+          from: 'audio_descriptions',
+          localField: 'audio_descriptions',
+          foreignField: '_id',
+          as: 'video_ad',
+        },
+      },
+      {
+        $unwind: {
+          path: '$video_ad',
+        },
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'video_ad.user',
+          foreignField: '_id',
+          as: 'video_ad_user',
+        },
+      },
+      {
+        $unwind: {
+          path: '$video_ad_user',
+        },
+      },
+      {
+        $match: {
+          'video_ad_user.user_type': 'AI',
+          'video_ad_user._id': aiUser._id,
+        },
+      },
+    ]);
+    if (aiAudioDescriptions.length === 0) return false;
+    const createNewAudioDescription = new MongoAudio_Descriptions_Model({
+      admin_review: false,
+      audio_clips: [],
+      created_at: new Date(),
+      language: 'en',
+      legacy_notes: '',
+      updated_at: new Date(),
+      video: videoIdStatus._id,
+      user: userIdObject._id,
+    });
+
+    console.log(`createNewAudioDescription :: ${JSON.stringify(createNewAudioDescription)}`);
+
+    logger.info(`createNewAudioDescription :: ${JSON.stringify(createNewAudioDescription)}`);
+    const audioClipArray = [];
+
+    for (let i = 0; i < aiAudioDescriptions[0].video_ad.audio_clips.length; i++) {
+      const clipId = aiAudioDescriptions[0].video_ad.audio_clips[i];
+      const clip = await MongoAudioClipsModel.findById(clipId);
+      console.log(`Clip :: ${JSON.stringify(clip)}`);
+      const createNewAudioClip = new MongoAudioClipsModel({
+        audio_description: createNewAudioDescription._id,
+        created_at: new Date(),
+        description_type: clip.description_type,
+        description_text: clip.description_text,
+        duration: clip.duration,
+        end_time: clip.end_time,
+        file_mime_type: clip.file_mime_type,
+        file_name: clip.file_name,
+        file_path: clip.file_path,
+        file_size_bytes: clip.file_size_bytes,
+        label: clip.label,
+        playback_type: clip.playback_type,
+        start_time: clip.start_time,
+        transcript: [],
+        updated_at: new Date(),
+        user: userIdObject._id,
+        video: videoIdStatus._id,
+        is_recorded: false,
+      });
+      if (!createNewAudioClip) throw new HttpException(409, "Audio Clip couldn't be created");
+      audioClipArray.push(createNewAudioClip);
+    }
+
+    const createNewAudioClips = await MongoAudioClipsModel.insertMany(audioClipArray);
+    if (!createNewAudioClips) throw new HttpException(409, "Audio Clips couldn't be created");
+    createNewAudioClips.forEach(async clip => createNewAudioDescription.audio_clips.push(clip));
+    createNewAudioClips.forEach(async clip => clip.save());
+    createNewAudioDescription.save();
+    if (!createNewAudioDescription) throw new HttpException(409, "Audio Description couldn't be created");
+
+    // Add Audio Description to Video Audio Description Array for consistency with old MongodB and YD Classic logic
+    await MongoVideosModel.findByIdAndUpdate(videoIdStatus._id, {
+      $push: {
+        audio_descriptions: {
+          $each: [{ _id: createNewAudioDescription._id }],
+        },
+      },
+    }).catch(err => {
+      logger.error(err);
+      throw new HttpException(409, "Video couldn't be updated.");
+    });
+
+    logger.info('Successfully created new Audio Description for existing Video that has an AI Audio Description');
+    return {
+      audioDescriptionId: createNewAudioDescription._id,
+      fromAI: true,
+    };
+  }
+
   public async requestAiDescriptionsWithGpu(userData: IUser, youtube_id: string, ydx_app_host: string) {
     if (!userData) {
       throw new HttpException(400, 'No data provided');
@@ -465,34 +596,64 @@ class UserService {
       throw new HttpException(400, 'No youtubeVideoData provided');
     }
 
-    console.log(`User Data ::  ${JSON.stringify(userData)}`);
-    console.log(
-      `BODY DATA ::  ${JSON.stringify({
+    const aiAudioDescriptions = await this.checkIfVideoHasAudioDescription(youtube_id, AI_USER_ID, userData._id);
+
+    if (aiAudioDescriptions) {
+      const counterIncrement = await this.increaseRequestCount(youtube_id, userData._id, AI_USER_ID);
+      if (!counterIncrement) {
+        throw new HttpException(500, 'Error incrementing counter');
+      }
+      const { audioDescriptionId } = aiAudioDescriptions;
+      await this.audioClipsService.processAllClipsInDB(audioDescriptionId.audioDescriptionId.toString());
+
+      logger.info(`Sending email to ${userData.email}`);
+
+      const YDX_APP_URL = `${ydx_app_host}/editor/${youtube_id}/${audioDescriptionId.audioDescriptionId}`;
+      // Remove all whitespace from the URL
+      const replaced_url = YDX_APP_URL.replace(/\s/g, '');
+
+      logger.info(`URL :: ${YDX_APP_URL}`);
+
+      await sendEmail(
+        userData.email,
+        `Requested Audio Description for ${youtubeVideoData.title} ready`,
+        `Your Audio Description is now available! You're invited to view it by following this link: ${YDX_APP_URL}`,
+      );
+
+      logger.info(`Email sent to ${userData.email}`);
+    } else {
+      console.log(`User Data ::  ${JSON.stringify(userData)}`);
+      console.log(
+        `BODY DATA ::  ${JSON.stringify({
+          youtube_id: youtube_id,
+          user_id: userData._id,
+          ydx_app_host,
+          ydx_server: CURRENT_YDX_HOST,
+          AI_USER_ID: AI_USER_ID,
+        })}`,
+      );
+      console.log(`URL :: http://${GPU_HOST}:${GPU_PIPELINE_PORT}/generate_ai_caption`);
+      logger.info(`URL :: http://${GPU_HOST}:${GPU_PIPELINE_PORT}/generate_ai_caption`);
+
+      // Check if video has already been requested
+
+      const response = await axios.post(`http://${GPU_HOST}:${GPU_PIPELINE_PORT}/generate_ai_caption`, {
         youtube_id: youtube_id,
         user_id: userData._id,
         ydx_app_host,
         ydx_server: CURRENT_YDX_HOST,
         AI_USER_ID: AI_USER_ID,
-      })}`,
-    );
-    console.log(`URL :: http://${GPU_HOST}:${GPU_PIPELINE_PORT}/generate_ai_caption`);
-    logger.info(`URL :: http://${GPU_HOST}:${GPU_PIPELINE_PORT}/generate_ai_caption`);
-    const response = await axios.post(`http://${GPU_HOST}:${GPU_PIPELINE_PORT}/generate_ai_caption`, {
-      youtube_id: youtube_id,
-      user_id: userData._id,
-      ydx_app_host,
-      ydx_server: CURRENT_YDX_HOST,
-      AI_USER_ID: AI_USER_ID,
-      // user_email: userData.email,
-      // user_name: userData.name,
-    });
-    const counterIncrement = await this.increaseRequestCount(youtube_id, userData._id, AI_USER_ID);
+        // user_email: userData.email,
+        // user_name: userData.name,
+      });
+      const counterIncrement = await this.increaseRequestCount(youtube_id, userData._id, AI_USER_ID);
 
-    if (!counterIncrement) {
-      throw new HttpException(500, 'Error incrementing counter');
+      if (!counterIncrement) {
+        throw new HttpException(500, 'Error incrementing counter');
+      }
+
+      return response.data;
     }
-
-    return response.data;
   }
   public async aiDescriptionStatus(user_id: string, youtube_id: string): Promise<{ status: string; requested: boolean; url?: string }> {
     try {
