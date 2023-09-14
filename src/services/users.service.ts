@@ -566,14 +566,15 @@ class UserService {
       video: videoIdStatus._id,
       user: userIdObject._id,
     });
+    console.log(`checkIfAudioDescriptionExists :: ${JSON.stringify(checkIfAudioDescriptionExists)}`);
     if (!checkIfAudioDescriptionExists) {
       // Create new Audio Description for existing Video that has an AI Audio Description
       const createNewAudioDescription = await MongoAudio_Descriptions_Model.findOne({
         user: aiUser,
         video: videoIdStatus._id,
       });
+      console.log(`createNewAudioDescription :: ${JSON.stringify(createNewAudioDescription)}`);
       await this.audioClipsService.processAllClipsInDB(createNewAudioDescription._id.toString());
-
       return createNewAudioDescription._id;
     } else return checkIfAudioDescriptionExists._id;
   }
