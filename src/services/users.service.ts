@@ -449,7 +449,7 @@ class UserService {
     }
   }
 
-  private async checkIfVideoHasAudioDescription(youtubeVideoId: string, aiUserId: string, userId: string) {
+  private async checkIfVideoHasAudioDescription(youtubeVideoId: string, aiUserId: string, userId: string): Promise<boolean | mongoose.Types.ObjectId> {
     const userIdObject = await MongoUsersModel.findById(userId);
 
     if (!userIdObject) throw new HttpException(409, "User couldn't be found");
@@ -573,10 +573,7 @@ class UserService {
     });
 
     logger.info('Successfully created new Audio Description for existing Video that has an AI Audio Description');
-    return {
-      audioDescriptionId: createNewAudioDescription._id,
-      fromAI: true,
-    };
+    return createNewAudioDescription._id;
   }
 
   public async requestAiDescriptionsWithGpu(userData: IUser, youtube_id: string, ydx_app_host: string) {
@@ -603,12 +600,11 @@ class UserService {
       if (!counterIncrement) {
         throw new HttpException(500, 'Error incrementing counter');
       }
-      const { audioDescriptionId } = aiAudioDescriptions;
-      await this.audioClipsService.processAllClipsInDB(audioDescriptionId.audioDescriptionId.toString());
+      await this.audioClipsService.processAllClipsInDB(aiAudioDescriptions.toString());
 
       logger.info(`Sending email to ${userData.email}`);
 
-      const YDX_APP_URL = `${ydx_app_host}/editor/${youtube_id}/${audioDescriptionId.audioDescriptionId}`;
+      const YDX_APP_URL = `${ydx_app_host}/editor/${youtube_id}/${aiAudioDescriptions}`;
       // Remove all whitespace from the URL
       const replaced_url = YDX_APP_URL.replace(/\s/g, '');
 
@@ -617,10 +613,13 @@ class UserService {
       await sendEmail(
         userData.email,
         `Requested Audio Description for ${youtubeVideoData.title} ready`,
-        `Your Audio Description is now available! You're invited to view it by following this link: ${YDX_APP_URL}`,
+        `Your Audio Description is now available! You're invited to view it by following this link: ${replaced_url}`,
       );
 
       logger.info(`Email sent to ${userData.email}`);
+      return {
+        message: 'Audio Description already exists.',
+      };
     } else {
       console.log(`User Data ::  ${JSON.stringify(userData)}`);
       console.log(
