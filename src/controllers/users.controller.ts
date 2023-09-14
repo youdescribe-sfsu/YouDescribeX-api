@@ -197,10 +197,11 @@ class UsersController {
         throw new Error('User not found');
       }
       const audioDescriptionId = await this.userService.generateAudioDescGpu(newUserAudioDescription, user._id);
+      await this.audioClipsService.processAllClipsInDB(audioDescriptionId.audioDescriptionId.toString());
 
       logger.info(`Sending email to ${user.email}`);
 
-      const YDX_APP_URL = `${newUserAudioDescription.ydx_app_host}/editor/${newUserAudioDescription.youtubeVideoId}/${audioDescriptionId}`;
+      const YDX_APP_URL = `${newUserAudioDescription.ydx_app_host}/editor/${newUserAudioDescription.youtubeVideoId}/${audioDescriptionId.audioDescriptionId}`;
       // Remove all whitespace from the URL
       const replaced_url = YDX_APP_URL.replace(/\s/g, '');
 
