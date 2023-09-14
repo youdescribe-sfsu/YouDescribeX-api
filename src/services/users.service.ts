@@ -112,8 +112,13 @@ class UserService {
     if (!youtubeVideoData) {
       throw new HttpException(400, 'No youtubeVideoData provided');
     }
+    let user: IUser | null = null;
 
-    const user: IUser = expressUser as IUser;
+    const aiUserObjectId = new ObjectId(aiUserId);
+
+    const aiUser = await MongoUsersModel.findById(aiUserObjectId);
+    if (aiUser) user = aiUser;
+    else user = expressUser as IUser;
 
     if (CURRENT_DATABASE == 'mongodb') {
       const videoIdStatus = await MongoVideosModel.findOne({ youtube_id: youtubeVideoId });
@@ -229,7 +234,7 @@ class UserService {
         user: user._id,
       });
 
-      if (aiAudioDescriptions.length <= 0) {
+      if (!aiUser && aiAudioDescriptions.length <= 0) {
         // No AI Audio Description exists, just create regular empty Audio Description
         createNewAudioDescription.save();
         if (!createNewAudioDescription) throw new HttpException(409, 'Something went wrong when creating audio description.');
@@ -561,22 +566,136 @@ class UserService {
     const userIdObject = await MongoUsersModel.findById(user_id);
     console.log(`userIdObject :: ${JSON.stringify(userIdObject._id)}`);
     const aiUserObjectId = new ObjectId(aiUserId);
+
     const aiUser = await MongoUsersModel.findById(aiUserObjectId);
+
     const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
       video: videoIdStatus._id,
       user: userIdObject._id,
     });
-    console.log(`checkIfAudioDescriptionExists :: ${JSON.stringify(checkIfAudioDescriptionExists)}`);
-    if (!checkIfAudioDescriptionExists) {
-      // Create new Audio Description for existing Video that has an AI Audio Description
-      const createNewAudioDescription = await MongoAudio_Descriptions_Model.findOne({
-        user: aiUser,
+    if (checkIfAudioDescriptionExists) {
+      return {
+        audioDescriptionId: checkIfAudioDescriptionExists._id,
+      };
+    }
+
+    // Search for AI Audio Description for specified YouTube Video ID
+    const aiAudioDescriptions = await MongoVideosModel.aggregate([
+      {
+        $match: {
+          youtube_id: youtubeVideoId,
+        },
+      },
+      {
+        $unwind: {
+          path: '$audio_descriptions',
+          preserveNullAndEmptyArrays: false,
+        },
+      },
+      {
+        $lookup: {
+          from: 'audio_descriptions',
+          localField: 'audio_descriptions',
+          foreignField: '_id',
+          as: 'video_ad',
+        },
+      },
+      {
+        $unwind: {
+          path: '$video_ad',
+        },
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'video_ad.user',
+          foreignField: '_id',
+          as: 'video_ad_user',
+        },
+      },
+      {
+        $unwind: {
+          path: '$video_ad_user',
+        },
+      },
+      {
+        $match: {
+          'video_ad_user.user_type': 'AI',
+          'video_ad_user._id': aiUser._id,
+        },
+      },
+    ]);
+
+    console.log(`aiAudioDescriptions :: ${JSON.stringify(aiAudioDescriptions)}`);
+
+    const createNewAudioDescription = new MongoAudio_Descriptions_Model({
+      admin_review: false,
+      audio_clips: [],
+      created_at: new Date(),
+      language: 'en',
+      legacy_notes: '',
+      updated_at: new Date(),
+      video: videoIdStatus._id,
+      user: userIdObject._id,
+    });
+
+    console.log(`createNewAudioDescription :: ${JSON.stringify(createNewAudioDescription)}`);
+
+    logger.info(`createNewAudioDescription :: ${JSON.stringify(createNewAudioDescription)}`);
+    const audioClipArray = [];
+
+    for (let i = 0; i < aiAudioDescriptions[0].video_ad.audio_clips.length; i++) {
+      const clipId = aiAudioDescriptions[0].video_ad.audio_clips[i];
+      const clip = await MongoAudioClipsModel.findById(clipId);
+      console.log(`Clip :: ${JSON.stringify(clip)}`);
+      const createNewAudioClip = new MongoAudioClipsModel({
+        audio_description: createNewAudioDescription._id,
+        created_at: new Date(),
+        description_type: clip.description_type,
+        description_text: clip.description_text,
+        duration: clip.duration,
+        end_time: clip.end_time,
+        file_mime_type: clip.file_mime_type,
+        file_name: clip.file_name,
+        file_path: clip.file_path,
+        file_size_bytes: clip.file_size_bytes,
+        label: clip.label,
+        playback_type: clip.playback_type,
+        start_time: clip.start_time,
+        transcript: [],
+        updated_at: new Date(),
+        user: userIdObject._id,
         video: videoIdStatus._id,
+        is_recorded: false,
       });
-      console.log(`createNewAudioDescription :: ${JSON.stringify(createNewAudioDescription)}`);
-      await this.audioClipsService.processAllClipsInDB(createNewAudioDescription._id.toString());
-      return createNewAudioDescription._id;
-    } else return checkIfAudioDescriptionExists._id;
+      if (!createNewAudioClip) throw new HttpException(409, "Audio Clip couldn't be created");
+      audioClipArray.push(createNewAudioClip);
+    }
+
+    const createNewAudioClips = await MongoAudioClipsModel.insertMany(audioClipArray);
+    if (!createNewAudioClips) throw new HttpException(409, "Audio Clips couldn't be created");
+    createNewAudioClips.forEach(async clip => createNewAudioDescription.audio_clips.push(clip));
+    createNewAudioClips.forEach(async clip => clip.save());
+    createNewAudioDescription.save();
+    if (!createNewAudioDescription) throw new HttpException(409, "Audio Description couldn't be created");
+
+    // Add Audio Description to Video Audio Description Array for consistency with old MongodB and YD Classic logic
+    await MongoVideosModel.findByIdAndUpdate(videoIdStatus._id, {
+      $push: {
+        audio_descriptions: {
+          $each: [{ _id: createNewAudioDescription._id }],
+        },
+      },
+    }).catch(err => {
+      logger.error(err);
+      throw new HttpException(409, "Video couldn't be updated.");
+    });
+
+    logger.info('Successfully created new Audio Description for existing Video that has an AI Audio Description');
+    return {
+      audioDescriptionId: createNewAudioDescription._id,
+      fromAI: true,
+    };
   }
 
   public async getAllAiDescriptionRequests(user_id: string) {
