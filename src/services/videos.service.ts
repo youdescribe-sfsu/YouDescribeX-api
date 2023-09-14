@@ -43,6 +43,7 @@ class VideosService {
       const videoById = await MongoVideosModel.findOne({
         youtube_id: youtubeId,
       });
+      console.log(videoById);
       if (!videoById) throw new HttpException(409, "Video doesn't exist");
 
       const userById: UsersAttributes = await MongoUsersModel.findById(userId);
@@ -53,19 +54,24 @@ class VideosService {
       });
       if (!audioDescriptions) throw new HttpException(409, "Audio Description doesn't exist");
 
+      const response = await MongoAudio_Descriptions_Model.deleteOne({ _id: audioDescriptions._id });
+      console.log(`response: ${JSON.stringify(response)}`);
+
       const audioClipsData = await MongoAudioClipsModel.findOne({
         where: { audio_description: audioDescriptions._id },
       });
+      console.log(`audioClipsData: ${audioClipsData}`);
       if (!audioClipsData) throw new HttpException(409, "Audio Clip doesn't exist");
 
       const notesData = await MongoNotesModel.findOne({
         where: { audio_description: audioDescriptions._id },
       });
+      console.log(`notesData: ${notesData}`);
       if (notesData)
         await MongoNotesModel.deleteMany({
           where: { audio_description: audioDescriptions._id },
         });
-      await MongoAudioClipsModel.deleteOne({
+      await MongoAudioClipsModel.deleteMany({
         where: { audio_description: audioDescriptions._id, user: userId, video: videoById._id },
       });
       await MongoAudio_Descriptions_Model.deleteOne({
