@@ -201,21 +201,22 @@ class UsersController {
       logger.info(`Sending email to ${user.email}`);
 
       const YDX_APP_URL = `${newUserAudioDescription.ydx_app_host}/editor/${newUserAudioDescription.youtubeVideoId}/${audioDescriptionId}`;
+      // Remove all whitespace from the URL
+      const replaced_url = YDX_APP_URL.replace(/\s/g, '');
 
       logger.info(`URL :: ${YDX_APP_URL}`);
 
-      const email = await sendEmail(
+      await sendEmail(
         user.email,
         `Requested Audio Description for ${videoInfo.title} ready`,
         `Your Audio Description is now available! You're invited to view it by following this link: ${YDX_APP_URL}`,
       );
 
-      console.log(email);
       logger.info(`Email sent to ${user.email}`);
 
       res.status(201).json({
         message: `Successfully created new user Audio Description`,
-        url: `${YDX_APP_URL}`,
+        url: `${replaced_url}`,
       });
     } catch (error) {
       logger.error(error);
