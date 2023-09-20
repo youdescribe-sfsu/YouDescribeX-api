@@ -11,7 +11,7 @@ class AudioDescripionsController {
     try {
       const videoId: string = req.params.videoId;
       const userId: string = req.params.adId;
-      const audio_description_id = req.headers.audio_description_id as unknown as string;
+      const audio_description_id = req.headers.audiodescription as unknown as string;
       const userAudioDescriptions = await this.audioDescriptionsService.getUserAudioDescriptionData(videoId, userId, audio_description_id);
 
       res.status(200).json(userAudioDescriptions);
