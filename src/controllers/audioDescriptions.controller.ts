@@ -10,8 +10,9 @@ class AudioDescripionsController {
   public getUserAudioDescriptionData = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const videoId: string = req.params.videoId;
-      const adId: string = req.params.adId;
-      const userAudioDescriptions = await this.audioDescriptionsService.getUserAudioDescriptionData(videoId, adId);
+      const userId: string = req.params.adId;
+      const audio_description_id = req.headers.audio_description_id as unknown as string;
+      const userAudioDescriptions = await this.audioDescriptionsService.getUserAudioDescriptionData(videoId, userId, audio_description_id);
 
       res.status(200).json(userAudioDescriptions);
     } catch (error) {
