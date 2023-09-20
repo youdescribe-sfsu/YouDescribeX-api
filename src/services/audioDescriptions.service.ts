@@ -27,14 +27,18 @@ import { getVideoDataByYoutubeId, isVideoAvailable } from './videos.util';
 const fs = require('fs');
 
 class AudioDescriptionsService {
-  public async getUserAudioDescriptionData(videoId: string, adId: string): Promise<IAudioDescription | Audio_DescriptionsAttributes> {
+  public async getUserAudioDescriptionData(
+    videoId: string,
+    userId: string,
+    audio_description_id: string,
+  ): Promise<IAudioDescription | Audio_DescriptionsAttributes> {
     if (isEmpty(videoId)) throw new HttpException(400, 'Video ID is empty');
-    if (isEmpty(adId)) throw new HttpException(400, 'Audio Description ID is empty');
+    if (isEmpty(userId)) throw new HttpException(400, 'Audio Description ID is empty');
+    if (isEmpty(audio_description_id)) throw new HttpException(400, 'Audio Description ID is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
       const audioDescriptions = await MongoAudio_Descriptions_Model.findOne({
-        video: videoId,
-        user: adId,
+        _id: audio_description_id,
       });
 
       if (!audioDescriptions) throw new HttpException(409, "Audio Description for this YouTube Video doesn't exist");
@@ -101,7 +105,7 @@ class AudioDescriptionsService {
       const audioDescriptions: Audio_DescriptionsAttributes = await PostGres_Audio_Descriptions.findOne({
         where: {
           VideoVideoId: videoId,
-          ad_id: adId,
+          UserUserId: userId,
         },
         // nesting Audio_Clips & Notes data too
         include: [
