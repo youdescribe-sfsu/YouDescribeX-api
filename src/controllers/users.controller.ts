@@ -246,6 +246,26 @@ class UsersController {
       next(error);
     }
   };
+  public getAllAiDescriptionRequests = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userData = req.user as unknown as IUser;
+      console.log(userData);
+      // const videoInfo = await MongoVideosModel.findOne({ youtube_id: newUserAudioDescription.youtubeVideoId });
+
+      // if(!videoInfo) {
+      //   throw new Error('Video not found');
+      // }
+
+      if (!userData) {
+        throw new Error('User not found');
+      }
+      const response = await this.userService.getAllAiDescriptionRequests(userData._id);
+
+      res.status(201).json(response);
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export default UsersController;
