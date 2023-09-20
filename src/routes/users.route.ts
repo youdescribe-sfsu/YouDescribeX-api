@@ -23,7 +23,7 @@ class UsersRoute implements Routes {
 
     this.router.post(`${this.path}/ai-description-status`, this.usersController.aiDescriptionStatus);
 
-    this.router.post(`${this.path}/request-all-description-videos`, this.usersController.requestAllDescriptionVideos);
+    this.router.get(`${this.path}/get-All-Ai-DescriptionRequests`, this.usersController.getAllAiDescriptionRequests);
   }
 }
 

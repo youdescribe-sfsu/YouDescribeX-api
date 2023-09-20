@@ -576,7 +576,7 @@ class UserService {
     } else return checkIfAudioDescriptionExists._id;
   }
 
-  public async requestAllDescriptionVideos(user_id: string) {
+  public async getAllAiDescriptionRequests(user_id: string) {
     if (!user_id) {
       throw new HttpException(400, 'No data provided');
     }
