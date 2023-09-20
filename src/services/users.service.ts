@@ -857,6 +857,38 @@ class UserService {
       fromAI: true,
     };
   }
+
+  public async getAllAiDescriptionRequests(user_id: string) {
+    if (!user_id) {
+      throw new HttpException(400, 'No data provided');
+    }
+
+    const userIdObject = await MongoUsersModel.findById(user_id);
+
+    const aiAudioDescriptions = await MongoAICaptionRequestModel.aggregate([
+      {
+        $match: {
+          caption_requests: userIdObject,
+        },
+      },
+      {
+        $unwind: '$caption_requests',
+      },
+      {
+        $lookup: {
+          from: 'videos',
+          localField: 'youtube_id',
+          foreignField: 'youtube_id',
+          as: 'video',
+        },
+      },
+    ]);
+
+    console.log(`aiAudioDescriptions ::  ${JSON.stringify(aiAudioDescriptions)}`);
+    logger.info(`aiAudioDescriptions ::  ${JSON.stringify(aiAudioDescriptions)}`);
+
+    return aiAudioDescriptions;
+  }
 }
 
 export default UserService;
