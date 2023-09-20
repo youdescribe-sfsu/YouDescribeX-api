@@ -40,6 +40,7 @@ class AudioDescriptionsService {
     if (CURRENT_DATABASE == 'mongodb') {
       const audioDescriptions = await MongoAudio_Descriptions_Model.findOne({
         _id: audio_description_id,
+        user: userId,
       });
 
       if (!audioDescriptions) throw new HttpException(409, "Audio Description for this YouTube Video doesn't exist");
