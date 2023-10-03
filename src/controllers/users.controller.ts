@@ -247,7 +247,7 @@ class UsersController {
       if (!userData) {
         throw new Error('User not found');
       }
-      const response = await this.userService.aiDescriptionStatus('649cb7f077aaecc21160d72c', youtube_id);
+      const response = await this.userService.aiDescriptionStatus(userData._id, youtube_id);
 
       res.status(201).json(response);
     } catch (error) {
@@ -295,7 +295,7 @@ class UsersController {
       await this.audioClipsService.processAllClipsInDB(audioDescriptionId.audioDescriptionId.toString());
       res.status(201).json({
         message: `Successfully created new user Audio Description`,
-        url: `${newUserAudioDescription.youtube_id}/${audioDescriptionId}`,
+        url: `${newUserAudioDescription.youtube_id}/${audioDescriptionId.audioDescriptionId.toString()}`,
       });
     } catch (error) {
       next(error);
