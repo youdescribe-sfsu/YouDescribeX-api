@@ -60,7 +60,7 @@ deploy-stage:
     - echo GPU_HOST=$GPU_HOST
     - echo GPU_PIPELINE_PORT=$GPU_PIPELINE_PORT
     - echo CURRENT_YDX_HOST=$CURRENT_YDX_HOST
-    
+
     - echo "Starting up/Deploying newest YouDescribe Backend build"
     # - docker compose down
     # - docker compose up -d

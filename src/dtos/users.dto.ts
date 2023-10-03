@@ -1,4 +1,4 @@
-import { IsBoolean, IsEmail, IsString, IsNumber } from 'class-validator';
+import { IsBoolean, IsEmail, IsString, IsNumber, ValidateIf } from 'class-validator';
 
 export class CreateUserDto {
   @IsEmail()
@@ -49,5 +49,6 @@ export class AudioDescGenerationRequestDTO {
   @IsString()
   public aiUserId: string;
   @IsString()
-  public ydx_app_host: string;
+  @ValidateIf(o => o.ydx_app_host === undefined)
+  public ydx_app_host: string | undefined;
 }
