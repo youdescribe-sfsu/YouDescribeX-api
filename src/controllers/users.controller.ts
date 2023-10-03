@@ -4,7 +4,7 @@ import { IUsers } from '../interfaces/users.interface';
 import userService from '../services/users.service';
 import AudioClipsService from '../services/audioClips.service';
 import { logger } from '../utils/logger';
-import { HOST } from '../config';
+import { AI_USER_ID, HOST } from '../config';
 import { IUser } from '../models/mongodb/User.mongo';
 import { MongoUsersModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import sendEmail from '../utils/emailService';
@@ -201,24 +201,32 @@ class UsersController {
 
       logger.info(`Sending email to ${user.email}`);
 
-      const YDX_APP_URL = `${newUserAudioDescription.ydx_app_host}/editor/${newUserAudioDescription.youtubeVideoId}/${audioDescriptionId.audioDescriptionId}`;
-      // Remove all whitespace from the URL
-      const replaced_url = YDX_APP_URL.replace(/\s/g, '');
+      if (newUserAudioDescription?.ydx_app_host) {
+        const YDX_APP_URL = `${newUserAudioDescription.ydx_app_host}/editor/${newUserAudioDescription.youtubeVideoId}/${audioDescriptionId.audioDescriptionId}`;
+        // Remove all whitespace from the URL
+        const replaced_url = YDX_APP_URL.replace(/\s/g, '');
 
-      logger.info(`URL :: ${YDX_APP_URL}`);
+        logger.info(`URL :: ${YDX_APP_URL}`);
 
-      await sendEmail(
-        user.email,
-        `Requested Audio Description for ${videoInfo.title} ready`,
-        `Your Audio Description is now available! You're invited to view it by following this link: ${YDX_APP_URL}`,
-      );
+        await sendEmail(
+          user.email,
+          `Requested Audio Description for ${videoInfo.title} ready`,
+          `Your Audio Description is now available! You're invited to view it by following this link: ${YDX_APP_URL}`,
+        );
 
-      logger.info(`Email sent to ${user.email}`);
+        logger.info(`Email sent to ${user.email}`);
 
-      res.status(201).json({
-        message: `Successfully created new user Audio Description`,
-        url: `${replaced_url}`,
-      });
+        res.status(201).json({
+          message: `Successfully created new user Audio Description`,
+          url: `${replaced_url}`,
+        });
+      } else {
+        // Return the URL to the user
+        res.status(201).json({
+          message: `Successfully created new user Audio Description`,
+          url: `${newUserAudioDescription.youtubeVideoId}/${audioDescriptionId}`,
+        });
+      }
     } catch (error) {
       logger.error(error);
       console.log(error);
@@ -239,7 +247,7 @@ class UsersController {
       if (!userData) {
         throw new Error('User not found');
       }
-      const response = await this.userService.aiDescriptionStatus(userData._id, youtube_id);
+      const response = await this.userService.aiDescriptionStatus('649cb7f077aaecc21160d72c', youtube_id);
 
       res.status(201).json(response);
     } catch (error) {
@@ -262,6 +270,33 @@ class UsersController {
       const response = await this.userService.getAllAiDescriptionRequests(userData._id);
 
       res.status(201).json(response);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public generateAiDescriptions = async (req: Request, res: Response, next: NextFunction) => {
+    const userData = req.user as unknown as IUser;
+    const newUserAudioDescription: {
+      youtube_id: string;
+    } = req.body;
+    try {
+      const user = await MongoUsersModel.findById(userData._id);
+      if (!user) {
+        throw new Error('User not found');
+      }
+      const audioDescriptionId = await this.userService.generateAudioDescGpu(
+        {
+          youtubeVideoId: newUserAudioDescription.youtube_id,
+          aiUserId: AI_USER_ID,
+        },
+        user._id,
+      );
+      await this.audioClipsService.processAllClipsInDB(audioDescriptionId.audioDescriptionId.toString());
+      res.status(201).json({
+        message: `Successfully created new user Audio Description`,
+        url: `${newUserAudioDescription.youtube_id}/${audioDescriptionId}`,
+      });
     } catch (error) {
       next(error);
     }

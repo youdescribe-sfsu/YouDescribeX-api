@@ -661,9 +661,23 @@ class UserService {
       }
 
       const userIdObject = await MongoUsersModel.findById(user_id);
+      const AIUSEROBJECT = await MongoUsersModel.findById(AI_USER_ID);
 
       if (!userIdObject) {
         throw new HttpException(400, 'User not found');
+      }
+      const videoIdStatus = await MongoVideosModel.findOne({ youtube_id });
+      // Check if AI Captions are available
+      const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
+        video: videoIdStatus._id,
+        user: AIUSEROBJECT._id,
+      });
+
+      if (checkIfAudioDescriptionExists) {
+        return {
+          status: 'available',
+          requested: false,
+        };
       }
 
       const captionRequest = await MongoAICaptionRequestModel.findOne({
