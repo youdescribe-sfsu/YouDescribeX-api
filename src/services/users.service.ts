@@ -667,13 +667,27 @@ class UserService {
         throw new HttpException(400, 'User not found');
       }
       const videoIdStatus = await MongoVideosModel.findOne({ youtube_id });
-      // Check if AI Captions are available
+
       const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
+        video: videoIdStatus._id,
+        user: userIdObject._id,
+      });
+
+      if (checkIfAudioDescriptionExists) {
+        return {
+          status: 'completed',
+          requested: true,
+
+          url: `${youtube_id}/${checkIfAudioDescriptionExists._id}`,
+        };
+      }
+      // Check if AI Captions are available
+      const checkIfAudioDescriptionAIExists = await MongoAudio_Descriptions_Model.findOne({
         video: videoIdStatus._id,
         user: AIUSEROBJECT._id,
       });
 
-      if (checkIfAudioDescriptionExists) {
+      if (checkIfAudioDescriptionAIExists) {
         return {
           status: 'available',
           requested: false,
