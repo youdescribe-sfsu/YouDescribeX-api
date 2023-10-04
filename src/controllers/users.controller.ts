@@ -254,16 +254,10 @@ class UsersController {
       next(error);
     }
   };
+
   public getAllAiDescriptionRequests = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userData = req.user as unknown as IUser;
-      console.log(userData);
-      // const videoInfo = await MongoVideosModel.findOne({ youtube_id: newUserAudioDescription.youtubeVideoId });
-
-      // if(!videoInfo) {
-      //   throw new Error('Video not found');
-      // }
-
       if (!userData) {
         throw new Error('User not found');
       }
@@ -297,6 +291,21 @@ class UsersController {
         message: `Successfully created new user Audio Description`,
         url: `${newUserAudioDescription.youtube_id}/${audioDescriptionId.audioDescriptionId.toString()}`,
       });
+    }
+    catch (error) {
+      next(error);
+    }
+  }
+
+  public getVisitedVideosHistory = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userData = req.user as unknown as IUser;
+      if (!userData) {
+        throw new Error('User not found');
+      }
+      const response = await this.userService.getVisitedVideosHistory(userData._id);
+
+      res.status(201).json(response);
     } catch (error) {
       next(error);
     }
