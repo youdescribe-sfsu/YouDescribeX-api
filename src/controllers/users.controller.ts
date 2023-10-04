@@ -291,15 +291,14 @@ class UsersController {
         message: `Successfully created new user Audio Description`,
         url: `${newUserAudioDescription.youtube_id}/${audioDescriptionId.audioDescriptionId.toString()}`,
       });
-    }
-    catch (error) {
+    } catch (error) {
       next(error);
     }
-  }
+  };
 
   public getVisitedVideosHistory = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userData = req.user as unknown as IUser;
+      const userData = req.query.user as unknown as IUser;
       if (!userData) {
         throw new Error('User not found');
       }
