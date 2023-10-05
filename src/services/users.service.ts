@@ -10,6 +10,7 @@ import {
   MongoAICaptionRequestModel,
   MongoAudioClipsModel,
   MongoAudio_Descriptions_Model,
+  MongoHistoryModel,
   MongoUsersModel,
   MongoVideosModel,
 } from '../models/mongodb/init-models.mongo';
@@ -916,6 +917,22 @@ class UserService {
     logger.info(`aiAudioDescriptions ::  ${JSON.stringify(aiAudioDescriptions)}`);
 
     return aiAudioDescriptions;
+  }
+
+  public async getVisitedVideosHistory(user_id: string) {
+    if (!user_id) {
+      throw new HttpException(400, 'No data provided');
+    }
+
+    const userIdObject = await MongoUsersModel.findById(user_id);
+    const visitedVideosHistory = await MongoHistoryModel.findOne({
+      user: userIdObject._id,
+    });
+
+    console.log(`aiAudioDescriptions ::  ${JSON.stringify(visitedVideosHistory)}`);
+    logger.info(`aiAudioDescriptions ::  ${JSON.stringify(visitedVideosHistory)}`);
+
+    return visitedVideosHistory;
   }
 }
 
