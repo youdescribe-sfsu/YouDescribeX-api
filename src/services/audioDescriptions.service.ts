@@ -317,6 +317,111 @@ class AudioDescriptionsService {
     return dataToSend;
     // }
   }
+
+  public publishAudioDescription = async (audioDescriptionId: string, video_id: string, user_id: string): Promise<string> => {
+    try {
+      const videoIdStatus = await MongoVideosModel.findOne({ youtube_id: video_id });
+
+      if (!videoIdStatus) {
+        throw new HttpException(400, 'No videoIdStatus provided');
+      }
+      const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
+        video: videoIdStatus._id,
+        user: user_id,
+      });
+
+      if (!checkIfAudioDescriptionExists) {
+        throw new HttpException(404, 'No audioDescriptionId Found');
+      }
+
+      const audioDescription = await MongoAudio_Descriptions_Model.findByIdAndUpdate(audioDescriptionId, {
+        is_published: true,
+      });
+      audioDescription.save();
+      return audioDescription._id.toString();
+    } catch (error) {
+      logger.error(error);
+      throw error;
+    }
+  };
+
+  public getAudioDescription = async (audioDescriptionId: string): Promise<IAudioDescription | Audio_DescriptionsAttributes> => {
+    const audioDescriptions = await MongoAudio_Descriptions_Model.findOne({
+      _id: audioDescriptionId,
+    });
+
+    if (!audioDescriptions) throw new HttpException(409, "Audio Description for this YouTube Video doesn't exist");
+
+    const videoId = audioDescriptions.video;
+    const youtubeVideoData = await MongoVideosModel.findById({
+      _id: videoId,
+    });
+
+    if (!youtubeVideoData) {
+      throw new HttpException(400, 'No youtubeVideoData Found');
+    }
+
+    const audio_clips = audioDescriptions.audio_clips;
+    const audioClipArr = await MongoAudioClipsModel.find({
+      audio_description: audioDescriptions._id,
+    })
+      .sort({
+        start_time: 'asc',
+        end_time: 'asc',
+      })
+      .exec();
+
+    if (audio_clips.length !== audioClipArr.length) {
+      logger.error(
+        `Number of Audio Clips in Audio Description Collection (${audio_clips.length})does not match actual number of AUdio Clips (${audioClipArr.length}).`,
+      );
+      throw new HttpException(409, 'Something went wrong getting Audio Clips for Audio Description');
+    }
+    const transformedAudioClipArr = [];
+    for (let i = 0; i < audioClipArr.length; i++) {
+      const audioClip = audioClipArr[i];
+      const transformedAudioClip = {
+        clip_id: audioClip._id,
+        clip_title: audioClip.label,
+        description_type: audioClip.description_type,
+        description_text: audioClip.description_text || audioClip.transcript.map(obj => obj.sentence).join(' '),
+        playback_type: audioClip.playback_type,
+        clip_start_time: audioClip.start_time,
+        clip_end_time: audioClip.end_time,
+        clip_duration: audioClip.duration,
+        clip_audio_path: audioClip.file_name ? audioClip.file_path + '/' + audioClip.file_name : audioClip.file_path,
+        is_recorded: false,
+        createdAt: audioClip.created_at,
+        updatedAt: audioClip.updated_at,
+        AudioDescriptionAdId: audioClip,
+      };
+      transformedAudioClipArr.push(transformedAudioClip);
+    }
+
+    const notes = await MongoNotesModel.find({ audio_description: audioDescriptions._id });
+
+    const transformedNotes = notes.map(note => {
+      return {
+        notes_id: note._id,
+        notes_text: note.notes_text,
+        AudioDescriptionAdId: note.audio_description,
+      };
+    });
+
+    const newObj = {
+      Audio_Clips: transformedAudioClipArr,
+      Notes: transformedNotes,
+      UserUserId: audioDescriptions.user,
+      VideoVideoId: videoId,
+      ad_id: audioDescriptions._id,
+      createdAt: audioDescriptions.created_at,
+      updatedAt: audioDescriptions.updated_at,
+      is_published: true,
+      youtube_id: youtubeVideoData.youtube_id,
+    };
+
+    return newObj;
+  };
 }
 
 export default AudioDescriptionsService;
