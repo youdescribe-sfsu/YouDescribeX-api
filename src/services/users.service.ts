@@ -897,7 +897,7 @@ class UserService {
     const aiAudioDescriptions = await MongoAICaptionRequestModel.aggregate([
       {
         $match: {
-          caption_requests: userIdObject,
+          caption_requests: userIdObject._id,
         },
       },
       {

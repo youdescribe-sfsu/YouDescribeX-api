@@ -257,11 +257,11 @@ class UsersController {
 
   public getAllAiDescriptionRequests = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userData = req.query.user as unknown as IUser;
+      const userData = req.query.user as string;
       if (!userData) {
         throw new Error('User not found');
       }
-      const response = await this.userService.getAllAiDescriptionRequests(userData._id);
+      const response = await this.userService.getAllAiDescriptionRequests(userData);
 
       res.status(201).json(response);
     } catch (error) {
