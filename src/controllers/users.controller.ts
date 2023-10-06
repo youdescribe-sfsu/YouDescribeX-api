@@ -257,7 +257,7 @@ class UsersController {
 
   public getAllAiDescriptionRequests = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userData = req.user as unknown as IUser;
+      const userData = req.query.user as unknown as IUser;
       if (!userData) {
         throw new Error('User not found');
       }
