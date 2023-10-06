@@ -19,7 +19,7 @@ class AudioDescriptionsRoute implements Routes {
     // Route to publish a new audio description
     this.router.post(`${this.path}/publish-audio-description`, this.audioDescriptionsController.publishAudioDescription);
 
-    this.router.get(`${this.path}/get-audio-description/:audioDescriptionId`, this.audioDescriptionsController.getUserAudioDescriptionData);
+    this.router.get(`${this.path}/get-audio-description/:audioDescriptionId`, this.audioDescriptionsController.getAudioDescription);
   }
 }
 
