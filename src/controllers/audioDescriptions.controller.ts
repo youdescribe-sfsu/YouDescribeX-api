@@ -91,5 +91,15 @@ class AudioDescripionsController {
       next(error);
     }
   };
+
+  public getRecentDescriptions = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const audioDescription = await this.audioDescriptionsService.getRecentDescriptions();
+
+      res.status(200).json(audioDescription);
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 export default AudioDescripionsController;

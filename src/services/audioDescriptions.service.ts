@@ -422,6 +422,14 @@ class AudioDescriptionsService {
 
     return newObj;
   };
+
+  public async getRecentDescriptions() {
+    const recentAudioDescriptions = await MongoAudio_Descriptions_Model.find().sort({ created_at: -1 });
+
+    console.log('Sorted Documents:', recentAudioDescriptions);
+
+    return recentAudioDescriptions;
+  }
 }
 
 export default AudioDescriptionsService;
