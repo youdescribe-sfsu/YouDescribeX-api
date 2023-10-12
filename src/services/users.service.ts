@@ -893,30 +893,30 @@ class UserService {
     }
 
     const userIdObject = await MongoUsersModel.findById(user_id);
+    const aiAudioDescriptions = await MongoAICaptionRequestModel.find({ caption_requests: userIdObject._id });
+    const audioDescriptions = await MongoAudio_Descriptions_Model.find({ user: userIdObject._id });
+    const youTubeIds = aiAudioDescriptions.map(ad => ad.youtube_id);
 
-    const aiAudioDescriptions = await MongoAICaptionRequestModel.aggregate([
-      {
-        $match: {
-          caption_requests: userIdObject._id,
-        },
-      },
-      {
-        $unwind: '$caption_requests',
-      },
-      {
-        $lookup: {
-          from: 'videos',
-          localField: 'youtube_id',
-          foreignField: 'youtube_id',
-          as: 'video',
-        },
-      },
-    ]);
+    const videos = await MongoVideosModel.find({ youtube_id: { $in: youTubeIds } });
 
-    console.log(`aiAudioDescriptions ::  ${JSON.stringify(aiAudioDescriptions)}`);
-    logger.info(`aiAudioDescriptions ::  ${JSON.stringify(aiAudioDescriptions)}`);
+    const return_val = videos.map(video => {
+      const audioDescription = audioDescriptions.find(ad => ad.video == `${video._id}`);
 
-    return aiAudioDescriptions;
+      return {
+        video_id: video._id,
+        youtube_video_id: video.youtube_id,
+        video_name: video.title,
+        video_length: video.duration,
+        createdAt: video.created_at,
+        updatedAt: video.updated_at,
+        audio_description_id: audioDescription._id,
+        status: audioDescription.status,
+        overall_rating_votes_average: audioDescription.overall_rating_votes_average,
+        overall_rating_votes_counter: audioDescription.overall_rating_votes_counter,
+        overall_rating_votes_sum: audioDescription.overall_rating_votes_sum,
+      };
+    });
+    return return_val;
   }
 
   public async getVisitedVideosHistory(user_id: string) {
