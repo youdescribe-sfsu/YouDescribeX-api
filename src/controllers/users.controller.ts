@@ -296,6 +296,22 @@ class UsersController {
     }
   };
 
+  public saveVisitedVideosHistory = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userData = req.query.user as string;
+      console.log(req);
+      const youtubeId = req.body.youtube_id;
+      if (!userData) {
+        throw new Error('User not found');
+      }
+      const response = await this.userService.saveVisitedVideosHistory(userData, youtubeId);
+
+      res.status(201).json(response);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   public getVisitedVideosHistory = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userData = req.query.user as string;

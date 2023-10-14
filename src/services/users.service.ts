@@ -919,6 +919,35 @@ class UserService {
     return return_val;
   }
 
+  public async saveVisitedVideosHistory(user_id: string, youtube_id: string) {
+    try {
+      if (!user_id) {
+        throw new HttpException(400, 'No data provided');
+      }
+
+      const userDocument = await MongoHistoryModel.findOne({ user: user_id });
+
+      if (userDocument) {
+        userDocument.visited_videos.push(youtube_id);
+        console.log(youtube_id);
+        await userDocument.updateOne({ _id: userDocument._id }, { $set: { visited_videos: userDocument.visited_videos } });
+        console.log(userDocument);
+        return true;
+      } else {
+        const newUserDocument = {
+          user: user_id,
+          visited_videos: [youtube_id],
+        };
+        console.log(newUserDocument);
+        await MongoHistoryModel.insertMany(newUserDocument);
+        return true;
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      return false;
+    }
+  }
+
   public async getVisitedVideosHistory(user_id: string) {
     if (!user_id) {
       throw new HttpException(400, 'No data provided');
