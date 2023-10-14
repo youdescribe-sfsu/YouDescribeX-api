@@ -318,7 +318,12 @@ class AudioDescriptionsService {
     // }
   }
 
-  public publishAudioDescription = async (audioDescriptionId: string, video_id: string, user_id: string): Promise<string> => {
+  public publishAudioDescription = async (
+    audioDescriptionId: string,
+    video_id: string,
+    user_id: string,
+    enrolled_in_collaborative_editing: boolean,
+  ): Promise<string> => {
     try {
       const videoIdStatus = await MongoVideosModel.findOne({ youtube_id: video_id });
 
@@ -336,6 +341,7 @@ class AudioDescriptionsService {
 
       const audioDescription = await MongoAudio_Descriptions_Model.findByIdAndUpdate(audioDescriptionId, {
         status: 'published',
+        collaborative_editing: enrolled_in_collaborative_editing,
       });
       audioDescription.save();
       return audioDescription._id.toString();
@@ -420,6 +426,7 @@ class AudioDescriptionsService {
       updatedAt: audioDescriptions.updated_at,
       is_published: audioDescriptions.status === 'published',
       youtube_id: youtubeVideoData.youtube_id,
+      editing_allowed: audioDescriptions.collaborative_editing,
     };
 
     return newObj;
