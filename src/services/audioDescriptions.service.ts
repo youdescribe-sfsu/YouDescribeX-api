@@ -99,7 +99,7 @@ class AudioDescriptionsService {
         ad_id: audioDescriptions._id,
         createdAt: audioDescriptions.created_at,
         updatedAt: audioDescriptions.updated_at,
-        is_published: true,
+        is_published: audioDescriptions.status === 'published',
       };
 
       return newObj;
@@ -335,7 +335,7 @@ class AudioDescriptionsService {
       }
 
       const audioDescription = await MongoAudio_Descriptions_Model.findByIdAndUpdate(audioDescriptionId, {
-        is_published: true,
+        status: 'published',
       });
       audioDescription.save();
       return audioDescription._id.toString();
@@ -351,6 +351,8 @@ class AudioDescriptionsService {
     });
 
     if (!audioDescriptions) throw new HttpException(409, "Audio Description for this YouTube Video doesn't exist");
+
+    if (audioDescriptions.status !== 'published') throw new HttpException(409, 'Audio Description for this YouTube Video is not published');
 
     const videoId = audioDescriptions.video;
     const youtubeVideoData = await MongoVideosModel.findById({
@@ -416,7 +418,7 @@ class AudioDescriptionsService {
       ad_id: audioDescriptions._id,
       createdAt: audioDescriptions.created_at,
       updatedAt: audioDescriptions.updated_at,
-      is_published: true,
+      is_published: audioDescriptions.status === 'published',
       youtube_id: youtubeVideoData.youtube_id,
     };
 
