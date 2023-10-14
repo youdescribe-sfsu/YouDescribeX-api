@@ -15,6 +15,7 @@ interface IAudioDescription extends Document {
   user: string;
   video: string;
   views: number;
+  collaborative_editing: boolean;
 }
 
 const AudioDescriptionSchema: Schema = new Schema(
@@ -74,6 +75,10 @@ const AudioDescriptionSchema: Schema = new Schema(
     views: {
       type: Number,
       default: 0,
+    },
+    collaborative_editing: {
+      type: Boolean,
+      default: false,
     },
   },
   { collection: 'audio_descriptions' },
