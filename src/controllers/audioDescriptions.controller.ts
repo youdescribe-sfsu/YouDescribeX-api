@@ -65,15 +65,22 @@ class AudioDescripionsController {
       const {
         audioDescriptionId,
         youtube_id,
+        enrolled_in_collaborative_editing = false,
       }: {
         audioDescriptionId: string;
         youtube_id: string;
+        enrolled_in_collaborative_editing: boolean;
       } = req.body;
       const {} = req.body;
       if (!userData) throw new Error('User not found');
       if (!audioDescriptionId) throw new Error('Audio description id not found');
       if (!youtube_id) throw new Error('Video id not found');
-      const publishedAudioDescription: string = await this.audioDescriptionsService.publishAudioDescription(audioDescriptionId, youtube_id, userData._id);
+      const publishedAudioDescription: string = await this.audioDescriptionsService.publishAudioDescription(
+        audioDescriptionId,
+        youtube_id,
+        userData._id,
+        enrolled_in_collaborative_editing,
+      );
 
       res.status(200).json({ link: `${youtube_id}/${publishedAudioDescription}` });
     } catch (error) {
