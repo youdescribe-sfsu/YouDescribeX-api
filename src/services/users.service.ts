@@ -895,6 +895,7 @@ class UserService {
     const userIdObject = await MongoUsersModel.findById(user_id);
     const aiAudioDescriptions = await MongoAICaptionRequestModel.find({ caption_requests: userIdObject._id });
     const audioDescriptions = await MongoAudio_Descriptions_Model.find({ user: userIdObject._id });
+    console.log(audioDescriptions);
     const youTubeIds = aiAudioDescriptions.map(ad => ad.youtube_id);
 
     const videos = await MongoVideosModel.find({ youtube_id: { $in: youTubeIds } });
@@ -930,9 +931,9 @@ class UserService {
       if (userDocument) {
         userDocument.visited_videos.push(youtube_id);
         console.log(youtube_id);
-        await userDocument.updateOne({ _id: userDocument._id }, { $set: { visited_videos: userDocument.visited_videos } });
+        await MongoHistoryModel.updateOne({ _id: userDocument._id }, { $set: { visited_videos: userDocument.visited_videos } });
         console.log(userDocument);
-        return true;
+        return userDocument.visited_videos;
       } else {
         const newUserDocument = {
           user: user_id,
@@ -940,7 +941,7 @@ class UserService {
         };
         console.log(newUserDocument);
         await MongoHistoryModel.insertMany(newUserDocument);
-        return true;
+        return userDocument.visited_videos;
       }
     } catch (error) {
       console.error('Error:', error);
@@ -954,14 +955,27 @@ class UserService {
     }
 
     const userIdObject = await MongoUsersModel.findById(user_id);
-    const visitedVideosHistory = await MongoHistoryModel.findOne({
+    const visitedVideosHistory = await MongoHistoryModel.find({
       user: userIdObject._id,
     });
 
-    console.log(`aiAudioDescriptions ::  ${JSON.stringify(visitedVideosHistory)}`);
-    logger.info(`aiAudioDescriptions ::  ${JSON.stringify(visitedVideosHistory)}`);
+    const visitedYoutubeVideosIds = visitedVideosHistory.map(history => history.visited_videos)[0];
 
-    return visitedVideosHistory;
+    const videos = await MongoVideosModel.find({ youtube_id: { $in: visitedYoutubeVideosIds } });
+
+    const return_val = videos.map(video => {
+      const audioDescription = MongoAudio_Descriptions_Model.find({ video: video._id });
+      console.log(audioDescription);
+      return {
+        video_id: video._id,
+        youtube_video_id: video.youtube_id,
+        video_name: video.title,
+        video_length: video.duration,
+        createdAt: video.created_at,
+        updatedAt: video.updated_at,
+      };
+    });
+    return return_val;
   }
 }
 
