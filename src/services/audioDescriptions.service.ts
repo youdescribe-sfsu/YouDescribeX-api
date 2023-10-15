@@ -433,7 +433,7 @@ class AudioDescriptionsService {
   };
 
   public async getRecentDescriptions() {
-    const recentAudioDescriptions = await MongoAudio_Descriptions_Model.find().sort({ created_at: -1 });
+    const recentAudioDescriptions = await MongoAudio_Descriptions_Model.find().sort({ created_at: -1 }).limit(10);
     const videoIds = recentAudioDescriptions.map(description => description.video);
     const videos = await MongoVideosModel.find({ _id: { $in: videoIds } });
 
