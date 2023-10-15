@@ -895,7 +895,6 @@ class UserService {
     const userIdObject = await MongoUsersModel.findById(user_id);
     const aiAudioDescriptions = await MongoAICaptionRequestModel.find({ caption_requests: userIdObject._id });
     const audioDescriptions = await MongoAudio_Descriptions_Model.find({ user: userIdObject._id });
-    console.log(audioDescriptions);
     const youTubeIds = aiAudioDescriptions.map(ad => ad.youtube_id);
 
     const videos = await MongoVideosModel.find({ youtube_id: { $in: youTubeIds } });
@@ -960,12 +959,19 @@ class UserService {
     });
 
     const visitedYoutubeVideosIds = visitedVideosHistory.map(history => history.visited_videos)[0];
+    console.log('visitedYoutubeVideosIds', visitedYoutubeVideosIds);
 
     const videos = await MongoVideosModel.find({ youtube_id: { $in: visitedYoutubeVideosIds } });
+    console.log('videos', videos);
+
+    const videoIds = await videos.map(videoId => videoId._id);
+    console.log('videoIds', videoIds);
+
+    const audioDescription = await MongoAudio_Descriptions_Model.find({ video: { $in: videoIds } });
+    console.log('audioDescription', audioDescription);
 
     const return_val = videos.map(video => {
-      const audioDescription = MongoAudio_Descriptions_Model.find({ video: video._id });
-      console.log(audioDescription);
+      const descriptions = audioDescription.find(ad => ad.video == `${video._id}`);
       return {
         video_id: video._id,
         youtube_video_id: video.youtube_id,
@@ -973,6 +979,11 @@ class UserService {
         video_length: video.duration,
         createdAt: video.created_at,
         updatedAt: video.updated_at,
+        audio_description_id: descriptions._id,
+        status: descriptions.status,
+        overall_rating_votes_average: descriptions.overall_rating_votes_average,
+        overall_rating_votes_counter: descriptions.overall_rating_votes_counter,
+        overall_rating_votes_sum: descriptions.overall_rating_votes_sum,
       };
     });
     return return_val;
