@@ -434,10 +434,27 @@ class AudioDescriptionsService {
 
   public async getRecentDescriptions() {
     const recentAudioDescriptions = await MongoAudio_Descriptions_Model.find().sort({ created_at: -1 });
+    const videoIds = recentAudioDescriptions.map(description => description.video);
+    const videos = await MongoVideosModel.find({ _id: { $in: videoIds } });
 
-    console.log('Sorted Documents:', recentAudioDescriptions);
+    const result = videos.map(video => {
+      const audioDescription = recentAudioDescriptions.find(ad => ad.video == `${video._id}`);
 
-    return recentAudioDescriptions;
+      return {
+        video_id: video._id,
+        youtube_video_id: video.youtube_id,
+        video_name: video.title,
+        video_length: video.duration,
+        createdAt: video.created_at,
+        updatedAt: video.updated_at,
+        audio_description_id: audioDescription._id,
+        status: audioDescription.status,
+        overall_rating_votes_average: audioDescription.overall_rating_votes_average,
+        overall_rating_votes_counter: audioDescription.overall_rating_votes_counter,
+        overall_rating_votes_sum: audioDescription.overall_rating_votes_sum,
+      };
+    });
+    return result;
   }
 }
 
