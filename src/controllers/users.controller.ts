@@ -257,11 +257,11 @@ class UsersController {
 
   public getAllAiDescriptionRequests = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userData = req.query.user as string;
+      const userData = req.query.user as unknown as IUser;
       if (!userData) {
         throw new Error('User not found');
       }
-      const response = await this.userService.getAllAiDescriptionRequests(userData);
+      const response = await this.userService.getAllAiDescriptionRequests(userData._id);
 
       res.status(201).json(response);
     } catch (error) {
@@ -298,13 +298,12 @@ class UsersController {
 
   public saveVisitedVideosHistory = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userData = req.query.user as string;
-      console.log(req);
+      const userData = req.query.user as unknown as IUser;
       const youtubeId = req.body.youtube_id;
       if (!userData) {
         throw new Error('User not found');
       }
-      const response = await this.userService.saveVisitedVideosHistory(userData, youtubeId);
+      const response = await this.userService.saveVisitedVideosHistory(userData._id, youtubeId);
 
       res.status(201).json(response);
     } catch (error) {
@@ -314,11 +313,11 @@ class UsersController {
 
   public getVisitedVideosHistory = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userData = req.query.user as string;
+      const userData = req.query.user as unknown as IUser;
       if (!userData) {
         throw new Error('User not found');
       }
-      const response = await this.userService.getVisitedVideosHistory(userData);
+      const response = await this.userService.getVisitedVideosHistory(userData._id);
 
       res.status(201).json(response);
     } catch (error) {
