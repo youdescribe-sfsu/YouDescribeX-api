@@ -944,7 +944,7 @@ class UserService {
       }
     } catch (error) {
       console.error('Error:', error);
-      return false;
+      return error;
     }
   }
 

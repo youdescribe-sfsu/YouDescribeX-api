@@ -101,7 +101,8 @@ class AudioDescripionsController {
 
   public getRecentDescriptions = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const audioDescription = await this.audioDescriptionsService.getRecentDescriptions();
+      const pageNumber = req.body.page as string;
+      const audioDescription = await this.audioDescriptionsService.getRecentDescriptions(pageNumber);
 
       res.status(200).json(audioDescription);
     } catch (error) {
