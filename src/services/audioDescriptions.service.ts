@@ -440,6 +440,8 @@ class AudioDescriptionsService {
     const videoIds = recentAudioDescriptions.map(description => description.video);
     const videos = await MongoVideosModel.find({ _id: { $in: videoIds } });
 
+    const totalRecentDescriptions = await MongoAudio_Descriptions_Model.countDocuments();
+
     const result = videos.map(video => {
       const audioDescription = recentAudioDescriptions.find(ad => ad.video == `${video._id}`);
 
@@ -457,7 +459,7 @@ class AudioDescriptionsService {
         overall_rating_votes_sum: audioDescription.overall_rating_votes_sum,
       };
     });
-    return result;
+    return { totalRecentDescriptions, result };
   }
 }
 
