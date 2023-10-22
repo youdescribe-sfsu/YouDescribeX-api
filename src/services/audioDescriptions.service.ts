@@ -434,13 +434,13 @@ class AudioDescriptionsService {
 
   public async getRecentDescriptions(pageNumber: string) {
     const page = parseInt(pageNumber, 10);
-    const perPage = 6;
+    const perPage = 4;
     const skipCount = (page - 1) * perPage;
     const recentAudioDescriptions = await MongoAudio_Descriptions_Model.find().sort({ created_at: -1 }).skip(skipCount).limit(perPage);
     const videoIds = recentAudioDescriptions.map(description => description.video);
     const videos = await MongoVideosModel.find({ _id: { $in: videoIds } });
 
-    const totalRecentDescriptions = await MongoAudio_Descriptions_Model.countDocuments();
+    const totalVideos = await MongoAudio_Descriptions_Model.countDocuments();
 
     const result = videos.map(video => {
       const audioDescription = recentAudioDescriptions.find(ad => ad.video == `${video._id}`);
@@ -459,7 +459,7 @@ class AudioDescriptionsService {
         overall_rating_votes_sum: audioDescription.overall_rating_votes_sum,
       };
     });
-    return { totalRecentDescriptions, result };
+    return { totalVideos, result };
   }
 }
 
