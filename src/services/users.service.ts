@@ -663,16 +663,21 @@ class UserService {
 
       const userIdObject = await MongoUsersModel.findById(user_id);
       const AIUSEROBJECT = await MongoUsersModel.findById(AI_USER_ID);
-
+      console.log(`AIUSEROBJECT :: ${JSON.stringify(AIUSEROBJECT)}`);
+      console.log(`userIdObject :: ${JSON.stringify(userIdObject)}`);
       if (!userIdObject) {
         throw new HttpException(400, 'User not found');
       }
       const videoIdStatus = await MongoVideosModel.findOne({ youtube_id });
 
+      console.log(`videoIdStatus :: ${JSON.stringify(videoIdStatus)}`);
+
       const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
         video: videoIdStatus._id,
         user: userIdObject._id,
       });
+
+      console.log(`checkIfAudioDescriptionExists :: ${JSON.stringify(checkIfAudioDescriptionExists)}`);
 
       if (checkIfAudioDescriptionExists) {
         return {
@@ -739,6 +744,17 @@ class UserService {
       return { status: captionRequest.status, requested };
     } catch (error) {
       // Handle errors here or log them using your logger library.
+      if (error instanceof Error) {
+        logger.error(`Error in aiDescriptionStatus: ${error.message}`);
+        if (error.stack) {
+          const lineNumber = error.stack
+            .split('\n')[1] // Get the second line of the stack trace
+            .match(/:(\d+):(\d+)/); // Extract line and column numbers
+          if (lineNumber) {
+            logger.error(`Error occurred at line ${lineNumber[1]}`);
+          }
+        }
+      }
       logger.error(`Error in aiDescriptionStatus: ${error.message}`);
       throw error;
     }
