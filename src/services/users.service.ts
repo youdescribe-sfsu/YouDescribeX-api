@@ -1,6 +1,6 @@
 import { CreateUserAudioDescriptionDto, CreateUserDto, NewUserDto } from '../dtos/users.dto';
 import { HttpException } from '../exceptions/HttpException';
-import { isEmpty } from '../utils/util';
+import { getYouTubeVideoStatus, isEmpty } from '../utils/util';
 import { CURRENT_DATABASE, CURRENT_YDX_HOST, GPU_HOST, GPU_PIPELINE_PORT, AI_USER_ID } from '../config';
 import { PostGres_Users, UsersAttributes } from '../models/postgres/init-models';
 import { PostGres_Videos } from '../models/postgres/init-models';
@@ -663,12 +663,10 @@ class UserService {
 
       const userIdObject = await MongoUsersModel.findById(user_id);
       const AIUSEROBJECT = await MongoUsersModel.findById(AI_USER_ID);
-      console.log(`AIUSEROBJECT :: ${JSON.stringify(AIUSEROBJECT)}`);
-      console.log(`userIdObject :: ${JSON.stringify(userIdObject)}`);
       if (!userIdObject) {
         throw new HttpException(400, 'User not found');
       }
-      const videoIdStatus = await MongoVideosModel.findOne({ youtube_id });
+      const videoIdStatus = await getYouTubeVideoStatus(youtube_id);
 
       console.log(`videoIdStatus :: ${JSON.stringify(videoIdStatus)}`);
 
@@ -706,7 +704,10 @@ class UserService {
       });
 
       if (!captionRequest) {
-        throw new HttpException(404, 'Caption request not found');
+        return {
+          status: 'notavailable',
+          requested: false,
+        };
       }
 
       const requested = captionRequest.caption_requests.includes(userIdObject._id);
@@ -715,7 +716,7 @@ class UserService {
       logger.info(`captionRequest.status :: ${captionRequest.status}`);
 
       if (requested && captionRequest.status === 'completed') {
-        const videoIdStatus = await MongoVideosModel.findOne({ youtube_id });
+        const videoIdStatus = await getYouTubeVideoStatus(youtube_id);
 
         if (!videoIdStatus) {
           throw new HttpException(404, 'Video not found');
