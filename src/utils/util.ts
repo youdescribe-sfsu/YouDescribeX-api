@@ -1,4 +1,7 @@
 import { AxiosResponse } from 'axios';
+import { MongoVideosModel } from '../models/mongodb/init-models.mongo';
+import { IVideo } from '../models/mongodb/Videos.mongo';
+import { getVideoDataByYoutubeId } from '../services/videos.util';
 
 /**
  * @method isEmpty
@@ -39,4 +42,30 @@ export const convertISO8601ToSeconds = (input: string): number => {
     totalseconds = hours * 3600 + minutes * 60 + seconds;
   }
   return totalseconds;
+};
+
+export const getYouTubeVideoStatus = async (youtube_id: string): Promise<IVideo> => {
+  const videoIdStatus = await MongoVideosModel.findOne({ youtube_id });
+  if (videoIdStatus) {
+    return videoIdStatus;
+  } else {
+    const videoMeta = await getVideoDataByYoutubeId(youtube_id);
+
+    const newVid = new MongoVideosModel({
+      audio_descriptions: [],
+      category: videoMeta.category,
+      category_id: videoMeta.category_id,
+      youtube_id: youtube_id,
+      title: videoMeta.title,
+      duration: videoMeta.duration,
+      description: videoMeta.description,
+      tags: videoMeta.tags,
+      custom_tags: [],
+      views: 0,
+      youtube_status: 'ready',
+      updated_at: new Date(),
+    });
+    const newSavedVideo = await newVid.save();
+    return newSavedVideo;
+  }
 };
