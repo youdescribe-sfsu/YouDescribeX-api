@@ -236,7 +236,6 @@ class UsersController {
   public aiDescriptionStatus = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userData = req.user as unknown as IUser;
-      console.log(userData);
       const youtube_id = req.body.youtube_id;
       // const videoInfo = await MongoVideosModel.findOne({ youtube_id: newUserAudioDescription.youtubeVideoId });
 
@@ -257,11 +256,15 @@ class UsersController {
 
   public getAllAiDescriptionRequests = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userData = req.query.user as unknown as IUser;
+      const userData = req.user as unknown as IUser;
       if (!userData) {
+        throw new Error('User not logged in');
+      }
+      const user = await MongoUsersModel.findById(userData._id);
+      if (!user) {
         throw new Error('User not found');
       }
-      const response = await this.userService.getAllAiDescriptionRequests(userData._id);
+      const response = await this.userService.getAllAiDescriptionRequests(user._id);
 
       res.status(201).json(response);
     } catch (error) {
@@ -298,12 +301,16 @@ class UsersController {
 
   public saveVisitedVideosHistory = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userData = req.body.userId as unknown as IUser;
       const youtubeId = req.body.youtube_id;
+      const userData = req.user as unknown as IUser;
       if (!userData) {
+        throw new Error('User not logged in');
+      }
+      const user = await MongoUsersModel.findById(userData._id);
+      if (!user) {
         throw new Error('User not found');
       }
-      const response = await this.userService.saveVisitedVideosHistory(userData._id, youtubeId);
+      const response = await this.userService.saveVisitedVideosHistory(user._id, youtubeId);
 
       res.status(201).json(response);
     } catch (error) {
@@ -313,11 +320,16 @@ class UsersController {
 
   public getVisitedVideosHistory = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userData = req.query.user as unknown as IUser;
+      const userData = req.user as unknown as IUser;
       if (!userData) {
+        throw new Error('User not logged in');
+      }
+      const user = await MongoUsersModel.findById(userData._id);
+      if (!user) {
         throw new Error('User not found');
       }
-      const response = await this.userService.getVisitedVideosHistory(userData._id);
+
+      const response = await this.userService.getVisitedVideosHistory(user._id);
 
       res.status(201).json(response);
     } catch (error) {
