@@ -69,7 +69,22 @@ class AuthController {
   public localLogIn = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = await MongoUsersModel.findById(req.headers.authorization);
-      res.status(200).json({ result: user });
+      const ret = {
+        type: 'success',
+        code: 1012,
+        status: 200,
+        message: 'The user was successfully updated',
+        result: user,
+      };
+      console.log('ret: ', ret);
+      req.logIn(user, function (err) {
+        if (err) {
+          console.log('error: ', err);
+          return next(err);
+        }
+        console.log('req.user: ', req.user);
+        return res.redirect('/login/success');
+      });
     } catch (error) {
       logger.error('Error with Google Callback: ', error);
       next(error);
