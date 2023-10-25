@@ -76,14 +76,12 @@ class AuthController {
         message: 'The user was successfully updated',
         result: user,
       };
-      console.log('ret: ', ret);
       req.logIn(user, function (err) {
         if (err) {
           console.log('error: ', err);
           return next(err);
         }
-        console.log('req.user: ', req.user);
-        return res.redirect('/login/success');
+        return res.redirect('/api/auth/login/success');
       });
     } catch (error) {
       logger.error('Error with Google Callback: ', error);

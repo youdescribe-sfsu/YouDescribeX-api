@@ -926,11 +926,11 @@ class UserService {
         video_length: video.duration,
         createdAt: video.created_at,
         updatedAt: video.updated_at,
-        audio_description_id: audioDescription._id,
-        status: audioDescription.status,
-        overall_rating_votes_average: audioDescription.overall_rating_votes_average,
-        overall_rating_votes_counter: audioDescription.overall_rating_votes_counter,
-        overall_rating_votes_sum: audioDescription.overall_rating_votes_sum,
+        // audio_description_id: audioDescription._id,
+        // status: audioDescription.status,
+        // overall_rating_votes_average: audioDescription.overall_rating_votes_average,
+        // overall_rating_votes_counter: audioDescription.overall_rating_votes_counter,
+        // overall_rating_votes_sum: audioDescription.overall_rating_votes_sum,
       };
     });
     return return_val;
@@ -946,16 +946,13 @@ class UserService {
 
       if (userDocument) {
         userDocument.visited_videos.push(youtube_id);
-        console.log(youtube_id);
         await MongoHistoryModel.updateOne({ _id: userDocument._id }, { $set: { visited_videos: userDocument.visited_videos } });
-        console.log(userDocument);
         return userDocument.visited_videos;
       } else {
         const newUserDocument = {
           user: user_id,
           visited_videos: [youtube_id],
         };
-        console.log(newUserDocument);
         await MongoHistoryModel.insertMany(newUserDocument);
         return userDocument.visited_videos;
       }
@@ -976,16 +973,9 @@ class UserService {
     });
 
     const visitedYoutubeVideosIds = visitedVideosHistory.map(history => history.visited_videos)[0];
-    console.log('visitedYoutubeVideosIds', visitedYoutubeVideosIds);
-
     const videos = await MongoVideosModel.find({ youtube_id: { $in: visitedYoutubeVideosIds } });
-    console.log('videos', videos);
-
     const videoIds = await videos.map(videoId => videoId._id);
-    console.log('videoIds', videoIds);
-
     const audioDescription = await MongoAudio_Descriptions_Model.find({ video: { $in: videoIds } });
-    console.log('audioDescription', audioDescription);
 
     const return_val = videos.map(video => {
       const descriptions = audioDescription.find(ad => ad.video == `${video._id}`);
@@ -996,11 +986,11 @@ class UserService {
         video_length: video.duration,
         createdAt: video.created_at,
         updatedAt: video.updated_at,
-        audio_description_id: descriptions._id,
-        status: descriptions.status,
-        overall_rating_votes_average: descriptions.overall_rating_votes_average,
-        overall_rating_votes_counter: descriptions.overall_rating_votes_counter,
-        overall_rating_votes_sum: descriptions.overall_rating_votes_sum,
+        // audio_description_id: descriptions._id,
+        // status: descriptions.status,
+        // overall_rating_votes_average: descriptions.overall_rating_votes_average,
+        // overall_rating_votes_counter: descriptions.overall_rating_votes_counter,
+        // overall_rating_votes_sum: descriptions.overall_rating_votes_sum,
       };
     });
     return return_val;
