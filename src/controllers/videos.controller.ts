@@ -98,6 +98,16 @@ class VideosController {
       next(error);
     }
   };
+
+  public getVideoById = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const videoId: string = req.params.videoId;
+      const videoByYoutubeID = await this.videosService.getVideoById(videoId);
+      res.status(200).json(videoByYoutubeID);
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export default VideosController;
