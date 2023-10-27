@@ -933,7 +933,7 @@ class UserService {
         // overall_rating_votes_sum: audioDescription.overall_rating_votes_sum,
       };
     });
-    return return_val;
+    return { result: return_val };
   }
 
   public async saveVisitedVideosHistory(user_id: string, youtube_id: string) {
@@ -993,7 +993,7 @@ class UserService {
         // overall_rating_votes_sum: descriptions.overall_rating_votes_sum,
       };
     });
-    return return_val;
+    return { result: return_val };
   }
 }
 
