@@ -11,9 +11,13 @@ class AudioDescripionsController {
   public getUserAudioDescriptionData = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const videoId: string = req.params.videoId;
-      const userId: string = req.params.adId;
-      const audio_description_id = req.headers.audiodescription as unknown as string;
-      const userAudioDescriptions = await this.audioDescriptionsService.getUserAudioDescriptionData(videoId, userId, audio_description_id);
+      const audio_description_id: string = req.params.adId;
+      // console.log("audio_description_id", audio_description_id)
+      const user = req.user as unknown as IUser;
+      // console.log('user', user);
+      if (!user) throw new Error('User not found');
+      // const audio_description_id = req.headers.audiodescription as unknown as string;
+      const userAudioDescriptions = await this.audioDescriptionsService.getUserAudioDescriptionData(videoId, user._id, audio_description_id);
 
       res.status(200).json(userAudioDescriptions);
     } catch (error) {
@@ -71,7 +75,6 @@ class AudioDescripionsController {
         youtube_id: string;
         enrolled_in_collaborative_editing: boolean;
       } = req.body;
-      const {} = req.body;
       if (!userData) throw new Error('User not found');
       if (!audioDescriptionId) throw new Error('Audio description id not found');
       if (!youtube_id) throw new Error('Video id not found');
