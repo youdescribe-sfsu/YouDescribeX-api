@@ -5,7 +5,14 @@ import { PostGres_Notes, PostGres_Users, UsersAttributes, VideosAttributes } fro
 import { PostGres_Videos } from '../models/postgres/init-models';
 import { PostGres_Audio_Descriptions } from '../models/postgres/init-models';
 import { PostGres_Audio_Clips } from '../models/postgres/init-models';
-import { MongoAudioClipsModel, MongoAudio_Descriptions_Model, MongoNotesModel, MongoUsersModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
+import {
+  MongoAudioClipsModel,
+  MongoAudioDescriptionRatingModel,
+  MongoAudio_Descriptions_Model,
+  MongoNotesModel,
+  MongoUsersModel,
+  MongoVideosModel,
+} from '../models/mongodb/init-models.mongo';
 import { IVideo } from '../models/mongodb/Videos.mongo';
 import { logger } from '../utils/logger';
 import { getVideoDataByYoutubeId } from './videos.util';
@@ -174,6 +181,59 @@ class VideosService {
       });
       return return_val;
     }
+  }
+
+  public async getVideoById(video_id: string) {
+    if (!video_id) throw new HttpException(400, 'video_id is empty');
+    const video = await MongoVideosModel.findOne({ youtube_id: video_id }).populate({
+      path: 'audio_descriptions',
+      populate: {
+        path: 'audio_clips',
+      },
+    });
+
+    if (!video) {
+      return { result: null };
+    }
+
+    const newVideo = video.toJSON();
+
+    const audioDescriptions = newVideo.audio_descriptions.slice();
+    newVideo.audio_descriptions = [];
+
+    async function processAudioDescription(ad) {
+      const audioDescriptionRating = await MongoAudioDescriptionRatingModel.find({
+        audio_description_id: ad._id,
+      }).exec();
+
+      ad.feedbacks = {} as { [key: string]: number };
+
+      if (audioDescriptionRating && audioDescriptionRating.length > 0) {
+        audioDescriptionRating.forEach(adr => {
+          if (adr.feedback && adr.feedback.length > 0) {
+            adr.feedback.forEach(item => {
+              if (!ad.feedbacks.hasOwnProperty(item)) {
+                ad.feedbacks[item] = 0;
+              }
+              ad.feedbacks[item] += 1;
+            });
+          }
+        });
+      }
+
+      return ad;
+    }
+
+    const audioDescriptionPromises = audioDescriptions.map(processAudioDescription);
+
+    newVideo.audio_descriptions = await Promise.all(audioDescriptionPromises);
+
+    return { result: newVideo };
+    // } else {
+    //   throw new HttpException(400, 'video not found');
+    // }
+
+    // return { result: video };
   }
 }
 
