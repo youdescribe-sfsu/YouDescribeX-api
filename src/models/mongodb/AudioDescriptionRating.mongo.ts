@@ -4,7 +4,7 @@ interface IAudioDescriptionRating extends Document {
   audio_description: mongoose.Types.ObjectId;
   user: mongoose.Types.ObjectId;
   rating: number;
-  feedback: string;
+  feedback: Array<string>;
   created_at: Date;
   updated_at: Date;
 }
@@ -25,9 +25,11 @@ const AudioDescriptionRatingSchema = new Schema<IAudioDescriptionRating>(
       type: Number,
       required: true,
     },
-    feedback: {
-      type: String,
-    },
+    feedback: [
+      {
+        type: String,
+      },
+    ],
     created_at: {
       type: Date,
       default: Date.now,

@@ -655,14 +655,15 @@ class UserService {
       return response.data;
     }
   }
-  public async aiDescriptionStatus(user_id: string, youtube_id: string): Promise<{ status: string; requested: boolean; url?: string }> {
+
+  public async aiDescriptionStatusUtil(user_id: string, youtube_id: string, ai_user_id: string): Promise<{ status: string; requested: boolean; url?: string }> {
     try {
       if (!user_id || !youtube_id) {
         throw new HttpException(400, 'Missing user_id or youtube_id');
       }
 
       const userIdObject = await MongoUsersModel.findById(user_id);
-      const AIUSEROBJECT = await MongoUsersModel.findById(AI_USER_ID);
+      const AIUSEROBJECT = await MongoUsersModel.findById(ai_user_id);
       if (!userIdObject) {
         throw new HttpException(400, 'User not found');
       }
@@ -700,7 +701,7 @@ class UserService {
 
       const captionRequest = await MongoAICaptionRequestModel.findOne({
         youtube_id,
-        ai_user_id: AI_USER_ID,
+        ai_user_id: ai_user_id,
       });
 
       if (!captionRequest) {
@@ -746,7 +747,7 @@ class UserService {
     } catch (error) {
       // Handle errors here or log them using your logger library.
       if (error instanceof Error) {
-        logger.error(`Error in aiDescriptionStatus: ${error.message}`);
+        logger.error(`Error in aiDescriptionStatusUTIL: ${error.message}`);
         if (error.stack) {
           const lineNumber = error.stack
             .split('\n')[1] // Get the second line of the stack trace
@@ -756,6 +757,16 @@ class UserService {
           }
         }
       }
+      logger.error(`Error in aiDescriptionStatusUTIL: ${error.message}`);
+      throw error;
+    }
+  }
+
+  public async aiDescriptionStatus(user_id: string, youtube_id: string): Promise<{ status: string; requested: boolean; url?: string }> {
+    try {
+      const response = await this.aiDescriptionStatusUtil(user_id, youtube_id, AI_USER_ID);
+      return response;
+    } catch (error) {
       logger.error(`Error in aiDescriptionStatus: ${error.message}`);
       throw error;
     }
@@ -904,36 +915,52 @@ class UserService {
     };
   }
 
-  public async getAllAiDescriptionRequests(user_id: string) {
+  public async getAllAiDescriptionRequests(user_id: string, pageNumber: string) {
     if (!user_id) {
       throw new HttpException(400, 'No data provided');
     }
+    const page = parseInt(pageNumber, 10);
+    const perPage = 4;
+    const skipCount = Math.max((page - 1) * perPage, 0);
 
     const userIdObject = await MongoUsersModel.findById(user_id);
-    const aiAudioDescriptions = await MongoAICaptionRequestModel.find({ caption_requests: userIdObject._id });
-    const audioDescriptions = await MongoAudio_Descriptions_Model.find({ user: userIdObject._id });
-    const youTubeIds = aiAudioDescriptions.map(ad => ad.youtube_id);
+    const aiAudioDescriptions = await MongoAICaptionRequestModel.find({ caption_requests: userIdObject._id })
+      .sort({ created_at: -1 })
+      .skip(skipCount)
+      .limit(perPage);
+    const return_arr = [];
 
-    const videos = await MongoVideosModel.find({ youtube_id: { $in: youTubeIds } });
-
-    const return_val = videos.map(video => {
-      const audioDescription = audioDescriptions.find(ad => ad.video == `${video._id}`);
-
-      return {
-        video_id: video._id,
-        youtube_video_id: video.youtube_id,
-        video_name: video.title,
-        video_length: video.duration,
-        createdAt: video.created_at,
-        updatedAt: video.updated_at,
-        // audio_description_id: audioDescription._id,
-        // status: audioDescription.status,
-        // overall_rating_votes_average: audioDescription.overall_rating_votes_average,
-        // overall_rating_votes_counter: audioDescription.overall_rating_votes_counter,
-        // overall_rating_votes_sum: audioDescription.overall_rating_votes_sum,
-      };
-    });
-    return { result: return_val };
+    for (let index = 0; index < aiAudioDescriptions.length; index++) {
+      const element = aiAudioDescriptions[index];
+      const videoIdStatus = await MongoVideosModel.findOne({ youtube_id: element.youtube_id });
+      if (element.status === 'completed') {
+        const response = await this.aiDescriptionStatusUtil(user_id, element.youtube_id, element.ai_user_id);
+        return_arr.push({
+          video_id: videoIdStatus._id,
+          youtube_video_id: element.youtube_id,
+          video_name: videoIdStatus.title,
+          video_length: videoIdStatus.duration,
+          createdAt: videoIdStatus.created_at,
+          updatedAt: videoIdStatus.updated_at,
+          status: response.status,
+          requested: response.requested,
+          url: response.url,
+        });
+      } else {
+        return_arr.push({
+          video_id: videoIdStatus._id,
+          youtube_video_id: element.youtube_id,
+          video_name: videoIdStatus.title,
+          video_length: videoIdStatus.duration,
+          createdAt: videoIdStatus.created_at,
+          updatedAt: videoIdStatus.updated_at,
+          status: 'requested',
+          requested: true,
+          url: null,
+        });
+      }
+    }
+    return { result: return_arr };
   }
 
   public async saveVisitedVideosHistory(user_id: string, youtube_id: string) {
