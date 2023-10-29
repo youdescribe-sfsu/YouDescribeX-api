@@ -13,6 +13,7 @@ class VideosRoute implements Routes {
   }
 
   private initializeRoutes() {
+    this.router.get(`${this.path}/get-all-videos`, this.videosController.getAllVideos);
     this.router.get(`${this.path}/get-by-youtubeVideo/:youtubeId`, this.videosController.getVideobyYoutubeId);
     this.router.delete(`${this.path}/delete-video/:youtubeId/:userId`, this.videosController.deleteVideoForUser);
     this.router.get(`${this.path}/user/:userId`, this.videosController.getVideosForUserId);

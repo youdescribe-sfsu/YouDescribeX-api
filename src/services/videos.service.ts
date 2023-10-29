@@ -235,6 +235,37 @@ class VideosService {
 
     // return { result: video };
   }
+
+  public async getAllVideos(page: string | null) {
+    try {
+      const pgNumber = Number(page);
+      const searchPage = Number.isNaN(pgNumber) || pgNumber === 0 ? 50 : pgNumber * 50;
+
+      const videos = await MongoVideosModel.find({})
+        .sort({ created_at: -1 })
+        .skip(searchPage - 50)
+        .limit(50)
+        .populate({
+          path: 'audio_descriptions',
+          populate: {
+            path: 'user audio_clips',
+          },
+        })
+        .exec();
+
+      const videosFiltered = videos
+        .map(video => {
+          const audioDescriptionsFiltered = video.audio_descriptions.filter(ad => ad.status === 'published');
+          video.audio_descriptions = audioDescriptionsFiltered;
+          return audioDescriptionsFiltered.length > 0 ? video : null;
+        })
+        .filter(Boolean);
+
+      return videosFiltered;
+    } catch (err) {
+      throw new Error('Error fetching videos: ' + err);
+    }
+  }
 }
 
 export default VideosService;
