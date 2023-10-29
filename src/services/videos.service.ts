@@ -248,7 +248,13 @@ class VideosService {
         .populate({
           path: 'audio_descriptions',
           populate: {
-            path: 'user audio_clips',
+            path: 'audio_clips',
+          },
+        })
+        .populate({
+          path: 'audio_descriptions',
+          populate: {
+            path: 'user',
           },
         })
         .exec();
