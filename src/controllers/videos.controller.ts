@@ -108,6 +108,31 @@ class VideosController {
       next(error);
     }
   };
+
+  public getAllVideos = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const page = req.query.page as string;
+      const videos = await this.videosService.getAllVideos(page);
+
+      // Create your response object
+      const ret = {
+        status: 200, // Set your desired status code
+        message: 'Videos fetched successfully',
+        result: videos,
+      };
+
+      // Send the response
+      res.status(ret.status).json(ret);
+    } catch (error) {
+      // Handle errors
+      const ret = {
+        status: 500, // Set an appropriate error status code
+        message: 'Error fetching videos',
+        error: error.message,
+      };
+      res.status(ret.status).json(ret);
+    }
+  };
 }
 
 export default VideosController;
