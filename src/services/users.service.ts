@@ -928,6 +928,7 @@ class UserService {
       .sort({ created_at: -1 })
       .skip(skipCount)
       .limit(perPage);
+    const totalItemCount = await MongoAICaptionRequestModel.countDocuments({ caption_requests: userIdObject._id });
     const return_arr = [];
 
     for (let index = 0; index < aiAudioDescriptions.length; index++) {
@@ -960,7 +961,10 @@ class UserService {
         });
       }
     }
-    return { result: return_arr };
+    return {
+      result: return_arr,
+      totalVideos: totalItemCount,
+    };
   }
 
   public async saveVisitedVideosHistory(user_id: string, youtube_id: string) {
@@ -1001,11 +1005,13 @@ class UserService {
 
     const visitedYoutubeVideosIds = visitedVideosHistory.map(history => history.visited_videos)[0];
     const videos = await MongoVideosModel.find({ youtube_id: { $in: visitedYoutubeVideosIds } });
-    const videoIds = await videos.map(videoId => videoId._id);
+    const videoIds = videos.map(videoId => videoId._id);
     const audioDescription = await MongoAudio_Descriptions_Model.find({ video: { $in: videoIds } });
 
+    const totalCount = await MongoVideosModel.countDocuments({ youtube_id: { $in: visitedYoutubeVideosIds } });
+
     const return_val = videos.map(video => {
-      const descriptions = audioDescription.find(ad => ad.video == `${video._id}`);
+      const descriptions = audioDescription.find(ad => ad.video.toString() === video._id.toString());
       return {
         video_id: video._id,
         youtube_video_id: video.youtube_id,
@@ -1013,14 +1019,15 @@ class UserService {
         video_length: video.duration,
         createdAt: video.created_at,
         updatedAt: video.updated_at,
-        // audio_description_id: descriptions._id,
-        // status: descriptions.status,
-        // overall_rating_votes_average: descriptions.overall_rating_votes_average,
-        // overall_rating_votes_counter: descriptions.overall_rating_votes_counter,
-        // overall_rating_votes_sum: descriptions.overall_rating_votes_sum,
+        audio_description_id: descriptions ? descriptions._id : null,
+        status: descriptions ? descriptions.status : null,
+        overall_rating_votes_average: descriptions ? descriptions.overall_rating_votes_average : null,
+        overall_rating_votes_counter: descriptions ? descriptions.overall_rating_votes_counter : null,
+        overall_rating_votes_sum: descriptions ? descriptions.overall_rating_votes_sum : null,
       };
     });
-    return { result: return_val };
+
+    return { result: return_val, totalVideos: totalCount };
   }
 }
 
