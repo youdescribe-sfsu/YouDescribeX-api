@@ -32,8 +32,11 @@ class AudioDescriptionsService {
     userId: string,
     audio_description_id: string,
   ): Promise<IAudioDescription | Audio_DescriptionsAttributes> {
+    console.log('userId', userId);
+    console.log('videoId', videoId);
+    console.log('audio_description_id', audio_description_id);
     if (isEmpty(videoId)) throw new HttpException(400, 'Video ID is empty');
-    if (isEmpty(userId)) throw new HttpException(400, 'UserId ID is empty');
+    if (!userId) throw new HttpException(400, 'User ID is empty');
     if (isEmpty(audio_description_id)) throw new HttpException(400, 'Audio Description ID is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
