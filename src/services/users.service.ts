@@ -993,15 +993,21 @@ class UserService {
     }
   }
 
-  public async getVisitedVideosHistory(user_id: string) {
+  public async getVisitedVideosHistory(user_id: string, pageNumber: string) {
     if (!user_id) {
       throw new HttpException(400, 'No data provided');
     }
 
+    const page = parseInt(pageNumber, 10);
+    const perPage = 4;
+    const skipCount = Math.max((page - 1) * perPage, 0);
+
     const userIdObject = await MongoUsersModel.findById(user_id);
     const visitedVideosHistory = await MongoHistoryModel.find({
       user: userIdObject._id,
-    });
+    })
+      .skip(skipCount)
+      .limit(perPage);
 
     const visitedYoutubeVideosIds = visitedVideosHistory.map(history => history.visited_videos)[0];
     const videos = await MongoVideosModel.find({ youtube_id: { $in: visitedYoutubeVideosIds } });
