@@ -323,6 +323,7 @@ class UsersController {
   public getVisitedVideosHistory = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userData = req.user as unknown as IUser;
+      const pageNumber = req.query.pageNumber as string;
       if (!userData) {
         throw new Error('User not logged in');
       }
@@ -331,7 +332,7 @@ class UsersController {
         throw new Error('User not found');
       }
 
-      const response = await this.userService.getVisitedVideosHistory(user._id);
+      const response = await this.userService.getVisitedVideosHistory(user._id, pageNumber);
 
       res.status(201).json(response);
     } catch (error) {
