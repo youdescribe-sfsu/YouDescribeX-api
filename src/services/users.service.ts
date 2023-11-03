@@ -924,10 +924,7 @@ class UserService {
     const skipCount = Math.max((page - 1) * perPage, 0);
 
     const userIdObject = await MongoUsersModel.findById(user_id);
-    const aiAudioDescriptions = await MongoAICaptionRequestModel.find({ caption_requests: userIdObject._id })
-      .sort({ created_at: -1 })
-      .skip(skipCount)
-      .limit(perPage);
+    const aiAudioDescriptions = await MongoAICaptionRequestModel.find({ caption_requests: userIdObject._id }).sort({ _id: -1 }).skip(skipCount).limit(perPage);
     const totalItemCount = await MongoAICaptionRequestModel.countDocuments({ caption_requests: userIdObject._id });
     const return_arr = [];
 
