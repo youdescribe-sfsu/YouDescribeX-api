@@ -973,16 +973,24 @@ class UserService {
       const userDocument = await MongoHistoryModel.findOne({ user: user_id });
 
       if (userDocument) {
-        userDocument.visited_videos.push(youtube_id);
-        await MongoHistoryModel.updateOne({ _id: userDocument._id }, { $set: { visited_videos: userDocument.visited_videos } });
+        // Check if the youtube_id is not already in the visited_videos array
+        if (!userDocument.visited_videos.includes(youtube_id)) {
+          userDocument.visited_videos.push(youtube_id);
+          await MongoHistoryModel.updateOne({ _id: userDocument._id }, { $set: { visited_videos: userDocument.visited_videos } });
+        }
+
         return userDocument.visited_videos;
       } else {
         const newUserDocument = {
           user: user_id,
           visited_videos: [youtube_id],
         };
-        await MongoHistoryModel.insertMany(newUserDocument);
-        return userDocument.visited_videos;
+
+        // Insert a new user document and get the inserted document
+        const insertedDocument = await MongoHistoryModel.create(newUserDocument);
+
+        // Return the visited videos of the newly created document
+        return insertedDocument.visited_videos;
       }
     } catch (error) {
       console.error('Error:', error);
@@ -998,15 +1006,12 @@ class UserService {
     const page = parseInt(pageNumber, 10);
     const perPage = 4;
     const skipCount = Math.max((page - 1) * perPage, 0);
-
     const userIdObject = await MongoUsersModel.findById(user_id);
     const visitedVideosHistory = await MongoHistoryModel.find({
       user: userIdObject._id,
-    })
-      .skip(skipCount)
-      .limit(perPage);
-
-    const visitedYoutubeVideosIds = visitedVideosHistory.map(history => history.visited_videos)[0];
+    });
+    const visitedVideosArray = visitedVideosHistory.map(history => history.visited_videos)[0];
+    const visitedYoutubeVideosIds = visitedVideosArray.slice(skipCount, skipCount + perPage);
     const videos = await MongoVideosModel.find({ youtube_id: { $in: visitedYoutubeVideosIds } });
     const videoIds = videos.map(videoId => videoId._id);
     const audioDescription = await MongoAudio_Descriptions_Model.find({ video: { $in: videoIds } });
