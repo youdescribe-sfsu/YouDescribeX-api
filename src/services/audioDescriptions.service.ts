@@ -439,17 +439,12 @@ class AudioDescriptionsService {
     console.log('page', page);
     const perPage = 4;
     const skipCount = Math.max((page - 1) * perPage, 0);
-
-    // Get distinct videoIds based on the skipCount and perPage
-    const distinctVideoIds = await MongoAudio_Descriptions_Model.distinct('video', {}).sort({ created_at: -1 }).skip(skipCount).limit(perPage);
-
-    const recentAudioDescriptions = await MongoAudio_Descriptions_Model.find({ video: { $in: distinctVideoIds } });
-
-    const videoIds = distinctVideoIds;
-    const videos = await MongoVideosModel.find({ _id: { $in: videoIds } });
-
+    const distinctVideoIds = await MongoAudio_Descriptions_Model.distinct('video', {});
+    distinctVideoIds.sort((a, b) => b.created_at - a.created_at);
+    const paginatedVideoIds = distinctVideoIds.slice(skipCount, skipCount + perPage);
+    const recentAudioDescriptions = await MongoAudio_Descriptions_Model.find({ video: { $in: paginatedVideoIds } });
+    const videos = await MongoVideosModel.find({ _id: { $in: paginatedVideoIds } });
     const totalVideos = await MongoAudio_Descriptions_Model.countDocuments();
-
     const result = videos.map(video => {
       const audioDescription = recentAudioDescriptions.find(ad => ad.video.toString() === video._id.toString());
 
