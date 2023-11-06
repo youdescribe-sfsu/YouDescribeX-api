@@ -436,9 +436,9 @@ class AudioDescriptionsService {
 
   public async getRecentDescriptions(pageNumber: string) {
     const page = parseInt(pageNumber, 10);
+    console.log('page', page);
     const perPage = 4;
     const skipCount = Math.max((page - 1) * perPage, 0);
-
     const distinctVideoIds = await MongoAudio_Descriptions_Model.distinct('video', {});
     distinctVideoIds.sort((a, b) => b.created_at - a.created_at);
     const paginatedVideoIds = distinctVideoIds.slice(skipCount, skipCount + perPage);
