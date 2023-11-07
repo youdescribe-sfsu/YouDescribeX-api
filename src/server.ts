@@ -10,6 +10,7 @@ import AudioDescriptionsRoute from './routes/audio_descriptions.route';
 import AudioClipsRoute from './routes/audioClips.route';
 import AuthRoute from './routes/auth.route';
 import WishListRoute from './routes/wishlist.route';
+import GpuUtilsRoute from './routes/gpu_utils.route';
 
 validateEnv();
 
@@ -24,6 +25,7 @@ const app = new App([
   new AudioClipsRoute(),
   new AuthRoute(),
   new WishListRoute(),
+  new GpuUtilsRoute(),
 ]);
 
 app.listen();
