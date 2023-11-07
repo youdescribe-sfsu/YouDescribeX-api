@@ -15,6 +15,7 @@ import options from './swaggerOptions';
 import yaml from 'js-yaml';
 import fs from 'fs';
 import { initPassport } from './models/mongodb/init-models.mongo';
+import { checkAndNotify, gpuStatusCronJob } from './utils/cron.utils';
 
 class App {
   public app: Application;
@@ -28,13 +29,13 @@ class App {
     this.port = PORT || 3000;
     this.currentDatabase = CURRENT_DATABASE || 'mongo';
 
-    // this.connectToDatabase();
     this.testDatabase();
     this.initializeMiddlewares();
     this.initializeRoutes(routes);
     this.initializeErrorHandling();
     this.initializeSwagger();
     initPassport();
+    this.initializeCronJobs();
   }
 
   public listen() {
@@ -110,6 +111,13 @@ class App {
 
   private initializeErrorHandling() {
     this.app.use(errorMiddleware);
+  }
+
+  private initializeCronJobs() {
+    console.log('Initializing Cron Jobs');
+    logger.info('Initializing Cron Jobs');
+    checkAndNotify();
+    gpuStatusCronJob.start();
   }
 }
 
