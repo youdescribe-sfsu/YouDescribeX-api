@@ -17,3 +17,7 @@ export const { CURRENT_MONGO_DB = 'YDX' } = process.env;
 export const { GPU_HOST, GPU_PIPELINE_PORT } = process.env;
 export const { CURRENT_YDX_HOST, AI_USER_ID = '650506db3ff1c2140ea10ece' } = process.env;
 export const { GMAIL_USER, GMAIL_PASSWORD } = process.env;
+
+export const GPU_URL = GPU_HOST && GPU_PIPELINE_PORT ? `http://${GPU_HOST}:${GPU_PIPELINE_PORT}` : null;
+
+export const GPU_NOTIFY_EMAILS = ['vishalsharma1907@gmail.com', 'ats@sfsu.edu'];

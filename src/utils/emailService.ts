@@ -1,19 +1,10 @@
 // import nodemailer from 'nodemailer';
 import axios from 'axios';
-import { GMAIL_PASSWORD, GMAIL_USER } from '../config';
+import { GMAIL_USER } from '../config';
 import { logger } from './logger';
 
 async function sendEmail(email: string, subject: string, text: string) {
   try {
-    // Create a transporter object using the default SMTP transport
-    // const transporter = nodemailer.createTransport({
-    //   service: 'Gmail', // Use your email service provider here if not using Gmail
-    //   auth: {
-    //     user: GMAIL_USER, // Your email address
-    //     pass: GMAIL_PASSWORD, // Your email password or app password
-    //   },
-    // });
-
     // Configure the email details
     const mailOptions = {
       from: GMAIL_USER, // Sender's email address

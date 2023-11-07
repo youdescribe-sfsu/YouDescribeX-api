@@ -1,7 +1,8 @@
-import { AxiosResponse } from 'axios';
+import axios, { AxiosResponse } from 'axios';
 import { MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import { IVideo } from '../models/mongodb/Videos.mongo';
 import { getVideoDataByYoutubeId } from '../services/videos.util';
+import { GPU_URL } from '../config';
 
 /**
  * @method isEmpty
@@ -67,5 +68,16 @@ export const getYouTubeVideoStatus = async (youtube_id: string): Promise<IVideo>
     });
     const newSavedVideo = await newVid.save();
     return newSavedVideo;
+  }
+};
+
+export const checkGPUServerStatus = async (): Promise<boolean> => {
+  try {
+    if (GPU_URL === null) throw new Error('GPU_URL is not defined');
+    await axios.get(`${GPU_URL}/health_check`);
+    return true;
+  } catch (error) {
+    console.error('Error checking GPU server status:', error.code);
+    return false;
   }
 };
