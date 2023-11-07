@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { Routes } from '../interfaces/routes.interface';
 import GpuUtilsController from '../controllers/gpu_utils.controller';
 
-class AuthRoute implements Routes {
+class GpuUtilsRoute implements Routes {
   public path = '/utils';
   public router = Router();
   public gpuUtilsController = new GpuUtilsController();
@@ -16,4 +16,4 @@ class AuthRoute implements Routes {
   }
 }
 
-export default AuthRoute;
+export default GpuUtilsRoute;
