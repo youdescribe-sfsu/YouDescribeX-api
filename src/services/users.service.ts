@@ -1,7 +1,7 @@
 import { CreateUserAudioDescriptionDto, CreateUserDto, NewUserDto } from '../dtos/users.dto';
 import { HttpException } from '../exceptions/HttpException';
 import { getYouTubeVideoStatus, isEmpty } from '../utils/util';
-import { CURRENT_DATABASE, CURRENT_YDX_HOST, GPU_HOST, GPU_PIPELINE_PORT, AI_USER_ID } from '../config';
+import { CURRENT_DATABASE, CURRENT_YDX_HOST, GPU_URL, AI_USER_ID } from '../config';
 import { PostGres_Users, UsersAttributes } from '../models/postgres/init-models';
 import { PostGres_Videos } from '../models/postgres/init-models';
 import { PostGres_Audio_Descriptions } from '../models/postgres/init-models';
@@ -632,12 +632,14 @@ class UserService {
           AI_USER_ID: AI_USER_ID,
         })}`,
       );
-      console.log(`URL :: http://${GPU_HOST}:${GPU_PIPELINE_PORT}/generate_ai_caption`);
-      logger.info(`URL :: http://${GPU_HOST}:${GPU_PIPELINE_PORT}/generate_ai_caption`);
+      console.log(`URL ::${GPU_URL}/generate_ai_caption`);
+      logger.info(`URL :: ${GPU_URL}/generate_ai_caption`);
 
       // Check if video has already been requested
 
-      const response = await axios.post(`http://${GPU_HOST}:${GPU_PIPELINE_PORT}/generate_ai_caption`, {
+      if (!GPU_URL) throw new HttpException(500, 'GPU_URL is not defined');
+
+      const response = await axios.post(`${GPU_URL}/generate_ai_caption`, {
         youtube_id: youtube_id,
         user_id: userData._id,
         ydx_app_host,
