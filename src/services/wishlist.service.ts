@@ -1,6 +1,7 @@
 import { WishListRequest } from '../dtos/wishlist.dto';
 import { IWishList } from '../models/mongodb/Wishlist.mongo';
-import { MongoWishListModel } from '../models/mongodb/init-models.mongo';
+import { HttpException } from '../exceptions/HttpException';
+import { MongoAICaptionRequestModel, MongoUsersModel, MongoWishListModel } from '../models/mongodb/init-models.mongo';
 
 interface IWishListResponse {
   items: IWishList[];
@@ -59,13 +60,47 @@ class WishListService {
       ],
     });
 
-    console;
     return {
       totalItems: wishListItems[0].count[0].count,
       page: pageNumber,
       pageSize,
       data: wishListItems[0].items,
     };
+  }
+
+  public async getUserWishlist(user_id: string, pageNumber: string) {
+    if (!user_id) {
+      throw new HttpException(400, 'No data provided');
+    }
+
+    const page = parseInt(pageNumber, 10);
+    const perPage = 4;
+    const skipCount = Math.max((page - 1) * perPage, 0);
+
+    const userIdObject = await MongoUsersModel.findById(user_id);
+    const userWishlist = await MongoAICaptionRequestModel.find({
+      user: userIdObject._id,
+    });
+
+    const youtubeIds = userWishlist.map(entry => entry.youtube_id);
+
+    const statusMap = new Map();
+    userWishlist.forEach(entry => {
+      statusMap.set(entry.youtube_id, entry.status);
+    });
+
+    const wishListEntries = await MongoWishListModel.find({
+      youtube_id: { $in: youtubeIds },
+    })
+      .skip(skipCount)
+      .limit(perPage);
+
+    const wishListEntriesWithStatus = wishListEntries.map(entry => ({
+      ...entry.toObject(),
+      status: statusMap.get(entry.youtube_id),
+    }));
+
+    return wishListEntriesWithStatus;
   }
 }
 
