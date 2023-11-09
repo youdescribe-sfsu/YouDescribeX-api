@@ -658,7 +658,11 @@ class UserService {
     }
   }
 
-  public async aiDescriptionStatusUtil(user_id: string, youtube_id: string, ai_user_id: string): Promise<{ status: string; requested: boolean; url?: string }> {
+  public async aiDescriptionStatusUtil(
+    user_id: string,
+    youtube_id: string,
+    ai_user_id: string,
+  ): Promise<{ status: string; requested: boolean; url?: string; aiDescriptionId?: string }> {
     try {
       if (!user_id || !youtube_id) {
         throw new HttpException(400, 'Missing user_id or youtube_id');
@@ -678,7 +682,12 @@ class UserService {
         user: userIdObject._id,
       });
 
-      console.log(`checkIfAudioDescriptionExists :: ${JSON.stringify(checkIfAudioDescriptionExists)}`);
+      const checkIfAudioDescriptionExistsAI = await MongoAudio_Descriptions_Model.findOne({
+        video: videoIdStatus._id,
+        user: ai_user_id,
+      });
+
+      console.log(`checkIfAudioDescriptionExists :: ${JSON.stringify(checkIfAudioDescriptionExistsAI)}`);
 
       if (checkIfAudioDescriptionExists) {
         return {
@@ -696,6 +705,7 @@ class UserService {
 
       if (checkIfAudioDescriptionAIExists) {
         return {
+          aiDescriptionId: checkIfAudioDescriptionAIExists._id,
           status: 'available',
           requested: false,
         };
