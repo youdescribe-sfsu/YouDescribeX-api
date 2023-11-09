@@ -246,7 +246,6 @@ class UsersController {
       if (!userData) {
         throw new Error('User not found');
       }
-      console.log('USER DATA', JSON.stringify(userData));
       const response = await this.userService.aiDescriptionStatus(userData._id, youtube_id);
 
       res.status(201).json(response);
@@ -335,6 +334,19 @@ class UsersController {
       const response = await this.userService.getVisitedVideosHistory(user._id, pageNumber);
 
       res.status(201).json(response);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public processAllClipsInDBController = async (req: Request, res: Response, next: NextFunction) => {
+    const ad_id = req.params.ad_id;
+    if (!ad_id) {
+      throw new Error('No Audio Description ID provided');
+    }
+    try {
+      const response = await this.audioClipsService.processAllClipsInDB(ad_id);
+      return res.status(200).json(response);
     } catch (error) {
       next(error);
     }
