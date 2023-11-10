@@ -94,7 +94,8 @@ class AudioDescripionsController {
   public getAudioDescription = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const audioDescriptionId: string = req.params.audioDescriptionId;
-      const audioDescription = await this.audioDescriptionsService.getAudioDescription(audioDescriptionId);
+      const preview = req.query.preview as string;
+      const audioDescription = await this.audioDescriptionsService.getAudioDescription(audioDescriptionId, preview === 'true');
 
       res.status(200).json(audioDescription);
     } catch (error) {
