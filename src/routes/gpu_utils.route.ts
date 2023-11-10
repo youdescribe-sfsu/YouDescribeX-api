@@ -13,7 +13,7 @@ class GpuUtilsRoute implements Routes {
 
   private initializeRoutes() {
     this.router.post(`${this.path}/notify`, this.gpuUtilsController.notify);
-    this.router.post(`${this.path}/notify/aidescriptions`, this.gpuUtilsController.notify);
+    this.router.post(`${this.path}/notify/aidescriptions`, this.gpuUtilsController.notifyAiDescriptions);
   }
 }
 
