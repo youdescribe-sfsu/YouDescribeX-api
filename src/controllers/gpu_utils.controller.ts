@@ -34,19 +34,19 @@ class GpuUtilsController {
       const {
         youtube_id,
         audio_description_id,
-        emails,
+        user_ids,
         ydx_app_host,
       }: {
         youtube_id: string;
         audio_description_id: string;
-        emails: string[];
+        user_ids: string[];
         ydx_app_host: string;
       } = req.body;
 
       if (!youtube_id) throw new Error('youtube_id is required');
       if (!audio_description_id) throw new Error('audio_description_id is required');
-      if (!emails) throw new Error('emails is required');
-      const response = await this.gpuUtilsService.notifyAiDescriptions(youtube_id, audio_description_id, ydx_app_host, emails);
+      if (!user_ids) throw new Error('user_ids is required');
+      const response = await this.gpuUtilsService.notifyAiDescriptions(youtube_id, audio_description_id, ydx_app_host, user_ids);
       res.status(200).json({ data: response, message: 'notifyAiDescriptions' });
     } catch (error) {
       next(error);

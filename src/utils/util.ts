@@ -1,5 +1,5 @@
 import axios, { AxiosResponse } from 'axios';
-import { MongoVideosModel } from '../models/mongodb/init-models.mongo';
+import { MongoUsersModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import { IVideo } from '../models/mongodb/Videos.mongo';
 import { getVideoDataByYoutubeId } from '../services/videos.util';
 import { GPU_URL } from '../config';
@@ -80,4 +80,11 @@ export const checkGPUServerStatus = async (): Promise<boolean> => {
     console.error('Error checking GPU server status:', error.code);
     return false;
   }
+};
+
+export const getEmailForUser = async (user_id: string): Promise<string> => {
+  const user = await MongoUsersModel.findById(user_id);
+
+  if (user === null) throw new Error('User not found');
+  return user.email;
 };
