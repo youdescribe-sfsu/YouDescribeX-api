@@ -20,4 +20,4 @@ export const { GMAIL_USER, GMAIL_PASSWORD } = process.env;
 
 export const GPU_URL = GPU_HOST && GPU_PIPELINE_PORT ? `http://${GPU_HOST}:${GPU_PIPELINE_PORT}` : null;
 
-export const GPU_NOTIFY_EMAILS = ['vishalsharma1907@gmail.com', 'ats@sfsu.edu'];
+export const GPU_NOTIFY_EMAILS = ['vishalsharma1907@gmail.com'];
