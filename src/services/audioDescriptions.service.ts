@@ -353,14 +353,14 @@ class AudioDescriptionsService {
     }
   };
 
-  public getAudioDescription = async (audioDescriptionId: string): Promise<IAudioDescription | Audio_DescriptionsAttributes> => {
+  public getAudioDescription = async (audioDescriptionId: string, preview = false): Promise<IAudioDescription | Audio_DescriptionsAttributes> => {
     const audioDescriptions = await MongoAudio_Descriptions_Model.findOne({
       _id: audioDescriptionId,
     });
 
     if (!audioDescriptions) throw new HttpException(409, "Audio Description for this YouTube Video doesn't exist");
 
-    if (audioDescriptions.status !== 'published') throw new HttpException(409, 'Audio Description for this YouTube Video is not published');
+    if (!preview && audioDescriptions.status !== 'published') throw new HttpException(409, 'Audio Description for this YouTube Video is not published');
 
     const videoId = audioDescriptions.video;
     const youtubeVideoData = await MongoVideosModel.findById({
