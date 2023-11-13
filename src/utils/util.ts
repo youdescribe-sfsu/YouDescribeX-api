@@ -88,3 +88,20 @@ export const getEmailForUser = async (user_id: string): Promise<string> => {
   if (user === null) throw new Error('User not found');
   return user.email;
 };
+
+export const formattedDate = (now: Date) =>
+  `${now.getUTCFullYear()}${padZero(now.getUTCMonth() + 1)}${padZero(now.getUTCDate())}` +
+  `${padZero(now.getUTCHours())}${padZero(now.getUTCMinutes())}${padZero(now.getUTCSeconds())}`;
+
+function padZero(value: number): string {
+  return value < 10 ? `0${value}` : `${value}`;
+}
+
+export const utcToLongInt = (timestampUtc: number): number => {
+  const date = new Date(timestampUtc);
+  const formattedDate =
+    `${date.getUTCFullYear()}${padZero(date.getUTCMonth() + 1)}${padZero(date.getUTCDate())}` +
+    `${padZero(date.getUTCHours())}${padZero(date.getUTCMinutes())}${padZero(date.getUTCSeconds())}`;
+
+  return parseInt(formattedDate);
+};
