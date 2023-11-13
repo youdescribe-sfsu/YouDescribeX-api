@@ -34,6 +34,49 @@ class WishListController {
       next(error);
     }
   };
+
+  public addOneWishlistItem = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userData = req.user as unknown as IUser;
+      console.log(req.body);
+
+      const { youTubeId } = req.body;
+      if (!userData) {
+        throw new Error('User not logged in');
+      }
+      const user = await MongoUsersModel.findById(userData._id);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      if (!youTubeId) {
+        throw new Error('YouTube ID not provided');
+      }
+
+      const wishlistResponse = await this.wishlistService.addOneWishlistItem(youTubeId, user);
+      res.status(201).json(wishlistResponse);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public getTopWishListItems = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userData = req.user as unknown as IUser;
+      const wishlistResponse = await this.wishlistService.getTopWishListItems(userData);
+      res.status(wishlistResponse.status).json(wishlistResponse);
+    } catch (error) {
+      next(error);
+    }
+  };
+  public removeOne = async (req: Request, res: Response) => {
+    const userId: string = req.body.userId;
+    const youTubeId: string = req.body.youTubeId;
+
+    const result = await this.wishlistService.removeOne(userId, youTubeId);
+
+    return res.status(result.status).json({ message: result.message });
+  };
 }
 
 export default WishListController;
