@@ -435,35 +435,93 @@ class AudioDescriptionsService {
   };
 
   public async getRecentDescriptions(pageNumber: string) {
-    const page = parseInt(pageNumber, 10);
-    console.log('page', page);
-    const perPage = 4;
-    const skipCount = Math.max((page - 1) * perPage, 0);
-    const distinctVideoIds = await MongoAudio_Descriptions_Model.distinct('video', {});
-    distinctVideoIds.sort((a, b) => b.created_at - a.created_at);
-    const paginatedVideoIds = distinctVideoIds.slice(skipCount, skipCount + perPage);
-    const recentAudioDescriptions = await MongoAudio_Descriptions_Model.find({ video: { $in: paginatedVideoIds } });
-    const videos = await MongoVideosModel.find({ _id: { $in: paginatedVideoIds } });
-    const totalVideos = await MongoAudio_Descriptions_Model.countDocuments();
-    const result = videos.map(video => {
-      const audioDescription = recentAudioDescriptions.find(ad => ad.video.toString() === video._id.toString());
+    const ITEMS_PER_PAGE = 4;
+    try {
+      const page = parseInt(pageNumber, 10);
+      console.log('page', page);
 
-      return {
-        video_id: video._id,
-        youtube_video_id: video.youtube_id,
-        video_name: video.title,
-        video_length: video.duration,
-        createdAt: video.created_at,
-        updatedAt: video.updated_at,
-        audio_description_id: audioDescription._id,
-        status: audioDescription.status,
-        overall_rating_votes_average: audioDescription.overall_rating_votes_average,
-        overall_rating_votes_counter: audioDescription.overall_rating_votes_counter,
-        overall_rating_votes_sum: audioDescription.overall_rating_votes_sum,
-      };
-    });
+      const skipCount = Math.max((page - 1) * ITEMS_PER_PAGE, 0);
 
-    return { totalVideos, result };
+      const distinctVideoIds = await MongoAudio_Descriptions_Model.distinct('video', {});
+
+      // Combine sorting and slicing for better performance
+      const paginatedVideoIds = distinctVideoIds.sort((a, b) => b.created_at - a.created_at).slice(skipCount, skipCount + ITEMS_PER_PAGE);
+      console.log('paginated', paginatedVideoIds.length);
+
+      const [recentAudioDescriptions, videos, totalVideos] = await Promise.all([
+        MongoAudio_Descriptions_Model.find({ video: { $in: paginatedVideoIds } }),
+        MongoVideosModel.find({ _id: { $in: paginatedVideoIds } }),
+        MongoAudio_Descriptions_Model.countDocuments(),
+      ]);
+
+      const result = [];
+      let videosProcessed = 0;
+
+      for (const video of videos) {
+        // Skip videos with null values for title or duration
+        if (video.title === null || video.duration === null) {
+          continue;
+        }
+
+        const audioDescription = recentAudioDescriptions.find(ad => ad.video.toString() === video._id.toString());
+
+        result.push({
+          video_id: video._id,
+          youtube_video_id: video.youtube_id,
+          video_name: video.title,
+          video_length: video.duration,
+          createdAt: video.created_at,
+          updatedAt: video.updated_at,
+          audio_description_id: audioDescription ? audioDescription._id : null,
+          status: audioDescription ? audioDescription.status : null,
+          overall_rating_votes_average: audioDescription ? audioDescription.overall_rating_votes_average : null,
+          overall_rating_votes_counter: audioDescription ? audioDescription.overall_rating_votes_counter : null,
+          overall_rating_votes_sum: audioDescription ? audioDescription.overall_rating_votes_sum : null,
+        });
+
+        videosProcessed++;
+
+        // Check if we have processed enough videos
+        if (videosProcessed >= ITEMS_PER_PAGE) {
+          break;
+        }
+      }
+
+      if (result.length < ITEMS_PER_PAGE) {
+        const remainingVideosCount = ITEMS_PER_PAGE - result.length;
+
+        // Fetch additional videos to fill the gap
+        const additionalVideos = await MongoVideosModel.find({
+          _id: { $nin: result.map(video => video.video_id) }, // Exclude already processed videos
+        }).limit(remainingVideosCount);
+
+        // Map and append additional videos to the result
+        const additionalResults = additionalVideos.map(additionalVideo => {
+          const additionalAudioDescription = recentAudioDescriptions.find(ad => ad.video.toString() === additionalVideo._id.toString());
+
+          return {
+            video_id: additionalVideo._id,
+            youtube_video_id: additionalVideo.youtube_id,
+            video_name: additionalVideo.title,
+            video_length: additionalVideo.duration,
+            createdAt: additionalVideo.created_at,
+            updatedAt: additionalVideo.updated_at,
+            audio_description_id: additionalAudioDescription ? additionalAudioDescription._id : null,
+            status: additionalAudioDescription ? additionalAudioDescription.status : null,
+            overall_rating_votes_average: additionalAudioDescription ? additionalAudioDescription.overall_rating_votes_average : null,
+            overall_rating_votes_counter: additionalAudioDescription ? additionalAudioDescription.overall_rating_votes_counter : null,
+            overall_rating_votes_sum: additionalAudioDescription ? additionalAudioDescription.overall_rating_votes_sum : null,
+          };
+        });
+
+        result.push(...additionalResults);
+      }
+      return result;
+    } catch (error) {
+      // Handle errors, log them, and possibly return an error response
+      console.error('Error in getRecentDescriptions:', error);
+      throw new Error('An error occurred while processing your request.');
+    }
   }
 }
 
