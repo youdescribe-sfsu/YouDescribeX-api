@@ -83,11 +83,11 @@ class WishListService {
           youtube_id: 1,
           status: 1,
           captionCount: { $size: '$caption_requests' },
-          aiRequested: true, // Add the 'aiRequested' field with value 'true'
+          aiRequested: true,
         },
       },
       { $sort: { captionCount: -1 } },
-      { $limit: 3 }, // Limit to the top 3 AI requested videos
+      { $limit: 3 },
     ]);
 
     const youtubeIds = userWishlist.map(entry => entry.youtube_id);
@@ -105,7 +105,7 @@ class WishListService {
       duration: 1,
       category_id: 1,
       category: 1,
-      aiRequested: true, // Add the 'aiRequested' field with value 'true'
+      aiRequested: true,
     });
 
     const top2WishlistVideos = await MongoWishListModel.find({ status: 'queued', youtube_status: 'available' }).sort({ votes: -1 }).limit(2);
