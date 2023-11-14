@@ -1,7 +1,7 @@
 import { WishListRequest } from '../dtos/wishlist.dto';
 import { IWishList } from '../models/mongodb/Wishlist.mongo';
 import { HttpException } from '../exceptions/HttpException';
-import { MongoAICaptionRequestModel, MongoUserVotesModel, MongoUsersModel, MongoVideosModel, MongoWishListModel } from '../models/mongodb/init-models.mongo';
+import { MongoAICaptionRequestModel, MongoUsersModel, MongoUserVotesModel, MongoVideosModel, MongoWishListModel } from '../models/mongodb/init-models.mongo';
 import { IUser } from '../models/mongodb/User.mongo';
 import { formattedDate, getYouTubeVideoStatus } from '../utils/util';
 import axios from 'axios';
@@ -76,31 +76,45 @@ class WishListService {
     if (!user_id) {
       throw new HttpException(400, 'No data provided');
     }
-
-    const userIdObject = await MongoUsersModel.findById(user_id);
-    const userWishlist = await MongoAICaptionRequestModel.find({
-      user: userIdObject._id,
-    });
+    const userWishlist = await MongoAICaptionRequestModel.aggregate([
+      {
+        $project: {
+          _id: 1,
+          youtube_id: 1,
+          status: 1,
+          captionCount: { $size: '$caption_requests' },
+          aiRequested: true, // Add the 'aiRequested' field with value 'true'
+        },
+      },
+      { $sort: { captionCount: -1 } },
+      { $limit: 3 }, // Limit to the top 3 AI requested videos
+    ]);
 
     const youtubeIds = userWishlist.map(entry => entry.youtube_id);
 
-    const statusMap = new Map();
-    userWishlist.forEach(entry => {
-      statusMap.set(entry.youtube_id, entry.status);
+    const top3AIRequestedVideos = await MongoVideosModel.find({ youtube_id: { $in: youtubeIds } }).select({
+      tags: 1,
+      _id: 1,
+      youtube_id: 1,
+      votes: 1,
+      status: 1,
+      created_at: 1,
+      updated_at: 1,
+      v: 1,
+      youtube_status: 1,
+      duration: 1,
+      category_id: 1,
+      category: 1,
+      aiRequested: true, // Add the 'aiRequested' field with value 'true'
     });
 
-    const wishListEntries = await MongoWishListModel.find({
-      youtube_id: { $in: youtubeIds },
-    })
-      .sort({ updated_at: -1 })
-      .limit(5); // Sort by updated_at field in descending order and limit to 5 entries
+    const top2WishlistVideos = await MongoWishListModel.find({ status: 'queued', youtube_status: 'available' }).sort({ votes: -1 }).limit(2);
 
-    const wishListEntriesWithStatus = wishListEntries.map(entry => ({
-      ...entry.toObject(),
-      status: statusMap.get(entry.youtube_id),
-    }));
+    top2WishlistVideos.forEach(video => {
+      video['aiRequested'] = false;
+    });
 
-    return wishListEntriesWithStatus;
+    return [...top3AIRequestedVideos, ...top2WishlistVideos];
   }
 
   public async getUserWishlist(user_id: string, pageNumber: string) {

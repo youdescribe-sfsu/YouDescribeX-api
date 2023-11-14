@@ -69,6 +69,17 @@ class WishListController {
       next(error);
     }
   };
+
+  public getTopWishList = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userData = req.user as unknown as IUser;
+      const wishlistResponse = await this.wishlistService.getTopWishlist(userData._id);
+      res.status(201).json(wishlistResponse);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   public removeOne = async (req: Request, res: Response) => {
     const userId: string = req.body.userId;
     const youTubeId: string = req.body.youTubeId;
