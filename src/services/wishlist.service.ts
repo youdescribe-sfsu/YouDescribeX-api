@@ -72,6 +72,51 @@ class WishListService {
     };
   }
 
+  public async getTopWishlist(user_id: string) {
+    if (!user_id) {
+      throw new HttpException(400, 'No data provided');
+    }
+    const userWishlist = await MongoAICaptionRequestModel.aggregate([
+      {
+        $project: {
+          _id: 1,
+          youtube_id: 1,
+          status: 1,
+          captionCount: { $size: '$caption_requests' },
+          aiRequested: true,
+        },
+      },
+      { $sort: { captionCount: -1 } },
+      { $limit: 3 },
+    ]);
+
+    const youtubeIds = userWishlist.map(entry => entry.youtube_id);
+
+    const top3AIRequestedVideos = await MongoVideosModel.find({ youtube_id: { $in: youtubeIds } }).select({
+      tags: 1,
+      _id: 1,
+      youtube_id: 1,
+      votes: 1,
+      status: 1,
+      created_at: 1,
+      updated_at: 1,
+      v: 1,
+      youtube_status: 1,
+      duration: 1,
+      category_id: 1,
+      category: 1,
+      aiRequested: true,
+    });
+
+    const top2WishlistVideos = await MongoWishListModel.find({ status: 'queued', youtube_status: 'available' }).sort({ votes: -1 }).limit(2);
+
+    top2WishlistVideos.forEach(video => {
+      video['aiRequested'] = false;
+    });
+
+    return [...top3AIRequestedVideos, ...top2WishlistVideos];
+  }
+
   public async getUserWishlist(user_id: string, pageNumber: string) {
     if (!user_id) {
       throw new HttpException(400, 'No data provided');

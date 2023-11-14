@@ -246,7 +246,6 @@ class UsersController {
       if (!userData) {
         throw new Error('User not found');
       }
-      console.log('USER DATA', JSON.stringify(userData));
       const response = await this.userService.aiDescriptionStatus(userData._id, youtube_id);
 
       res.status(201).json(response);
