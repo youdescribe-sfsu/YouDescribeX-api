@@ -22,7 +22,7 @@ import { logger } from '../utils/logger';
 import { isEmpty } from '../utils/util';
 import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
 import { ObjectId } from 'mongodb';
-import { getVideoDataByYoutubeId, isVideoAvailable } from './videos.util';
+import { isVideoAvailable } from './videos.util';
 
 const fs = require('fs');
 
@@ -472,11 +472,11 @@ class AudioDescriptionsService {
           video_length: video.duration,
           createdAt: video.created_at,
           updatedAt: video.updated_at,
-          audio_description_id: audioDescription ? audioDescription._id : null,
-          status: audioDescription ? audioDescription.status : null,
-          overall_rating_votes_average: audioDescription ? audioDescription.overall_rating_votes_average : null,
-          overall_rating_votes_counter: audioDescription ? audioDescription.overall_rating_votes_counter : null,
-          overall_rating_votes_sum: audioDescription ? audioDescription.overall_rating_votes_sum : null,
+          audio_description_id: audioDescription._id,
+          status: audioDescription.status,
+          overall_rating_votes_average: audioDescription.overall_rating_votes_average,
+          overall_rating_votes_counter: audioDescription.overall_rating_votes_counter,
+          overall_rating_votes_sum: audioDescription.overall_rating_votes_sum,
         });
 
         videosProcessed++;
@@ -506,11 +506,11 @@ class AudioDescriptionsService {
             video_length: additionalVideo.duration,
             createdAt: additionalVideo.created_at,
             updatedAt: additionalVideo.updated_at,
-            audio_description_id: additionalAudioDescription ? additionalAudioDescription._id : null,
-            status: additionalAudioDescription ? additionalAudioDescription.status : null,
-            overall_rating_votes_average: additionalAudioDescription ? additionalAudioDescription.overall_rating_votes_average : null,
-            overall_rating_votes_counter: additionalAudioDescription ? additionalAudioDescription.overall_rating_votes_counter : null,
-            overall_rating_votes_sum: additionalAudioDescription ? additionalAudioDescription.overall_rating_votes_sum : null,
+            audio_description_id: additionalAudioDescription._id,
+            status: additionalAudioDescription.status,
+            overall_rating_votes_average: additionalAudioDescription.overall_rating_votes_average,
+            overall_rating_votes_counter: additionalAudioDescription.overall_rating_votes_counter,
+            overall_rating_votes_sum: additionalAudioDescription.overall_rating_votes_sum,
           };
         });
 
