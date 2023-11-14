@@ -438,15 +438,12 @@ class AudioDescriptionsService {
     const ITEMS_PER_PAGE = 4;
     try {
       const page = parseInt(pageNumber, 10);
-      console.log('page', page);
 
       const skipCount = Math.max((page - 1) * ITEMS_PER_PAGE, 0);
 
       const distinctVideoIds = await MongoAudio_Descriptions_Model.distinct('video', {});
 
-      // Combine sorting and slicing for better performance
       const paginatedVideoIds = distinctVideoIds.sort((a, b) => b.created_at - a.created_at).slice(skipCount, skipCount + ITEMS_PER_PAGE);
-      console.log('paginated', paginatedVideoIds.length);
 
       const [recentAudioDescriptions, videos, totalVideos] = await Promise.all([
         MongoAudio_Descriptions_Model.find({ video: { $in: paginatedVideoIds } }),
@@ -458,7 +455,6 @@ class AudioDescriptionsService {
       let videosProcessed = 0;
 
       for (const video of videos) {
-        // Skip videos with null values for title or duration
         if (video.title === null || video.duration === null) {
           continue;
         }
@@ -481,7 +477,6 @@ class AudioDescriptionsService {
 
         videosProcessed++;
 
-        // Check if we have processed enough videos
         if (videosProcessed >= ITEMS_PER_PAGE) {
           break;
         }
@@ -490,12 +485,10 @@ class AudioDescriptionsService {
       if (result.length < ITEMS_PER_PAGE) {
         const remainingVideosCount = ITEMS_PER_PAGE - result.length;
 
-        // Fetch additional videos to fill the gap
         const additionalVideos = await MongoVideosModel.find({
-          _id: { $nin: result.map(video => video.video_id) }, // Exclude already processed videos
+          _id: { $nin: result.map(video => video.video_id) },
         }).limit(remainingVideosCount);
 
-        // Map and append additional videos to the result
         const additionalResults = additionalVideos.map(additionalVideo => {
           const additionalAudioDescription = recentAudioDescriptions.find(ad => ad.video.toString() === additionalVideo._id.toString());
 
@@ -516,9 +509,8 @@ class AudioDescriptionsService {
 
         result.push(...additionalResults);
       }
-      return result;
+      return { result: result, totalVideos: totalVideos };
     } catch (error) {
-      // Handle errors, log them, and possibly return an error response
       console.error('Error in getRecentDescriptions:', error);
       throw new Error('An error occurred while processing your request.');
     }
