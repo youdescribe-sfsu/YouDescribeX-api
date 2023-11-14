@@ -1,7 +1,7 @@
 import { WishListRequest } from '../dtos/wishlist.dto';
 import { IWishList } from '../models/mongodb/Wishlist.mongo';
 import { HttpException } from '../exceptions/HttpException';
-import { MongoAICaptionRequestModel, MongoUsersModel, MongoUserVotesModel, MongoVideosModel, MongoWishListModel } from '../models/mongodb/init-models.mongo';
+import { MongoAICaptionRequestModel, MongoUserVotesModel, MongoUsersModel, MongoVideosModel, MongoWishListModel } from '../models/mongodb/init-models.mongo';
 import { IUser } from '../models/mongodb/User.mongo';
 import { formattedDate, getYouTubeVideoStatus } from '../utils/util';
 import axios from 'axios';
