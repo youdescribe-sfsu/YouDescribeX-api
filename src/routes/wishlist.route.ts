@@ -15,6 +15,7 @@ class WishListRoute implements Routes {
     this.router.post(`${this.path}/add-one-wishlist-item`, this.wishListController.addOneWishlistItem);
     this.router.post(`${this.path}/get-all-wishlist`, this.wishListController.getAllWishlist);
     this.router.get(`${this.path}/get-user-wishlist`, this.wishListController.getUserWishlist);
+    this.router.get(`${this.path}/get-top-wishlist`, this.wishListController.getTopWishList);
     this.router.get(`${this.path}/top`, this.wishListController.getTopWishListItems);
     this.router.delete(`${this.path}/removeone`, this.wishListController.removeOne);
   }
