@@ -133,6 +133,18 @@ class VideosController {
       res.status(ret.status).json(ret);
     }
   };
+
+  public getYoutubeDataFromCache = async (req: Request, res: Response, next: NextFunction) => {
+    const youtubeIds = req.query.youtubeids as string;
+    const key = req.query.key as string;
+
+    try {
+      const result = await this.videosService.getYoutubeDataFromCache(youtubeIds, key);
+      res.status(result.status).json(result);
+    } catch (error) {
+      res.status(500).json({ status: 500, error: 'Internal Server Error' });
+    }
+  };
 }
 
 export default VideosController;
