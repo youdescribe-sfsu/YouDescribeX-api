@@ -404,6 +404,19 @@ class VideosService {
       }
     }
   }
+  public async startMidnightVideoProcessing(): Promise<void> {
+    const now = moment();
+    const midnight = moment().startOf('day');
+
+    const timeUntilMidnight = midnight.diff(now);
+
+    setTimeout(() => {
+      this.processYouTubeVideos();
+      setInterval(() => {
+        this.processYouTubeVideos();
+      }, 24 * 60 * 60 * 1000);
+    }, timeUntilMidnight);
+  }
 }
 
 export default VideosService;
