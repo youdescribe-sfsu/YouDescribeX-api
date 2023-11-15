@@ -1,5 +1,5 @@
 import { HttpException } from '../exceptions/HttpException';
-import { isEmpty } from '../utils/util';
+import { isEmpty, convertISO8601ToSeconds } from '../utils/util';
 import { CURRENT_DATABASE } from '../config';
 import { PostGres_Notes, PostGres_Users, UsersAttributes, VideosAttributes } from '../models/postgres/init-models';
 import { PostGres_Videos } from '../models/postgres/init-models';
@@ -16,6 +16,11 @@ import {
 import { IVideo } from '../models/mongodb/Videos.mongo';
 import { logger } from '../utils/logger';
 import { getVideoDataByYoutubeId } from './videos.util';
+import cache from 'memory-cache';
+import moment from 'moment';
+import request from 'axios';
+import axios from 'axios';
+
 class VideosService {
   public async getVideobyYoutubeId(youtubeId: string): Promise<IVideo | VideosAttributes> {
     if (isEmpty(youtubeId)) throw new HttpException(400, 'youtubeId is empty');
@@ -270,6 +275,133 @@ class VideosService {
       return videosFiltered;
     } catch (err) {
       throw new Error('Error fetching videos: ' + err);
+    }
+  }
+
+  public async processYouTubeVideos(): Promise<void> {
+    const midnight = '00:00:00';
+    let now: string | null = null;
+
+    setInterval(async () => {
+      now = moment().format('H:mm:ss');
+      if (now === midnight) {
+        const youTubeApiKey = `${process.env.YOUTUBE_API_KEY}`; // Replace with your actual YouTube API key
+
+        try {
+          const videos = await MongoVideosModel.find({
+            $or: [{ youtube_status: '' }, { youtube_status: { $exists: false } }],
+          })
+            .limit(1000)
+            .exec();
+
+          for (const video of videos) {
+            const videoDetails = await this.getYouTubeVideoDetails(video.youtube_id, youTubeApiKey);
+
+            if (videoDetails) {
+              const { duration, tags, categoryId } = videoDetails;
+              const category = await this.getYouTubeCategory(categoryId, youTubeApiKey);
+
+              const toUpdate = {
+                tags: tags,
+                category_id: categoryId,
+                category: category,
+                duration: duration,
+                youtube_status: 'available',
+              };
+
+              const updatedVideo = await MongoVideosModel.findOneAndUpdate({ youtube_id: video.youtube_id }, { $set: toUpdate }, { new: true }).exec();
+
+              console.log(updatedVideo?.youtube_id + '; available');
+            } else {
+              const toUpdate = {
+                youtube_status: 'unavailable',
+              };
+
+              const updatedVideo = await MongoVideosModel.findOneAndUpdate({ youtube_id: video.youtube_id }, { $set: toUpdate }, { new: true }).exec();
+
+              console.log(updatedVideo?.youtube_id + '; unavailable');
+            }
+            Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+          }
+        } catch (error) {
+          console.error('Error:', error);
+        }
+      }
+    }, 1000);
+  }
+
+  private async getYouTubeVideoDetails(videoId: string, apiKey: string): Promise<{ duration: number; tags: string[]; categoryId: string } | null> {
+    return new Promise(resolve => {
+      request.get(
+        `${process.env.YOUTUBE_API_URL}/videos?id=${videoId}&part=contentDetails,snippet,statistics&forUsername=iamOTHER&key=${apiKey}`,
+        (err, response, body) => {
+          if (!err) {
+            const jsonObj = JSON.parse(body);
+            if (jsonObj.items.length > 0) {
+              const duration = convertISO8601ToSeconds(jsonObj.items[0].contentDetails.duration);
+              const tags = jsonObj.items[0].snippet.tags || [];
+              const categoryId = jsonObj.items[0].snippet.categoryId;
+
+              resolve({ duration, tags, categoryId });
+            } else {
+              resolve(null);
+            }
+          } else {
+            resolve(null);
+          }
+        },
+      );
+    });
+  }
+
+  private async getYouTubeCategory(categoryId: string, apiKey: string) {
+    return new Promise(resolve => {
+      request.get(`${process.env.YOUTUBE_API_URL}/videoCategories?id=${categoryId}&part=snippet&forUsername=iamOTHER&key=${apiKey}`, (err, response, body) => {
+        if (!err) {
+          const jsonObj = JSON.parse(body);
+          let category = '';
+          for (let i = 0; i < jsonObj.items.length; ++i) {
+            if (i > 0) {
+              category += ',';
+            }
+            category += jsonObj.items[i].snippet.title;
+          }
+
+          resolve(category);
+        } else {
+          resolve('');
+        }
+      });
+    });
+  }
+
+  public async getYoutubeDataFromCache(youtubeIds: string, key: string) {
+    const youtubeIdsCacheKey = key + 'YoutubeIds';
+    const youtubeDataCacheKey = key + 'YoutubeData';
+
+    if (youtubeIds === cache.get(youtubeIdsCacheKey)) {
+      console.log(`loading ${key} from cache`);
+      const ret = { status: 200 };
+      ret.result = cache.get(youtubeDataCacheKey);
+      return ret;
+    } else {
+      cache.put(youtubeIdsCacheKey, youtubeIds);
+
+      try {
+        const response = await axios.get(
+          `${process.env.YOUTUBE_API_URL}/videos?id=${youtubeIds}&part=contentDetails,snippet,statistics&key=${process.env.YOUTUBE_API_KEY}`,
+        );
+
+        console.log(`loading ${key} from youtube`);
+        numOfVideosFromYoutube += youtubeIds.split(',').length;
+        cache.put(youtubeDataCacheKey, response.data);
+        const ret = { status: 200 };
+        ret.result = response.data;
+        return ret;
+      } catch (error) {
+        console.error('Error fetching data from YouTube API:', error.message);
+        throw error;
+      }
     }
   }
 }
