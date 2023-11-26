@@ -438,19 +438,15 @@ class AudioDescriptionsService {
     const ITEMS_PER_PAGE = 4;
     try {
       const page = parseInt(pageNumber, 10);
-
       const skipCount = Math.max((page - 1) * ITEMS_PER_PAGE, 0);
-
       const distinctVideoIds = await MongoAudio_Descriptions_Model.distinct('video', {});
-
-      const paginatedVideoIds = distinctVideoIds.sort((a, b) => b.created_at - a.created_at).slice(skipCount, skipCount + ITEMS_PER_PAGE);
-
+      const sortedDistinctVideoIds = distinctVideoIds.sort((a, b) => b.created_at - a.created_at);
+      const paginatedVideoIds = sortedDistinctVideoIds.slice(skipCount, skipCount + ITEMS_PER_PAGE);
       const [recentAudioDescriptions, videos, totalVideos] = await Promise.all([
         MongoAudio_Descriptions_Model.find({ video: { $in: paginatedVideoIds } }),
         MongoVideosModel.find({ _id: { $in: paginatedVideoIds } }),
         MongoAudio_Descriptions_Model.countDocuments(),
       ]);
-
       const result = [];
       let videosProcessed = 0;
 
@@ -489,9 +485,12 @@ class AudioDescriptionsService {
           _id: { $nin: result.map(video => video.video_id) },
         }).limit(remainingVideosCount);
 
+        const newAudioDescriptions = await MongoAudio_Descriptions_Model.find({ video: { $in: additionalVideos } });
         const additionalResults = additionalVideos.map(additionalVideo => {
-          const additionalAudioDescription = recentAudioDescriptions.find(ad => ad.video.toString() === additionalVideo._id.toString());
-
+          const additionalAudioDescription = newAudioDescriptions.find(ad => ad.video.toString() === additionalVideo._id.toString());
+          if (!additionalAudioDescription) {
+            console.error(`Additional audio description not found for video ID: ${additionalVideo._id}`);
+          }
           return {
             video_id: additionalVideo._id,
             youtube_video_id: additionalVideo.youtube_id,
