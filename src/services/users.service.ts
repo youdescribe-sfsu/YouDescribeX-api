@@ -998,10 +998,8 @@ class UserService {
           visited_videos: [youtube_id],
         };
 
-        // Insert a new user document and get the inserted document
         const insertedDocument = await MongoHistoryModel.create(newUserDocument);
 
-        // Return the visited videos of the newly created document
         return insertedDocument.visited_videos;
       }
     } catch (error) {
@@ -1015,6 +1013,7 @@ class UserService {
       throw new HttpException(400, 'No data provided');
     }
 
+    const latestVideoMap = new Map();
     const page = parseInt(pageNumber, 10);
     const perPage = 4;
     const skipCount = Math.max((page - 1) * perPage, 0);
@@ -1025,12 +1024,17 @@ class UserService {
     const visitedVideosArray = visitedVideosHistory.map(history => history.visited_videos)[0];
     const visitedYoutubeVideosIds = visitedVideosArray.slice(skipCount, skipCount + perPage);
     const videos = await MongoVideosModel.find({ youtube_id: { $in: visitedYoutubeVideosIds } });
-    const videoIds = videos.map(videoId => videoId._id);
+    videos.forEach(video => {
+      const existingVideo = latestVideoMap.get(video.youtube_id);
+      console.log(existingVideo);
+      if (!existingVideo || video.updated_at > existingVideo.updated_at) {
+        latestVideoMap.set(video.youtube_id, video);
+      }
+    });
+    const latestVideos = Array.from(latestVideoMap.values());
+    const videoIds = latestVideos.map(videoId => videoId._id);
     const audioDescription = await MongoAudio_Descriptions_Model.find({ video: { $in: videoIds } });
-
-    const totalCount = await MongoVideosModel.countDocuments({ youtube_id: { $in: visitedYoutubeVideosIds } });
-
-    const return_val = videos.map(video => {
+    const return_val = latestVideos.map(video => {
       const descriptions = audioDescription.find(ad => ad.video.toString() === video._id.toString());
       return {
         video_id: video._id,
@@ -1047,7 +1051,7 @@ class UserService {
       };
     });
 
-    return { result: return_val, totalVideos: totalCount };
+    return { result: return_val, totalVideos: visitedVideosArray.length };
   }
 }
 
