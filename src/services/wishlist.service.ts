@@ -105,7 +105,10 @@ class WishListService {
       duration: 1,
       category_id: 1,
       category: 1,
-      aiRequested: true,
+    });
+
+    top3AIRequestedVideos.forEach(video => {
+      video['aiRequested'] = true;
     });
 
     const top2WishlistVideos = await MongoWishListModel.find({ status: 'queued', youtube_status: 'available' }).sort({ votes: -1 }).limit(2);
