@@ -164,7 +164,7 @@ class WishListService {
       status: statusMap.get(entry.youtube_id),
     }));
 
-    // return wishListEntriesWithStatus;
+    return wishListEntriesWithStatus;
   }
 
   public async addOneWishlistItem(youtube_id: string, user: IUser): Promise<any> {
