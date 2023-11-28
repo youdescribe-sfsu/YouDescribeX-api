@@ -20,6 +20,7 @@ import cache from 'memory-cache';
 import moment from 'moment';
 import request from 'axios';
 import axios from 'axios';
+import App from '../App';
 
 class VideosService {
   public async getVideobyYoutubeId(youtubeId: string): Promise<IVideo | VideosAttributes> {
@@ -381,7 +382,7 @@ class VideosService {
 
     if (youtubeIds === cache.get(youtubeIdsCacheKey)) {
       console.log(`loading ${key} from cache`);
-      const ret = { status: 200 };
+      const ret = { status: 200, result: undefined };
       ret.result = cache.get(youtubeDataCacheKey);
       return ret;
     } else {
@@ -393,9 +394,9 @@ class VideosService {
         );
 
         console.log(`loading ${key} from youtube`);
-        numOfVideosFromYoutube += youtubeIds.split(',').length;
+        App.numOfVideosFromYoutube += youtubeIds.split(',').length;
         cache.put(youtubeDataCacheKey, response.data);
-        const ret = { status: 200 };
+        const ret = { status: 200, result: undefined };
         ret.result = response.data;
         return ret;
       } catch (error) {
