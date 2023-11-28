@@ -33,6 +33,7 @@ class WishListService {
     if (category.length > 0) {
       categoryRegex = category.join('|');
     }
+
     const wishListItems: Array<IWishListResponse> = await MongoWishListModel.aggregate().facet({
       items: [
         {
@@ -48,6 +49,25 @@ class WishListService {
         { $sort: sortOptions },
         { $skip: skip },
         { $limit: pageSize },
+        {
+          $lookup: {
+            from: 'AICaptionRequests',
+            localField: 'youtube_id',
+            foreignField: 'youtube_id',
+            as: 'aiCaptionRequests',
+          },
+        },
+        {
+          $addFields: {
+            aiRequested: {
+              $cond: {
+                if: { $gt: [{ $size: '$aiCaptionRequests' }, 0] },
+                then: true,
+                else: false,
+              },
+            },
+          },
+        },
       ],
       count: [
         {
