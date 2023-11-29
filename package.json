@@ -46,6 +46,7 @@
     "express": "^4.17.3",
     "get-mp3-duration": "^1.0.0",
     "js-yaml": "^4.1.0",
+    "memory-cache": "^0.2.0",
     "mime-types": "^2.1.35",
     "moment": "^2.29.4",
     "mongoose": "^6.9.1",
