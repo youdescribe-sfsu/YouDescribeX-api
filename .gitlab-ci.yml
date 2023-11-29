@@ -33,7 +33,7 @@ build-stage:
 
   script:
     - echo "Building YouDescribe Backend in staging"
-    - docker build --no-cache --build-arg APP_PORT=$PORT --build-arg GOOGLE_CRED_FILE=$GOOGLE_CRED_FILE --build-arg GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS --build-arg GPU_PIPELINE_PORT=$GPU_PIPELINE_PORT -t "${DOCKER_IMAGE_TAG}" .
+    - docker build --no-cache --build-arg APP_PORT=$PORT --build-arg GOOGLE_CRED_FILE=$GOOGLE_CRED_FILE --build-arg GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS --build-arg GPU_PIPELINE_PORT=$GPU_PIPELINE_PORT --build-arg CRYPTO_SEED=$CRYPTO_SEED -t "${DOCKER_IMAGE_TAG}" .
     - docker push "${DOCKER_IMAGE_TAG}"
     - echo "Build complete"
 
