@@ -18,7 +18,6 @@ import { logger } from '../utils/logger';
 import { getVideoDataByYoutubeId } from './videos.util';
 import cache from 'memory-cache';
 import moment from 'moment';
-import request from 'axios';
 import axios from 'axios';
 import App from '../App';
 
@@ -332,48 +331,51 @@ class VideosService {
   }
 
   private async getYouTubeVideoDetails(videoId: string, apiKey: string): Promise<{ duration: number; tags: string[]; categoryId: string } | null> {
-    return new Promise(resolve => {
-      request.get(
-        `${process.env.YOUTUBE_API_URL}/videos?id=${videoId}&part=contentDetails,snippet,statistics&forUsername=iamOTHER&key=${apiKey}`,
-        (err, response, body) => {
-          if (!err) {
-            const jsonObj = JSON.parse(body);
-            if (jsonObj.items.length > 0) {
-              const duration = convertISO8601ToSeconds(jsonObj.items[0].contentDetails.duration);
-              const tags = jsonObj.items[0].snippet.tags || [];
-              const categoryId = jsonObj.items[0].snippet.categoryId;
-
-              resolve({ duration, tags, categoryId });
-            } else {
-              resolve(null);
-            }
-          } else {
-            resolve(null);
-          }
+    try {
+      const response = await axios.get(`${process.env.YOUTUBE_API_URL}/videos`, {
+        params: {
+          id: videoId,
+          part: 'contentDetails,snippet,statistics',
+          forUsername: 'iamOTHER',
+          key: apiKey,
         },
-      );
-    });
+      });
+
+      const data = response.data;
+
+      if (data.items.length > 0) {
+        const duration = convertISO8601ToSeconds(data.items[0].contentDetails.duration);
+        const tags = data.items[0].snippet.tags || [];
+        const categoryId = data.items[0].snippet.categoryId;
+
+        return { duration, tags, categoryId };
+      } else {
+        return null;
+      }
+    } catch (error) {
+      console.error('Error in getYouTubeVideoDetails:', error);
+      return null;
+    }
   }
 
   private async getYouTubeCategory(categoryId: string, apiKey: string) {
-    return new Promise(resolve => {
-      request.get(`${process.env.YOUTUBE_API_URL}/videoCategories?id=${categoryId}&part=snippet&forUsername=iamOTHER&key=${apiKey}`, (err, response, body) => {
-        if (!err) {
-          const jsonObj = JSON.parse(body);
-          let category = '';
-          for (let i = 0; i < jsonObj.items.length; ++i) {
-            if (i > 0) {
-              category += ',';
-            }
-            category += jsonObj.items[i].snippet.title;
-          }
-
-          resolve(category);
-        } else {
-          resolve('');
-        }
+    try {
+      const response = await axios.get(`${process.env.YOUTUBE_API_URL}/videoCategories`, {
+        params: {
+          id: categoryId,
+          part: 'snippet',
+          forUsername: 'iamOTHER',
+          key: apiKey,
+        },
       });
-    });
+
+      const category = response.data.items.map((item: any) => item.snippet.title).join(',');
+
+      return category;
+    } catch (error) {
+      console.error('Error in getYouTubeCategory:', error);
+      return '';
+    }
   }
 
   public async getYoutubeDataFromCache(youtubeIds: string, key: string) {
