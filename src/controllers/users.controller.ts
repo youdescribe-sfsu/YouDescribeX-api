@@ -246,6 +246,7 @@ class UsersController {
       if (!userData) {
         throw new Error('User not found');
       }
+      console.log('USER DATA', JSON.stringify(userData));
       const response = await this.userService.aiDescriptionStatus(userData._id, youtube_id);
 
       res.status(201).json(response);
@@ -302,8 +303,8 @@ class UsersController {
 
   public saveVisitedVideosHistory = async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const userData = req.body.userId as unknown as IUser;
       const youtubeId = req.body.youtube_id;
-      const userData = req.user as unknown as IUser;
       if (!userData) {
         throw new Error('User not logged in');
       }

@@ -1,7 +1,7 @@
 import { WishListRequest } from '../dtos/wishlist.dto';
 import { IWishList } from '../models/mongodb/Wishlist.mongo';
 import { HttpException } from '../exceptions/HttpException';
-import { MongoAICaptionRequestModel, MongoUserVotesModel, MongoUsersModel, MongoVideosModel, MongoWishListModel } from '../models/mongodb/init-models.mongo';
+import { MongoAICaptionRequestModel, MongoUsersModel, MongoUserVotesModel, MongoVideosModel, MongoWishListModel } from '../models/mongodb/init-models.mongo';
 import { IUser } from '../models/mongodb/User.mongo';
 import { formattedDate, getYouTubeVideoStatus } from '../utils/util';
 import axios from 'axios';
@@ -33,6 +33,7 @@ class WishListService {
     if (category.length > 0) {
       categoryRegex = category.join('|');
     }
+
     const wishListItems: Array<IWishListResponse> = await MongoWishListModel.aggregate().facet({
       items: [
         {
@@ -48,6 +49,25 @@ class WishListService {
         { $sort: sortOptions },
         { $skip: skip },
         { $limit: pageSize },
+        {
+          $lookup: {
+            from: 'AICaptionRequests',
+            localField: 'youtube_id',
+            foreignField: 'youtube_id',
+            as: 'aiCaptionRequests',
+          },
+        },
+        {
+          $addFields: {
+            aiRequested: {
+              $cond: {
+                if: { $gt: [{ $size: '$aiCaptionRequests' }, 0] },
+                then: true,
+                else: false,
+              },
+            },
+          },
+        },
       ],
       count: [
         {
@@ -83,7 +103,6 @@ class WishListService {
           youtube_id: 1,
           status: 1,
           captionCount: { $size: '$caption_requests' },
-          aiRequested: true,
         },
       },
       { $sort: { captionCount: -1 } },
@@ -105,16 +124,12 @@ class WishListService {
       duration: 1,
       category_id: 1,
       category: 1,
-      aiRequested: true,
     });
 
+    const top3WithAiRequested = top3AIRequestedVideos.map(video => ({ ...video.toObject(), aiRequested: true }));
     const top2WishlistVideos = await MongoWishListModel.find({ status: 'queued', youtube_status: 'available' }).sort({ votes: -1 }).limit(2);
-
-    top2WishlistVideos.forEach(video => {
-      video['aiRequested'] = false;
-    });
-
-    return [...top3AIRequestedVideos, ...top2WishlistVideos];
+    const top2WithAiRequested = top2WishlistVideos.map(video => ({ ...video.toObject(), aiRequested: false }));
+    return [...top3WithAiRequested, ...top2WithAiRequested];
   }
 
   public async getUserWishlist(user_id: string, pageNumber: string) {
