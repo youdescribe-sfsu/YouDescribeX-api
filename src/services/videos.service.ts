@@ -19,7 +19,7 @@ import { getVideoDataByYoutubeId } from './videos.util';
 import cache from 'memory-cache';
 import moment from 'moment';
 import axios from 'axios';
-import App from '../App';
+import App from '../app';
 
 class VideosService {
   public async getVideobyYoutubeId(youtubeId: string): Promise<IVideo | VideosAttributes> {
