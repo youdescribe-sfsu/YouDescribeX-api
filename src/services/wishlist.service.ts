@@ -156,6 +156,10 @@ class WishListService {
       aiRequestedMap.set(request.youtube_id, true);
     });
 
+    const totalVideos = await MongoWishListModel.countDocuments({
+      youtube_id: { $in: youtubeIds },
+    });
+
     const wishListEntries = await MongoWishListModel.find({
       youtube_id: { $in: youtubeIds },
     })
@@ -167,7 +171,7 @@ class WishListService {
       aiRequested: aiRequestedMap.get(entry.youtube_id) || false,
     }));
 
-    return wishListEntriesWithAiRequested;
+    return { result: wishListEntriesWithAiRequested, totalVideos: totalVideos };
   }
 
   public async addOneWishlistItem(youtube_id: string, user: IUser): Promise<any> {
