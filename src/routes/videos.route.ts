@@ -19,7 +19,6 @@ class VideosRoute implements Routes {
     this.router.get(`${this.path}/user/:userId`, this.videosController.getVideosForUserId);
     this.router.get(`${this.path}/:videoId`, this.videosController.getVideoById);
     this.router.get(`${this.path}/getyoutubedatafromcache`, this.videosController.getYoutubeDataFromCache);
-    this.router.get(`${this.path}/search`, this.videosController.searchVideos);
     // this.router.post(`${this.path}/create-new-user-ad`, this.usersController.createNewUserAudioDescription);
     // this.router.get(`${this.path}`, this.usersController.getUsers);
     // this.router.get(`${this.path}/:id`, this.usersController.getUserById);
