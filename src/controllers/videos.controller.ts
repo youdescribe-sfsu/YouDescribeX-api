@@ -145,19 +145,6 @@ class VideosController {
       res.status(500).json({ status: 500, error: 'Internal Server Error' });
     }
   };
-
-  async searchVideos(req: Request, res: Response): Promise<void> {
-    const searchTerm = req.query.q as unknown as string;
-    const pgNumber = Number(req.query.page);
-    const requestedVideoAmount = Number.isNaN(pgNumber) || pgNumber === 0 ? 30 : pgNumber * 30;
-    try {
-      const videos = await this.videosService.searchVideos(searchTerm, pgNumber, requestedVideoAmount);
-      res.status(200).json(videos);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json(error);
-    }
-  }
 }
 
 export default VideosController;
