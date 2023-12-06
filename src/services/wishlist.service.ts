@@ -142,15 +142,22 @@ class WishListService {
     const skipCount = Math.max((page - 1) * perPage, 0);
 
     const userIdObject = await MongoUsersModel.findById(user_id);
-    const userWishlist = await MongoAICaptionRequestModel.find({
+    const userVotes = await MongoUserVotesModel.find({
       user: userIdObject._id,
     });
 
-    const youtubeIds = userWishlist.map(entry => entry.youtube_id);
+    const youtubeIds = userVotes.map(entry => entry.youtube_id);
+    const aiRequestedMap = new Map();
+    const aiRequests = await MongoAICaptionRequestModel.find({
+      youtube_id: { $in: youtubeIds },
+    });
 
-    const statusMap = new Map();
-    userWishlist.forEach(entry => {
-      statusMap.set(entry.youtube_id, entry.status);
+    aiRequests.forEach(request => {
+      aiRequestedMap.set(request.youtube_id, true);
+    });
+
+    const totalVideos = await MongoWishListModel.countDocuments({
+      youtube_id: { $in: youtubeIds },
     });
 
     const wishListEntries = await MongoWishListModel.find({
@@ -159,12 +166,12 @@ class WishListService {
       .skip(skipCount)
       .limit(perPage);
 
-    const wishListEntriesWithStatus = wishListEntries.map(entry => ({
+    const wishListEntriesWithAiRequested = wishListEntries.map(entry => ({
       ...entry.toObject(),
-      status: statusMap.get(entry.youtube_id),
+      aiRequested: aiRequestedMap.get(entry.youtube_id) || false,
     }));
 
-    return wishListEntriesWithStatus;
+    return { result: wishListEntriesWithAiRequested, totalVideos: totalVideos };
   }
 
   public async addOneWishlistItem(youtube_id: string, user: IUser): Promise<any> {
