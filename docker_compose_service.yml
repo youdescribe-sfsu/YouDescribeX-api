@@ -1,12 +1,11 @@
 youdescribex-api:
   image: #DOCKER_IMAGE_TAG
   restart: always
-  network_mode: host
   ports:
     - "#PORT:#PORT"
-    - #GPU_PIPELINE_PORT:#GPU_PIPELINE_PORT
   extra_hosts:
-      - 'host.docker.internal:host-gateway'
+     - "host.docker.internal:host-gateway"
+  network_mode: host
   volumes:
     - "/home/ubuntu/ydx_data/public:/app/public"
     - "/home/ubuntu/ydx_data/logs:/app/logs"
@@ -22,7 +21,6 @@ youdescribex-api:
     - PASSPORT_REDIRECT_URL=#PASSPORT_REDIRECT_URL
     - PASSPORT_CALLBACK_URL=#PASSPORT_CALLBACK_URL
     - CRYPTO_SECRET=#CRYPTO_SECRET
-    - CRYPTO_SEED=#CRYPTO_SEED
     - CURRENT_DATABASE=#CURRENT_DATABASE
     - POSTGRES_DB_NAME=#POSTGRES_DB_NAME
     - POSTGRES_DB_USER=#POSTGRES_DB_USER
