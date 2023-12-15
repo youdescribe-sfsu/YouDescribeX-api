@@ -24,6 +24,7 @@ import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
 import { ObjectId } from 'mongodb';
 import { isVideoAvailable } from './videos.util';
 import audioDescriptionsController from '../controllers/audioDescriptions.controller';
+import audioDescriptionsController from '../controllers/audioDescriptions.controller';
 
 const fs = require('fs');
 
@@ -442,9 +443,12 @@ class AudioDescriptionsService {
 
       // Get distinct video ids associated with the user
       const distinctVideoIds = await MongoAudio_Descriptions_Model.distinct('video', { user: userIdObject._id });
+
+      // Get distinct video ids associated with the user
+      const distinctVideoIds = await MongoAudio_Descriptions_Model.distinct('video', { user: userIdObject._id });
       const sortedDistinctVideoIds = distinctVideoIds.sort((a, b) => b.created_at - a.created_at);
       const paginatedVideoIds = sortedDistinctVideoIds.slice(skipCount, skipCount + ITEMS_PER_PAGE);
-      // console.log('MY DESCRTIPTION');
+      console.log('MY DESCRTIPTION');
 
       // Retrieve audio descriptions based on paginated video ids and user
       const [recentAudioDescriptions, totalVideos] = await Promise.all([
@@ -474,6 +478,7 @@ class AudioDescriptionsService {
 
       return { result: result, totalVideos: totalVideos };
     } catch (error) {
+      console.error('Error in getMyDescriptions:', error);
       throw new Error('An error occurred while processing your request.');
     }
   }
