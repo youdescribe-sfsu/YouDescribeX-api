@@ -978,17 +978,17 @@ class UserService {
 
   public async saveVisitedVideosHistory(user_id: string, youtube_id: string) {
     try {
-      if (!user_id) {
+      if (!user_id || !youtube_id) {
         throw new HttpException(400, 'No data provided');
       }
 
       const userDocument = await MongoHistoryModel.findOne({ user: user_id });
-
       if (userDocument) {
-        // Check if the youtube_id is not already in the visited_videos array
         if (!userDocument.visited_videos.includes(youtube_id)) {
           userDocument.visited_videos.push(youtube_id);
           await MongoHistoryModel.updateOne({ _id: userDocument._id }, { $set: { visited_videos: userDocument.visited_videos } });
+        } else {
+          console.log(`Video with ID ${youtube_id} already exists in history for user ${user_id}`);
         }
 
         return userDocument.visited_videos;
@@ -1013,7 +1013,6 @@ class UserService {
       throw new HttpException(400, 'No data provided');
     }
 
-    const latestVideoMap = new Map();
     const page = parseInt(pageNumber, 10);
     const perPage = 4;
     const skipCount = Math.max((page - 1) * perPage, 0);
@@ -1021,28 +1020,41 @@ class UserService {
     const visitedVideosHistory = await MongoHistoryModel.find({
       user: userIdObject._id,
     });
-    const visitedVideosArray = visitedVideosHistory.map(history => history.visited_videos)[0];
-    const visitedYoutubeVideosIds = visitedVideosArray.slice(skipCount, skipCount + perPage);
-    const videos = await MongoVideosModel.find({ youtube_id: { $in: visitedYoutubeVideosIds } });
-    videos.forEach(video => {
-      const existingVideo = latestVideoMap.get(video.youtube_id);
-      console.log(existingVideo);
-      if (!existingVideo || video.updated_at > existingVideo.updated_at) {
-        latestVideoMap.set(video.youtube_id, video);
+
+    const visitedVideosArray = [...new Set(visitedVideosHistory.flatMap(history => history.visited_videos))];
+    const videos = [];
+    const adjustedSkipCount = skipCount;
+
+    for (let i = adjustedSkipCount; i < visitedVideosArray.length && videos.length < perPage; i++) {
+      const youtube_id = visitedVideosArray[i];
+
+      try {
+        const existingVideo = (await MongoVideosModel.findOne({ youtube_id })) || (await getYouTubeVideoStatus(youtube_id));
+        console.log(existingVideo ? 'existingVideo' : 'FETCHED VIDEO', existingVideo);
+
+        if (existingVideo) {
+          videos.push(existingVideo);
+        }
+      } catch (error) {
+        console.log('ERROR', error);
+
+        await MongoHistoryModel.updateOne({ user: userIdObject._id }, { $pull: { visited_videos: youtube_id } });
       }
-    });
-    const latestVideos = Array.from(latestVideoMap.values());
-    const videoIds = latestVideos.map(videoId => videoId._id);
+    }
+
+    const videoIds = videos.map(videoId => videoId._id);
     const audioDescription = await MongoAudio_Descriptions_Model.find({ video: { $in: videoIds } });
-    const return_val = latestVideos.map(video => {
-      const descriptions = audioDescription.find(ad => ad.video.toString() === video._id.toString());
+    const resultVideos = videos.map(video => {
+      const { _id, youtube_id, title, duration, created_at, updated_at } = video;
+      const descriptions = audioDescription.find(ad => ad.video.toString() === _id.toString());
+
       return {
-        video_id: video._id,
-        youtube_video_id: video.youtube_id,
-        video_name: video.title,
-        video_length: video.duration,
-        createdAt: video.created_at,
-        updatedAt: video.updated_at,
+        video_id: _id,
+        youtube_video_id: youtube_id,
+        video_name: title,
+        video_length: duration,
+        createdAt: created_at,
+        updatedAt: updated_at,
         audio_description_id: descriptions ? descriptions._id : null,
         status: descriptions ? descriptions.status : null,
         overall_rating_votes_average: descriptions ? descriptions.overall_rating_votes_average : null,
@@ -1051,7 +1063,7 @@ class UserService {
       };
     });
 
-    return { result: return_val, totalVideos: visitedVideosArray.length };
+    return { result: resultVideos, totalVideos: visitedVideosArray.length };
   }
 }
 
