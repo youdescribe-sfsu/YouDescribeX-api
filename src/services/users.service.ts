@@ -975,6 +975,7 @@ class UserService {
   public async saveVisitedVideosHistory(user_id: string, youtube_id: string) {
     try {
       if (!user_id || !youtube_id) {
+      if (!user_id || !youtube_id) {
         throw new HttpException(400, 'No data provided');
       }
 
@@ -984,7 +985,7 @@ class UserService {
           userDocument.visited_videos.push(youtube_id);
           await MongoHistoryModel.updateOne({ _id: userDocument._id }, { $set: { visited_videos: userDocument.visited_videos } });
         } else {
-          // console.log(`Video with ID ${youtube_id} already exists in history for user ${user_id}`);
+          console.log(`Video with ID ${youtube_id} already exists in history for user ${user_id}`);
         }
 
         return userDocument.visited_videos;
@@ -1026,13 +1027,13 @@ class UserService {
 
       try {
         const existingVideo = (await MongoVideosModel.findOne({ youtube_id })) || (await getYouTubeVideoStatus(youtube_id));
-        // console.log(existingVideo ? 'existingVideo' : 'FETCHED VIDEO', existingVideo);
+        console.log(existingVideo ? 'existingVideo' : 'FETCHED VIDEO', existingVideo);
 
         if (existingVideo) {
           videos.push(existingVideo);
         }
       } catch (error) {
-        // console.log('ERROR', error);
+        console.log('ERROR', error);
 
         await MongoHistoryModel.updateOne({ user: userIdObject._id }, { $pull: { visited_videos: youtube_id } });
       }
@@ -1059,6 +1060,7 @@ class UserService {
       };
     });
 
+    return { result: resultVideos, totalVideos: visitedVideosArray.length };
     return { result: resultVideos, totalVideos: visitedVideosArray.length };
   }
 }
