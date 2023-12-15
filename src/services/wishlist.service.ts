@@ -143,20 +143,6 @@ class WishListService {
 
     // const filteredTop3AIRequested = top3AIRequestedVideos.filter(video => !top3UniqueYouTubeIds.includes(video.youtube_id));
 
-    const top3UniqueYouTubeIds = [...new Set(top3AIRequestedVideos.map(video => video.youtube_id))];
-
-    const top2WishlistVideos = await MongoWishListModel.find({
-      status: 'queued',
-      youtube_status: 'available',
-      youtube_id: { $nin: top3UniqueYouTubeIds },
-    })
-      .sort({ votes: -1 })
-      .limit(2);
-
-    const top2WithAiRequested = top2WishlistVideos.map(video => ({ ...video.toObject(), aiRequested: false }));
-
-    // const filteredTop3AIRequested = top3AIRequestedVideos.filter(video => !top3UniqueYouTubeIds.includes(video.youtube_id));
-
     const top3WithAiRequested = top3AIRequestedVideos.map(video => ({ ...video.toObject(), aiRequested: true }));
     const user_votes = await MongoUserVotesModel.find({ user: user_id });
 
@@ -180,8 +166,7 @@ class WishListService {
 
     const userIdObject = await MongoUsersModel.findById(user_id);
     const userVotes = await MongoUserVotesModel.find({
-    const userVotes = await MongoUserVotesModel.find({
-      user: userIdObject._id,
+          user: userIdObject._id,
     });
 
     const youtubeIds = userVotes.map(entry => entry.youtube_id);
@@ -201,9 +186,7 @@ class WishListService {
       .limit(perPage);
 
     const wishListEntriesWithAiRequested = wishListEntries.map(entry => ({
-    const wishListEntriesWithAiRequested = wishListEntries.map(entry => ({
       ...entry.toObject(),
-      aiRequested: aiRequestedMap.get(entry.youtube_id) || false,
       aiRequested: aiRequestedMap.get(entry.youtube_id) || false,
     }));
 
