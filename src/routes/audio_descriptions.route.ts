@@ -21,7 +21,7 @@ class AudioDescriptionsRoute implements Routes {
 
     this.router.get(`${this.path}/get-audio-description/:audioDescriptionId`, this.audioDescriptionsController.getAudioDescription);
 
-    this.router.get(`${this.path}/get-recent-descriptions`, this.audioDescriptionsController.getRecentDescriptions);
+    this.router.get(`${this.path}/get-my-descriptions`, this.audioDescriptionsController.getMyDescriptions);
   }
 }
 
