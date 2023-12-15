@@ -126,9 +126,25 @@ class WishListService {
       category: 1,
     });
 
-    const top3WithAiRequested = top3AIRequestedVideos.map(video => ({ ...video.toObject(), aiRequested: true }));
-    const top2WishlistVideos = await MongoWishListModel.find({ status: 'queued', youtube_status: 'available' }).sort({ votes: -1 }).limit(2);
+    const top3UniqueYouTubeIds = [...new Set(top3AIRequestedVideos.map(video => video.youtube_id))];
+    console.log('top3UniqueYouTubeIds:', top3UniqueYouTubeIds);
+    console.log('top3AIRequestedVideos:', top3AIRequestedVideos);
+
+    const top2WishlistVideos = await MongoWishListModel.find({
+      status: 'queued',
+      youtube_status: 'available',
+      youtube_id: { $nin: top3UniqueYouTubeIds },
+    })
+      .sort({ votes: -1 })
+      .limit(2);
+
     const top2WithAiRequested = top2WishlistVideos.map(video => ({ ...video.toObject(), aiRequested: false }));
+
+    // const filteredTop3AIRequested = top3AIRequestedVideos.filter(video => !top3UniqueYouTubeIds.includes(video.youtube_id));
+
+    const top3WithAiRequested = top3AIRequestedVideos.map(video => ({ ...video.toObject(), aiRequested: true }));
+
+    console.log(...top3WithAiRequested, ...top2WithAiRequested);
     return [...top3WithAiRequested, ...top2WithAiRequested];
   }
 
