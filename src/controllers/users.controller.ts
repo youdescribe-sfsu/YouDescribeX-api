@@ -303,7 +303,7 @@ class UsersController {
 
   public saveVisitedVideosHistory = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userData = req.body.userId as unknown as IUser;
+      const userData = req.user as unknown as IUser;
       const youtubeId = req.body.youtube_id;
       if (!userData) {
         throw new Error('User not logged in');

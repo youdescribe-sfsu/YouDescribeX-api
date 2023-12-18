@@ -23,6 +23,7 @@ import { isEmpty } from '../utils/util';
 import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
 import { ObjectId } from 'mongodb';
 import { isVideoAvailable } from './videos.util';
+import audioDescriptionsController from '../controllers/audioDescriptions.controller';
 
 const fs = require('fs');
 
@@ -434,83 +435,48 @@ class AudioDescriptionsService {
     return newObj;
   };
 
-  public async getRecentDescriptions(pageNumber: string) {
+  public async getMyDescriptions(user_id: string, pageNumber: string) {
     const ITEMS_PER_PAGE = 4;
     try {
+      const userIdObject = await MongoUsersModel.findById(user_id);
       const page = parseInt(pageNumber, 10);
       const skipCount = Math.max((page - 1) * ITEMS_PER_PAGE, 0);
-      const distinctVideoIds = await MongoAudio_Descriptions_Model.distinct('video', {});
+
+      // Get distinct video ids associated with the user
+      const distinctVideoIds = await MongoAudio_Descriptions_Model.distinct('video', { user: userIdObject._id });
       const sortedDistinctVideoIds = distinctVideoIds.sort((a, b) => b.created_at - a.created_at);
       const paginatedVideoIds = sortedDistinctVideoIds.slice(skipCount, skipCount + ITEMS_PER_PAGE);
-      const [recentAudioDescriptions, videos, totalVideos] = await Promise.all([
-        MongoAudio_Descriptions_Model.find({ video: { $in: paginatedVideoIds } }),
-        MongoVideosModel.find({ _id: { $in: paginatedVideoIds } }),
-        MongoAudio_Descriptions_Model.countDocuments(),
+      console.log('MY DESCRTIPTION');
+
+      // Retrieve audio descriptions based on paginated video ids and user
+      const [recentAudioDescriptions, totalVideos] = await Promise.all([
+        MongoAudio_Descriptions_Model.find({ video: { $in: paginatedVideoIds }, user: user_id }),
+        MongoAudio_Descriptions_Model.countDocuments({ user: user_id }),
       ]);
-      const result = [];
-      let videosProcessed = 0;
 
-      for (const video of videos) {
-        if (video.title === null || video.duration === null) {
-          continue;
-        }
+      const result = await Promise.all(
+        recentAudioDescriptions.map(async audioDescription => {
+          const video = await MongoVideosModel.findById(audioDescription.video);
 
-        const audioDescription = recentAudioDescriptions.find(ad => ad.video.toString() === video._id.toString());
-
-        result.push({
-          video_id: video._id,
-          youtube_video_id: video.youtube_id,
-          video_name: video.title,
-          video_length: video.duration,
-          createdAt: video.created_at,
-          updatedAt: video.updated_at,
-          audio_description_id: audioDescription._id,
-          status: audioDescription.status,
-          overall_rating_votes_average: audioDescription.overall_rating_votes_average,
-          overall_rating_votes_counter: audioDescription.overall_rating_votes_counter,
-          overall_rating_votes_sum: audioDescription.overall_rating_votes_sum,
-        });
-
-        videosProcessed++;
-
-        if (videosProcessed >= ITEMS_PER_PAGE) {
-          break;
-        }
-      }
-
-      if (result.length < ITEMS_PER_PAGE) {
-        const remainingVideosCount = ITEMS_PER_PAGE - result.length;
-
-        const additionalVideos = await MongoVideosModel.find({
-          _id: { $nin: result.map(video => video.video_id) },
-        }).limit(remainingVideosCount);
-
-        const newAudioDescriptions = await MongoAudio_Descriptions_Model.find({ video: { $in: additionalVideos } });
-        const additionalResults = additionalVideos.map(additionalVideo => {
-          const additionalAudioDescription = newAudioDescriptions.find(ad => ad.video.toString() === additionalVideo._id.toString());
-          if (!additionalAudioDescription) {
-            console.error(`Additional audio description not found for video ID: ${additionalVideo._id}`);
-          }
           return {
-            video_id: additionalVideo._id,
-            youtube_video_id: additionalVideo.youtube_id,
-            video_name: additionalVideo.title,
-            video_length: additionalVideo.duration,
-            createdAt: additionalVideo.created_at,
-            updatedAt: additionalVideo.updated_at,
-            audio_description_id: additionalAudioDescription._id,
-            status: additionalAudioDescription.status,
-            overall_rating_votes_average: additionalAudioDescription.overall_rating_votes_average,
-            overall_rating_votes_counter: additionalAudioDescription.overall_rating_votes_counter,
-            overall_rating_votes_sum: additionalAudioDescription.overall_rating_votes_sum,
+            video_id: video._id,
+            youtube_video_id: video.youtube_id,
+            video_name: video.title,
+            video_length: video.duration,
+            createdAt: video.created_at,
+            updatedAt: video.updated_at,
+            audio_description_id: audioDescription._id,
+            status: audioDescription.status,
+            overall_rating_votes_average: audioDescription.overall_rating_votes_average,
+            overall_rating_votes_counter: audioDescription.overall_rating_votes_counter,
+            overall_rating_votes_sum: audioDescription.overall_rating_votes_sum,
           };
-        });
+        }),
+      );
 
-        result.push(...additionalResults);
-      }
       return { result: result, totalVideos: totalVideos };
     } catch (error) {
-      console.error('Error in getRecentDescriptions:', error);
+      console.error('Error in getMyDescriptions:', error);
       throw new Error('An error occurred while processing your request.');
     }
   }
