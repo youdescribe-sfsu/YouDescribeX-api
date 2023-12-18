@@ -103,10 +103,11 @@ class AudioDescripionsController {
     }
   };
 
-  public getRecentDescriptions = async (req: Request, res: Response, next: NextFunction) => {
+  public getMyDescriptions = async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const userData = req.user as unknown as IUser;
       const pageNumber = req.query.pageNumber as string;
-      const audioDescription = await this.audioDescriptionsService.getRecentDescriptions(pageNumber);
+      const audioDescription = await this.audioDescriptionsService.getMyDescriptions(userData._id, pageNumber);
 
       res.status(200).json(audioDescription);
     } catch (error) {
