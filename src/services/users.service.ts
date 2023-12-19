@@ -662,7 +662,7 @@ class UserService {
     user_id: string,
     youtube_id: string,
     ai_user_id: string,
-  ): Promise<{ status: string; requested: boolean; url?: string; aiDescriptionId?: string }> {
+  ): Promise<{ status: string; requested: boolean; url?: string; aiDescriptionId?: string; preview?: boolean }> {
     try {
       if (!user_id || !youtube_id) {
         throw new HttpException(400, 'Missing user_id or youtube_id');
@@ -693,7 +693,7 @@ class UserService {
         return {
           status: 'completed',
           requested: true,
-
+          preview: false,
           url: `${youtube_id}/${checkIfAudioDescriptionExists._id}`,
         };
       }
@@ -708,6 +708,7 @@ class UserService {
           aiDescriptionId: checkIfAudioDescriptionAIExists._id,
           status: 'available',
           requested: false,
+          preview: true,
         };
       }
 
@@ -744,14 +745,16 @@ class UserService {
           return {
             status: captionRequest.status,
             requested: true,
-
+            preview: true,
             url: `${youtube_id}/${checkIfAudioDescriptionExists._id}`,
           };
         }
         logger.info('Successfully created new Audio Description for existing Video that has an AI Audio Description');
         return {
           status: captionRequest.status,
+          url: `${youtube_id}/${checkIfAudioDescriptionExists._id}`,
           requested: true,
+          preview: true,
         };
       }
 
