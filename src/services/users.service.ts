@@ -24,6 +24,7 @@ import mongoose, { Schema } from 'mongoose';
 import AudioClipsService from './audioClips.service';
 import { ObjectId } from 'mongodb';
 import sendEmail from '../utils/emailService';
+import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
 
 class UserService {
   public audioClipsService = new AudioClipsService();
@@ -658,6 +659,32 @@ class UserService {
     }
   }
 
+  private async checkIfAudioDescriptionExistsforUser(
+    youtubeVideoId: string,
+    userId: string,
+  ): Promise<
+    | null
+    | (IAudioDescription & {
+        _id: mongoose.Types.ObjectId;
+      })
+  > {
+    const userIdObject = await MongoUsersModel.findById(userId);
+
+    if (!userIdObject) throw new HttpException(409, "User couldn't be found");
+
+    const videoIdStatus = await MongoVideosModel.findOne({ youtube_id: youtubeVideoId });
+
+    if (!videoIdStatus) throw new HttpException(409, "Video couldn't be found");
+
+    const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
+      video: videoIdStatus._id,
+      user: userIdObject._id,
+    });
+
+    if (checkIfAudioDescriptionExists) return checkIfAudioDescriptionExists;
+    else return null;
+  }
+
   public async aiDescriptionStatusUtil(
     user_id: string,
     youtube_id: string,
@@ -669,54 +696,54 @@ class UserService {
       }
 
       const userIdObject = await MongoUsersModel.findById(user_id);
+
       const AIUSEROBJECT = await MongoUsersModel.findById(ai_user_id);
+
       if (!userIdObject) {
         throw new HttpException(400, 'User not found');
       }
-      const videoIdStatus = await getYouTubeVideoStatus(youtube_id);
 
-      console.log(`videoIdStatus :: ${JSON.stringify(videoIdStatus)}`);
+      if (!AIUSEROBJECT) {
+        throw new HttpException(400, 'AI User not found');
+      }
 
-      const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
-        video: videoIdStatus._id,
-        user: userIdObject._id,
-      });
+      const userAudioDescription = await this.checkIfAudioDescriptionExistsforUser(youtube_id, user_id);
 
-      const checkIfAudioDescriptionExistsAI = await MongoAudio_Descriptions_Model.findOne({
-        video: videoIdStatus._id,
-        user: ai_user_id,
-      });
+      // const checkIfAudioDescriptionExistsAI = await MongoAudio_Descriptions_Model.findOne({
+      //   video: videoIdStatus._id,
+      //   user: ai_user_id,
+      // });
 
-      console.log(`checkIfAudioDescriptionExists :: ${JSON.stringify(checkIfAudioDescriptionExistsAI)}`);
+      // console.log(`checkIfAudioDescriptionExists :: ${JSON.stringify(checkIfAudioDescriptionExistsAI)}`);
 
-      if (checkIfAudioDescriptionExists) {
+      if (userAudioDescription) {
         return {
           status: 'completed',
-          requested: true,
+          requested: false,
           preview: false,
-          url: `${youtube_id}/${checkIfAudioDescriptionExists._id}`,
+          url: `editor/${youtube_id}/${userAudioDescription._id}`,
         };
       }
       // Check if AI Captions are available
-      const checkIfAudioDescriptionAIExists = await MongoAudio_Descriptions_Model.findOne({
-        video: videoIdStatus._id,
-        user: AIUSEROBJECT._id,
-      });
+      const aiAudioDescription = await this.checkIfAudioDescriptionExistsforUser(youtube_id, ai_user_id);
 
-      if (checkIfAudioDescriptionAIExists) {
+      if (aiAudioDescription) {
         return {
-          aiDescriptionId: checkIfAudioDescriptionAIExists._id,
+          url: `audio-description/preview/${youtube_id}/${aiAudioDescription._id}`,
           status: 'available',
           requested: false,
           preview: true,
         };
       }
 
+      // Check if AI Captions have been requested
+
       const captionRequest = await MongoAICaptionRequestModel.findOne({
         youtube_id,
         ai_user_id: ai_user_id,
       });
 
+      // if not requested, return notavailable
       if (!captionRequest) {
         return {
           status: 'notavailable',
@@ -728,35 +755,6 @@ class UserService {
 
       console.log(`captionRequest.status :: ${captionRequest.status}`);
       logger.info(`captionRequest.status :: ${captionRequest.status}`);
-
-      if (requested && captionRequest.status === 'completed') {
-        const videoIdStatus = await getYouTubeVideoStatus(youtube_id);
-
-        if (!videoIdStatus) {
-          throw new HttpException(404, 'Video not found');
-        }
-
-        const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
-          video: videoIdStatus._id,
-          user: userIdObject,
-        });
-
-        if (checkIfAudioDescriptionExists) {
-          return {
-            status: captionRequest.status,
-            requested: true,
-            preview: true,
-            url: `${youtube_id}/${checkIfAudioDescriptionExists._id}`,
-          };
-        }
-        logger.info('Successfully created new Audio Description for existing Video that has an AI Audio Description');
-        return {
-          status: captionRequest.status,
-          url: `${youtube_id}/${checkIfAudioDescriptionExists._id}`,
-          requested: true,
-          preview: true,
-        };
-      }
 
       return { status: captionRequest.status, requested };
     } catch (error) {
