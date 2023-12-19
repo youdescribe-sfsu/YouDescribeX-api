@@ -127,8 +127,6 @@ class WishListService {
     });
 
     const top3UniqueYouTubeIds = [...new Set(top3AIRequestedVideos.map(video => video.youtube_id))];
-    console.log('top3UniqueYouTubeIds:', top3UniqueYouTubeIds);
-    console.log('top3AIRequestedVideos:', top3AIRequestedVideos);
 
     const top2WishlistVideos = await MongoWishListModel.find({
       status: 'queued',
@@ -143,9 +141,15 @@ class WishListService {
     // const filteredTop3AIRequested = top3AIRequestedVideos.filter(video => !top3UniqueYouTubeIds.includes(video.youtube_id));
 
     const top3WithAiRequested = top3AIRequestedVideos.map(video => ({ ...video.toObject(), aiRequested: true }));
+    const user_votes = await MongoUserVotesModel.find({ user: user_id });
 
-    console.log(...top3WithAiRequested, ...top2WithAiRequested);
-    return [...top3WithAiRequested, ...top2WithAiRequested];
+    const returnArray = [...top3WithAiRequested, ...top2WithAiRequested].map((video: any) => {
+      return {
+        ...video,
+        voted: user_votes.some((vote: any) => vote.youtube_id === video.youtube_id),
+      };
+    });
+    return returnArray;
   }
 
   public async getUserWishlist(user_id: string, pageNumber: string) {
@@ -154,7 +158,7 @@ class WishListService {
     }
 
     const page = parseInt(pageNumber, 10);
-    const perPage = 4;
+    const perPage = 5;
     const skipCount = Math.max((page - 1) * perPage, 0);
 
     const userIdObject = await MongoUsersModel.findById(user_id);
@@ -162,6 +166,7 @@ class WishListService {
       user: userIdObject._id,
     });
 
+    console.log('userVotes', userVotes);
     const youtubeIds = userVotes.map(entry => entry.youtube_id);
     const aiRequestedMap = new Map();
     const aiRequests = await MongoAICaptionRequestModel.find({
@@ -373,17 +378,19 @@ class WishListService {
   public async removeOne(userId: string, youTubeId: string) {
     try {
       const wishListItem = await MongoWishListModel.findOne({ youtube_id: youTubeId }).exec();
-
+      // console.log(wishListItem);
       if (!wishListItem) {
         // Video not found in the wishlist.
         return { status: 404, message: 'Video not found in the wishlist.' };
       }
 
-      if (wishListItem.votes === 1) {
+      console.log('wishListItem :: ', wishListItem);
+
+      if (wishListItem.votes.valueOf() < 2) {
         // If the vote count is already zero, remove the video from the wishlist.
         await MongoWishListModel.deleteOne({ youtube_id: youTubeId }).exec();
         // Video successfully removed from the wishlist.
-        await MongoUserVotesModel.findOneAndDelete({ user: userId, youtube_id: youTubeId });
+        await MongoUserVotesModel.findOneAndDelete({ user: userId, youtube_id: youTubeId }).exec();
         return { status: 200, message: 'Video successfully removed from the wishlist.' };
       } else {
         // Decrease the vote count by 1 and update the wishlist item.
