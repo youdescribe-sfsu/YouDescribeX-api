@@ -457,9 +457,10 @@ class UserService {
     if (!userIdObject) throw new HttpException(409, "User couldn't be found");
 
     const aiUserObjectId = new ObjectId(aiUserId);
-    const videoIdStatus = await MongoVideosModel.findOne({ youtube_id: youtubeVideoId });
 
-    if (!videoIdStatus) throw new HttpException(409, "Video couldn't be found");
+    const videoIdStatus = await getYouTubeVideoStatus(youtubeVideoId);
+
+    if (!videoIdStatus) throw new HttpException(409, "Video couldn't be found in checkIfVideoHasAudioDescription");
 
     const aiUser = await MongoUsersModel.findById(aiUserObjectId);
 
@@ -674,8 +675,8 @@ class UserService {
 
     const videoIdStatus = await MongoVideosModel.findOne({ youtube_id: youtubeVideoId });
 
-    if (!videoIdStatus) throw new HttpException(409, "Video couldn't be found");
-
+    if (!videoIdStatus) {
+    }
     const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
       video: videoIdStatus._id,
       user: userIdObject._id,
