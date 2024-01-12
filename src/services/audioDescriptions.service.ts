@@ -19,7 +19,7 @@ import {
   PostGres_Videos,
 } from '../models/postgres/init-models';
 import { logger } from '../utils/logger';
-import { isEmpty } from '../utils/util';
+import { getYouTubeVideoStatus, isEmpty } from '../utils/util';
 import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
 import { ObjectId } from 'mongodb';
 import { isVideoAvailable } from './videos.util';
@@ -145,7 +145,7 @@ class AudioDescriptionsService {
       const aiUserObjectId = new ObjectId(aiUserId);
       const aiUser = await MongoUsersModel.findById(aiUserObjectId);
       if (!aiUser) throw new HttpException(404, "ai User doesn't exist");
-      let vid: any = await MongoVideosModel.findOne({ youtube_id: youtube_id });
+      let vid: any = await getYouTubeVideoStatus(youtube_id);
       const ad = new MongoAudio_Descriptions_Model();
       if (!ad) throw new HttpException(409, "Audio Descriptions couldn't be created");
       if (vid) {
@@ -324,7 +324,7 @@ class AudioDescriptionsService {
     enrolled_in_collaborative_editing: boolean,
   ): Promise<string> => {
     try {
-      const videoIdStatus = await MongoVideosModel.findOne({ youtube_id: video_id });
+      const videoIdStatus = await getYouTubeVideoStatus(video_id);
 
       if (!videoIdStatus) {
         throw new HttpException(400, 'No videoIdStatus provided');
