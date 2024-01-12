@@ -523,7 +523,7 @@ class UserService {
       user: userIdObject._id,
     });
 
-    console.log(`createNewAudioDescription :: ${JSON.stringify(createNewAudioDescription)}`);
+    // console.log(`createNewAudioDescription :: ${JSON.stringify(createNewAudioDescription)}`);
 
     logger.info(`createNewAudioDescription :: ${JSON.stringify(createNewAudioDescription)}`);
     const audioClipArray = [];
@@ -531,7 +531,7 @@ class UserService {
     for (let i = 0; i < aiAudioDescriptions[0].video_ad.audio_clips.length; i++) {
       const clipId = aiAudioDescriptions[0].video_ad.audio_clips[i];
       const clip = await MongoAudioClipsModel.findById(clipId);
-      console.log(`Clip :: ${JSON.stringify(clip)}`);
+      // console.log(`Clip :: ${JSON.stringify(clip)}`);
       const createNewAudioClip = new MongoAudioClipsModel({
         audio_description: createNewAudioDescription._id,
         created_at: new Date(),
@@ -589,7 +589,7 @@ class UserService {
 
     const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
 
-    console.log(`youtubeVideoData ::  ${JSON.stringify(youtubeVideoData)}`);
+    // console.log(`youtubeVideoData ::  ${JSON.stringify(youtubeVideoData)}`);
     logger.info(`youtubeVideoData ::  ${JSON.stringify(youtubeVideoData)}`);
 
     if (!youtubeVideoData) {
@@ -624,17 +624,17 @@ class UserService {
         message: 'Audio Description already exists.',
       };
     } else {
-      console.log(`User Data ::  ${JSON.stringify(userData)}`);
-      console.log(
-        `BODY DATA ::  ${JSON.stringify({
-          youtube_id: youtube_id,
-          user_id: userData._id,
-          ydx_app_host,
-          ydx_server: CURRENT_YDX_HOST,
-          AI_USER_ID: AI_USER_ID,
-        })}`,
-      );
-      console.log(`URL ::${GPU_URL}/generate_ai_caption`);
+      // console.log(`User Data ::  ${JSON.stringify(userData)}`);
+      // console.log(
+      //   `BODY DATA ::  ${JSON.stringify({
+      //     youtube_id: youtube_id,
+      //     user_id: userData._id,
+      //     ydx_app_host,
+      //     ydx_server: CURRENT_YDX_HOST,
+      //     AI_USER_ID: AI_USER_ID,
+      //   })}`,
+      // );
+      // console.log(`URL ::${GPU_URL}/generate_ai_caption`);
       logger.info(`URL :: ${GPU_URL}/generate_ai_caption`);
 
       // Check if video has already been requested
@@ -709,13 +709,7 @@ class UserService {
       }
 
       const userAudioDescription = await this.checkIfAudioDescriptionExistsforUser(youtube_id, user_id);
-
-      // const checkIfAudioDescriptionExistsAI = await MongoAudio_Descriptions_Model.findOne({
-      //   video: videoIdStatus._id,
-      //   user: ai_user_id,
-      // });
-
-      // console.log(`checkIfAudioDescriptionExists :: ${JSON.stringify(checkIfAudioDescriptionExistsAI)}`);
+      logger.info(`userAudioDescription :: ${JSON.stringify(userAudioDescription)}`);
 
       if (userAudioDescription) {
         return {
@@ -754,7 +748,7 @@ class UserService {
 
       const requested = captionRequest.caption_requests.includes(userIdObject._id);
 
-      console.log(`captionRequest.status :: ${captionRequest.status}`);
+      // console.log(`captionRequest.status :: ${captionRequest.status}`);
       logger.info(`captionRequest.status :: ${captionRequest.status}`);
 
       return { status: captionRequest.status, requested };
@@ -793,9 +787,9 @@ class UserService {
     if (!aiUserId) throw new HttpException(400, 'aiUserId is empty');
 
     const videoIdStatus = await MongoVideosModel.findOne({ youtube_id: youtubeVideoId });
-    console.log(`videoIdStatus :: ${JSON.stringify(videoIdStatus._id)}`);
+    // console.log(`videoIdStatus :: ${JSON.stringify(videoIdStatus._id)}`);
     const userIdObject = await MongoUsersModel.findById(user_id);
-    console.log(`userIdObject :: ${JSON.stringify(userIdObject._id)}`);
+    // console.log(`userIdObject :: ${JSON.stringify(userIdObject._id)}`);
     const aiUserObjectId = new ObjectId(aiUserId);
 
     const aiUser = await MongoUsersModel.findById(aiUserObjectId);
@@ -857,7 +851,7 @@ class UserService {
       },
     ]);
 
-    console.log(`aiAudioDescriptions :: ${JSON.stringify(aiAudioDescriptions)}`);
+    // console.log(`aiAudioDescriptions :: ${JSON.stringify(aiAudioDescriptions)}`);
 
     const createNewAudioDescription = new MongoAudio_Descriptions_Model({
       admin_review: false,
@@ -870,7 +864,7 @@ class UserService {
       user: userIdObject._id,
     });
 
-    console.log(`createNewAudioDescription :: ${JSON.stringify(createNewAudioDescription)}`);
+    // console.log(`createNewAudioDescription :: ${JSON.stringify(createNewAudioDescription)}`);
 
     logger.info(`createNewAudioDescription :: ${JSON.stringify(createNewAudioDescription)}`);
     const audioClipArray = [];
@@ -878,7 +872,7 @@ class UserService {
     for (let i = 0; i < aiAudioDescriptions[0].video_ad.audio_clips.length; i++) {
       const clipId = aiAudioDescriptions[0].video_ad.audio_clips[i];
       const clip = await MongoAudioClipsModel.findById(clipId);
-      console.log(`Clip :: ${JSON.stringify(clip)}`);
+      // console.log(`Clip :: ${JSON.stringify(clip)}`);
       const createNewAudioClip = new MongoAudioClipsModel({
         audio_description: createNewAudioDescription._id,
         created_at: new Date(),
@@ -990,7 +984,7 @@ class UserService {
           userDocument.visited_videos.push(youtube_id);
           await MongoHistoryModel.updateOne({ _id: userDocument._id }, { $set: { visited_videos: userDocument.visited_videos } });
         } else {
-          console.log(`Video with ID ${youtube_id} already exists in history for user ${user_id}`);
+          // console.log(`Video with ID ${youtube_id} already exists in history for user ${user_id}`);
         }
 
         return userDocument.visited_videos;
@@ -1032,13 +1026,13 @@ class UserService {
 
       try {
         const existingVideo = (await MongoVideosModel.findOne({ youtube_id })) || (await getYouTubeVideoStatus(youtube_id));
-        console.log(existingVideo ? 'existingVideo' : 'FETCHED VIDEO', existingVideo);
+        // console.log(existingVideo ? 'existingVideo' : 'FETCHED VIDEO', existingVideo);
 
         if (existingVideo) {
           videos.push(existingVideo);
         }
       } catch (error) {
-        console.log('ERROR', error);
+        // console.log('ERROR', error);
 
         await MongoHistoryModel.updateOne({ user: userIdObject._id }, { $pull: { visited_videos: youtube_id } });
       }
