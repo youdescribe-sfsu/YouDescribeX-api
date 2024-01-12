@@ -60,7 +60,8 @@ class AuthController {
           logger.error('Error during logout: ', err);
         }
       });
-      res.redirect(PASSPORT_REDIRECT_URL);
+      console.log('req.user: ', req.query);
+      res.redirect((req.query['url'] as string) || PASSPORT_REDIRECT_URL);
     } catch (error) {
       next(error);
     }
