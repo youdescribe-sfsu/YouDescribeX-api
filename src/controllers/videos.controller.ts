@@ -84,7 +84,7 @@ class VideosController {
         message: 'deleted',
       });
     } catch (error) {
-      console.log(error);
+      // console.log(error);
       next(error);
     }
   };
