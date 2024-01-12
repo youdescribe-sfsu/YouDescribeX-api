@@ -1,19 +1,19 @@
 name: Node.js CI
 
 on:
-  push:
-    branches: ['main', 'dev']
   pull_request:
-    branches: ['*']
+    branches: ["*"]
+  push:
+    branches:
+      - main
+      - dev
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
-        node-version: [20.2.0] # Only Node.js version 18
-
+        node-version: [20.2.0]  # Only Node.js version 18
     steps:
       - uses: actions/checkout@v3
       - name: Use Node.js ${{ matrix.node-version }}
@@ -23,4 +23,25 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: CI=false npm run build
-    # - run: npm test
+      # - run: npm test
+
+  trigger-gitlab-ci-main:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    steps:
+      - uses: eic/trigger-gitlab-ci@v2
+        with:
+          project_id: 47563165
+          token: ${{ secrets.GITLAB_TRIGGER_TOKEN }}
+          ref: 'main'
+
+  trigger-gitlab-ci-dev:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    steps:
+      - uses: eic/trigger-gitlab-ci@v2
+        with:
+          project_id: 47563165
+          token: ${{ secrets.GITLAB_TRIGGER_TOKEN }}
+          ref_name: 'dev'
