@@ -112,7 +112,7 @@ class WishListService {
 
     const youtubeIds = userWishlist.map(entry => entry.youtube_id);
 
-    const top3AIRequestedVideos = await MongoVideosModel.find({ youtube_id: { $in: youtubeIds } }).select({
+    const top3AIRequestedVideos = await MongoVideosModel.find({ youtube_id: { $in: youtubeIds }, status: 'completed' }).select({
       tags: 1,
       _id: 1,
       youtube_id: 1,
