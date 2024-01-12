@@ -55,7 +55,7 @@ class VideosService {
       const videoById = await MongoVideosModel.findOne({
         youtube_id: youtubeId,
       });
-      console.log(videoById);
+      // console.log(videoById);
       if (!videoById) throw new HttpException(409, "Video doesn't exist");
 
       const userById: UsersAttributes = await MongoUsersModel.findById(userId);
@@ -67,18 +67,18 @@ class VideosService {
       if (!audioDescriptions) throw new HttpException(409, "Audio Description doesn't exist");
 
       const response = await MongoAudio_Descriptions_Model.deleteOne({ _id: audioDescriptions._id });
-      console.log(`response: ${JSON.stringify(response)}`);
+      // console.log(`response: ${JSON.stringify(response)}`);
 
       const audioClipsData = await MongoAudioClipsModel.findOne({
         where: { audio_description: audioDescriptions._id },
       });
-      console.log(`audioClipsData: ${audioClipsData}`);
+      // console.log(`audioClipsData: ${audioClipsData}`);
       if (!audioClipsData) throw new HttpException(409, "Audio Clip doesn't exist");
 
       const notesData = await MongoNotesModel.findOne({
         where: { audio_description: audioDescriptions._id },
       });
-      console.log(`notesData: ${notesData}`);
+      // console.log(`notesData: ${notesData}`);
       if (notesData)
         await MongoNotesModel.deleteMany({
           where: { audio_description: audioDescriptions._id },
@@ -192,9 +192,11 @@ class VideosService {
     if (!video_id) throw new HttpException(400, 'video_id is empty');
     const video = await MongoVideosModel.findOne({ youtube_id: video_id }).populate({
       path: 'audio_descriptions',
-      populate: {
-        path: 'audio_clips',
-      },
+      match: { status: 'published' }, // Filter published descriptions
+      populate: [
+        { path: 'audio_clips' },
+        { path: 'user' }, // Populate user data for each audio description
+      ],
     });
 
     if (!video) {
@@ -243,36 +245,83 @@ class VideosService {
 
   public async getAllVideos(page: string | null) {
     try {
+      console.log('page', page);
+
       const pgNumber = Number(page);
       const searchPage = Number.isNaN(pgNumber) || pgNumber === 0 ? 50 : pgNumber * 50;
 
-      const videos = await MongoVideosModel.find({})
-        .sort({ created_at: -1 })
-        .skip(searchPage - 50)
-        .limit(50)
-        .populate({
-          path: 'audio_descriptions',
-          populate: {
-            path: 'audio_clips',
+      const videos = await MongoVideosModel.aggregate([
+        {
+          $lookup: {
+            from: 'audio_descriptions',
+            localField: 'audio_descriptions',
+            foreignField: '_id',
+            as: 'populated_audio_descriptions',
           },
-        })
-        .populate({
-          path: 'audio_descriptions',
-          populate: {
-            path: 'user',
+        },
+        {
+          $unwind: '$populated_audio_descriptions',
+        },
+        {
+          $lookup: {
+            from: 'audio_clips',
+            localField: 'populated_audio_descriptions.audio_clips',
+            foreignField: '_id',
+            as: 'populated_audio_descriptions.audio_clips',
           },
-        })
-        .exec();
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'populated_audio_descriptions.user',
+            foreignField: '_id',
+            as: 'populated_audio_descriptions.user',
+          },
+        },
+        {
+          $match: {
+            'populated_audio_descriptions.status': 'published',
+          },
+        },
+        {
+          $sort: { 'populated_audio_descriptions.updated_at': -1 },
+        },
+        {
+          $skip: searchPage - 50,
+        },
+        {
+          $limit: 50,
+        },
+        {
+          $project: {
+            audio_descriptions: '$populated_audio_descriptions',
+            category: 1,
+            category_id: 1,
+            created_at: 1,
+            custom_tags: 1,
+            description: 1,
+            duration: 1,
+            tags: 1,
+            title: 1,
+            updated_at: 1,
+            views: 1,
+            youtube_id: 1,
+            youtube_status: 1,
+            __v: 1,
+            _id: 1,
+          },
+        },
+      ]).exec();
 
-      const videosFiltered = videos
-        .map(video => {
-          const audioDescriptionsFiltered = video.audio_descriptions.filter(ad => ad.status === 'published');
-          video.audio_descriptions = audioDescriptionsFiltered;
-          return audioDescriptionsFiltered.length > 0 ? video : null;
-        })
-        .filter(Boolean);
+      // const videosFiltered = videos
+      //   .map(video => {
+      //     const audioDescriptionsFiltered = video.audio_descriptions.filter(ad => ad.status === 'published');
+      //     video.audio_descriptions = audioDescriptionsFiltered;
+      //     return audioDescriptionsFiltered.length > 0 ? video : null;
+      //   })
+      //   .filter(Boolean);
 
-      return videosFiltered;
+      return videos;
     } catch (err) {
       throw new Error('Error fetching videos: ' + err);
     }
@@ -311,7 +360,7 @@ class VideosService {
 
               const updatedVideo = await MongoVideosModel.findOneAndUpdate({ youtube_id: video.youtube_id }, { $set: toUpdate }, { new: true }).exec();
 
-              console.log(updatedVideo?.youtube_id + '; available');
+              // console.log(updatedVideo?.youtube_id + '; available');
             } else {
               const toUpdate = {
                 youtube_status: 'unavailable',
@@ -319,7 +368,7 @@ class VideosService {
 
               const updatedVideo = await MongoVideosModel.findOneAndUpdate({ youtube_id: video.youtube_id }, { $set: toUpdate }, { new: true }).exec();
 
-              console.log(updatedVideo?.youtube_id + '; unavailable');
+              // console.log(updatedVideo?.youtube_id + '; unavailable');
             }
             Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
           }
@@ -383,7 +432,7 @@ class VideosService {
     const youtubeDataCacheKey = key + 'YoutubeData';
 
     if (youtubeIds === cache.get(youtubeIdsCacheKey)) {
-      console.log(`loading ${key} from cache`);
+      // console.log(`loading ${key} from cache`);
       const ret = { status: 200, result: undefined };
       ret.result = cache.get(youtubeDataCacheKey);
       return ret;
@@ -395,7 +444,7 @@ class VideosService {
           `${process.env.YOUTUBE_API_URL}/videos?id=${youtubeIds}&part=contentDetails,snippet,statistics&key=${process.env.YOUTUBE_API_KEY}`,
         );
 
-        console.log(`loading ${key} from youtube`);
+        // console.log(`loading ${key} from youtube`);
         App.numOfVideosFromYoutube += youtubeIds.split(',').length;
         cache.put(youtubeDataCacheKey, response.data);
         const ret = { status: 200, result: undefined };

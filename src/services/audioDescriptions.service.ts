@@ -33,9 +33,6 @@ class AudioDescriptionsService {
     userId: string,
     audio_description_id: string,
   ): Promise<IAudioDescription | Audio_DescriptionsAttributes> {
-    console.log('userId', userId);
-    console.log('videoId', videoId);
-    console.log('audio_description_id', audio_description_id);
     if (isEmpty(videoId)) throw new HttpException(400, 'Video ID is empty');
     if (!userId) throw new HttpException(400, 'User ID is empty');
     if (isEmpty(audio_description_id)) throw new HttpException(400, 'Audio Description ID is empty');
@@ -56,7 +53,6 @@ class AudioDescriptionsService {
           end_time: 'asc',
         })
         .exec();
-
       if (audio_clips.length !== audioClipArr.length) {
         logger.error(
           `Number of Audio Clips in Audio Description Collection (${audio_clips.length})does not match actual number of AUdio Clips (${audioClipArr.length}).`,
@@ -145,7 +141,7 @@ class AudioDescriptionsService {
     }
 
     if (CURRENT_DATABASE == 'mongodb') {
-      console.log('aiUserId', aiUserId);
+      // console.log('aiUserId', aiUserId);
       const aiUserObjectId = new ObjectId(aiUserId);
       const aiUser = await MongoUsersModel.findById(aiUserObjectId);
       if (!aiUser) throw new HttpException(404, "ai User doesn't exist");
@@ -228,7 +224,7 @@ class AudioDescriptionsService {
         }),
       );
       if (!new_timestamp) throw new HttpException(409, "Dialog Timestamps couldn't be created");
-      console.log('new_timestamp', ad);
+      // console.log('new_timestamp', ad);
       ad.save();
       return ad;
     } else {
@@ -344,8 +340,10 @@ class AudioDescriptionsService {
 
       const audioDescription = await MongoAudio_Descriptions_Model.findByIdAndUpdate(audioDescriptionId, {
         status: 'published',
+        updated_at: new Date(),
         collaborative_editing: enrolled_in_collaborative_editing,
       });
+
       audioDescription.save();
       return audioDescription._id.toString();
     } catch (error) {
@@ -446,7 +444,7 @@ class AudioDescriptionsService {
       const distinctVideoIds = await MongoAudio_Descriptions_Model.distinct('video', { user: userIdObject._id });
       const sortedDistinctVideoIds = distinctVideoIds.sort((a, b) => b.created_at - a.created_at);
       const paginatedVideoIds = sortedDistinctVideoIds.slice(skipCount, skipCount + ITEMS_PER_PAGE);
-      console.log('MY DESCRTIPTION');
+      // console.log('MY DESCRTIPTION');
 
       // Retrieve audio descriptions based on paginated video ids and user
       const [recentAudioDescriptions, totalVideos] = await Promise.all([
@@ -476,7 +474,6 @@ class AudioDescriptionsService {
 
       return { result: result, totalVideos: totalVideos };
     } catch (error) {
-      console.error('Error in getMyDescriptions:', error);
       throw new Error('An error occurred while processing your request.');
     }
   }

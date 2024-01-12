@@ -92,10 +92,11 @@ class WishListService {
     };
   }
 
-  public async getTopWishlist(user_id: string) {
-    if (!user_id) {
-      throw new HttpException(400, 'No data provided');
-    }
+  public async getTopWishlist(user_id: string | undefined) {
+    // console.log('user_id', user_id);
+    // if (!user_id) {
+    //   throw new HttpException(400, 'No data provided');
+    // }
     const userWishlist = await MongoAICaptionRequestModel.aggregate([
       {
         $project: {
@@ -152,7 +153,7 @@ class WishListService {
     return returnArray;
   }
 
-  public async getUserWishlist(user_id: string, pageNumber: string) {
+  public async getUserWishlist(user_id: string | undefined, pageNumber: string) {
     if (!user_id) {
       throw new HttpException(400, 'No data provided');
     }
@@ -166,7 +167,7 @@ class WishListService {
       user: userIdObject._id,
     });
 
-    console.log('userVotes', userVotes);
+    // console.log('userVotes', userVotes);
     const youtubeIds = userVotes.map(entry => entry.youtube_id);
     const aiRequestedMap = new Map();
     const aiRequests = await MongoAICaptionRequestModel.find({
@@ -325,7 +326,7 @@ class WishListService {
     }
   }
 
-  public async getTopWishListItems(user: IUser) {
+  public async getTopWishListItems(user: IUser | undefined) {
     try {
       let user_votes: any[] = [];
 
@@ -364,7 +365,7 @@ class WishListService {
         return ret;
       }
     } catch (err) {
-      console.log(err);
+      // console.log(err);
       const ret = {
         message: 'Error retrieving wish list',
         status: 400,
@@ -378,13 +379,13 @@ class WishListService {
   public async removeOne(userId: string, youTubeId: string) {
     try {
       const wishListItem = await MongoWishListModel.findOne({ youtube_id: youTubeId }).exec();
-      // console.log(wishListItem);
+      // // console.log(wishListItem);
       if (!wishListItem) {
         // Video not found in the wishlist.
         return { status: 404, message: 'Video not found in the wishlist.' };
       }
 
-      console.log('wishListItem :: ', wishListItem);
+      // console.log('wishListItem :: ', wishListItem);
 
       if (wishListItem.votes.valueOf() < 2) {
         // If the vote count is already zero, remove the video from the wishlist.
@@ -404,7 +405,7 @@ class WishListService {
         return { status: 200, message: 'Wishlist item updated successfully.' };
       }
     } catch (err) {
-      console.log(err);
+      // console.log(err);
       return { status: 500, message: 'Internal Server Error.' };
     }
   }
