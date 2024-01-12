@@ -182,14 +182,17 @@ export const analyzePlaybackType = async (
 ): Promise<AnalyzePlaybackTypeResponse> => {
   if (CURRENT_DATABASE == 'mongodb') {
     try {
+      console.log('currentClipStartTime', currentClipStartTime);
+      console.log('currentClipEndTime', currentClipEndTime);
+      console.log('videoId', videoId);
+      console.log('adId', adId);
+      console.log('clipId', clipId);
+
       const overlappingDialogs = await MongoDialog_Timestamps_Model.find({
         video: videoId,
-      })
-        .where('dialog_start_time')
-        .lte(currentClipEndTime)
-        .where('dialog_end_time')
-        .gte(currentClipStartTime)
-        .exec();
+        $and: [{ dialog_start_time: { $lte: currentClipEndTime } }, { dialog_end_time: { $gte: currentClipStartTime } }],
+      }).select('dialog_start_time dialog_end_time');
+      console.log('overlappingDialogs', overlappingDialogs.length);
       if (overlappingDialogs.length !== 0) {
         return {
           message: 'Success - extended!',
@@ -199,12 +202,13 @@ export const analyzePlaybackType = async (
 
       const overlappingClips = await MongoAudioClipsModel.find({
         audio_description: adId,
-      })
-        .where('clip_start_time')
-        .lte(currentClipEndTime)
-        .where('clip_end_time')
-        .gte(currentClipStartTime)
-        .exec();
+        $and: [
+          { clip_start_time: { $lte: currentClipEndTime } },
+          { clip_end_time: { $gte: currentClipStartTime } },
+          { clip_id: { $ne: clipId === null ? null : clipId } },
+        ],
+      });
+      console.log('overlappingClips', overlappingClips.length);
       if (overlappingClips.length === 0) {
         return {
           message: 'Success - inline!',
@@ -231,17 +235,21 @@ export const analyzePlaybackType = async (
           };
         }
       } else {
+        if (clipId === null) {
+          return {
+            message: 'Success - extended!',
+            data: 'extended',
+          };
+        }
+        const playbackType = (await MongoAudioClipsModel.findById(clipId)).toJSON()['playback_type'];
         return {
-          message: 'Success - extended!',
-          data: 'extended',
+          message: `Success - ${playbackType}!`,
+          data: playbackType,
         };
       }
-    } catch (err) {
-      logger.info(err);
-      return {
-        message: 'Unable to connect to DB - Analyze Playback Type!! Please try again',
-        data: null,
-      };
+    } catch (error) {
+      // Handle any errors here
+      console.error(error);
     }
   } else {
     try {

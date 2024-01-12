@@ -38,7 +38,7 @@ class WishListController {
   public addOneWishlistItem = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userData = req.user as unknown as IUser;
-      console.log(req.body);
+      // console.log(req.body);
 
       const { youTubeId } = req.body;
       if (!userData) {
@@ -62,7 +62,7 @@ class WishListController {
 
   public getTopWishListItems = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userData = req.user as unknown as IUser;
+      const userData = req?.user as unknown as IUser;
       const wishlistResponse = await this.wishlistService.getTopWishListItems(userData);
       res.status(wishlistResponse.status).json(wishlistResponse);
     } catch (error) {
@@ -73,7 +73,7 @@ class WishListController {
   public getTopWishList = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userData = req.user as unknown as IUser;
-      const wishlistResponse = await this.wishlistService.getTopWishlist(userData._id);
+      const wishlistResponse = await this.wishlistService.getTopWishlist(userData?._id);
       res.status(201).json(wishlistResponse);
     } catch (error) {
       next(error);

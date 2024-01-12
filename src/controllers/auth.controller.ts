@@ -39,7 +39,7 @@ class AuthController {
         };
         res.status(ret.status).json(ret);
       } else {
-        console.log('req.user is null');
+        // console.log('req.user is null');
         const ret = {
           type: 'system_error',
           code: 1,
@@ -68,6 +68,9 @@ class AuthController {
 
   public localLogIn = async (req: Request, res: Response, next: NextFunction) => {
     try {
+      if (req.headers.authorization === undefined || req.headers.authorization === '') {
+        throw new Error('Authorization header not found');
+      }
       const user = await MongoUsersModel.findById(req.headers.authorization);
       const ret = {
         type: 'success',
@@ -78,7 +81,7 @@ class AuthController {
       };
       req.logIn(user, function (err) {
         if (err) {
-          console.log('error: ', err);
+          // console.log('error: ', err);
           return next(err);
         }
         return res.redirect('/api/auth/login/success');

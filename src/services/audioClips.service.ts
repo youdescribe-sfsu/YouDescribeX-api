@@ -319,6 +319,8 @@ class AudioClipsService {
         false, // passing false, as this is a single clip process
       );
 
+      console.log('playbackTypeStatus', playbackTypeStatus);
+
       if (playbackTypeStatus.data === null) throw new HttpException(500, playbackTypeStatus.message);
       const playbackType = playbackTypeStatus.data;
       const updatedAudioClipStartTime = await MongoAudioClipsModel.updateMany(

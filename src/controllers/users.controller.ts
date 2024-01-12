@@ -229,7 +229,7 @@ class UsersController {
       }
     } catch (error) {
       logger.error(error);
-      console.log(error);
+      // console.log(error);
       next(error);
     }
   };
@@ -246,7 +246,7 @@ class UsersController {
       if (!userData) {
         throw new Error('User not found');
       }
-      console.log('USER DATA', JSON.stringify(userData));
+      // console.log('USER DATA', JSON.stringify(userData));
       const response = await this.userService.aiDescriptionStatus(userData._id, youtube_id);
 
       res.status(201).json(response);
