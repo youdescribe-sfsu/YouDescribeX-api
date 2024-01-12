@@ -11,6 +11,7 @@ import { logger } from '../utils/logger';
 import { MongoAudioClipsModel, MongoDialog_Timestamps_Model, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
 import mime from 'mime-types';
+import { getYouTubeVideoStatus } from '../utils/util';
 
 interface NudgeStartTimeIfZeroResult {
   data: [] | null;
@@ -436,9 +437,7 @@ export const getOldAudioFilePath = async (clipId: string) => {
 
 export const getVideoFromYoutubeId = async youtubeVideoID => {
   if (CURRENT_DATABASE === 'mongodb') {
-    return MongoVideosModel.findOne({
-      youtube_id: youtubeVideoID,
-    })
+    return getYouTubeVideoStatus(youtubeVideoID)
       .then(video => {
         return { message: 'Success', data: video._id };
       })

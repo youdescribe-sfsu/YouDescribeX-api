@@ -8,6 +8,7 @@ import { AI_USER_ID, HOST } from '../config';
 import { IUser } from '../models/mongodb/User.mongo';
 import { MongoUsersModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import sendEmail from '../utils/emailService';
+import { getYouTubeVideoStatus } from '../utils/util';
 
 class UsersController {
   public userService = new userService();
@@ -192,7 +193,7 @@ class UsersController {
     try {
       const newUserAudioDescription: AudioDescGenerationRequestDTO = req.body;
       const user = await MongoUsersModel.findById(newUserAudioDescription.userId);
-      const videoInfo = await MongoVideosModel.findOne({ youtube_id: newUserAudioDescription.youtubeVideoId });
+      const videoInfo = await getYouTubeVideoStatus(newUserAudioDescription.youtubeVideoId);
       if (!user) {
         throw new Error('User not found');
       }

@@ -124,7 +124,7 @@ class UserService {
     else user = expressUser as IUser;
 
     if (CURRENT_DATABASE == 'mongodb') {
-      const videoIdStatus = await MongoVideosModel.findOne({ youtube_id: youtubeVideoId });
+      const videoIdStatus = await getYouTubeVideoStatus(youtubeVideoId);
       if (!videoIdStatus) {
         // No video found which means no audio descriptions have been made for the specified youtube video
         try {
@@ -673,7 +673,7 @@ class UserService {
 
     if (!userIdObject) throw new HttpException(409, "User couldn't be found");
 
-    const videoIdStatus = await MongoVideosModel.findOne({ youtube_id: youtubeVideoId });
+    const videoIdStatus = await getYouTubeVideoStatus(youtubeVideoId);
 
     if (!videoIdStatus) {
     }
@@ -786,7 +786,7 @@ class UserService {
     if (!youtubeVideoId) throw new HttpException(400, 'youtubeVideoId is empty');
     if (!aiUserId) throw new HttpException(400, 'aiUserId is empty');
 
-    const videoIdStatus = await MongoVideosModel.findOne({ youtube_id: youtubeVideoId });
+    const videoIdStatus = await getYouTubeVideoStatus(youtubeVideoId);
     // console.log(`videoIdStatus :: ${JSON.stringify(videoIdStatus._id)}`);
     const userIdObject = await MongoUsersModel.findById(user_id);
     // console.log(`userIdObject :: ${JSON.stringify(userIdObject._id)}`);
