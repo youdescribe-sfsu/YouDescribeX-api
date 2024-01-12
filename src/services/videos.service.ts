@@ -243,12 +243,33 @@ class VideosService {
     // return { result: video };
   }
 
-  public async getAllVideos(page: string | null) {
+  public async getAllVideos(page?: string, query?: string) {
     try {
       console.log('page', page);
 
       const pgNumber = Number(page);
       const searchPage = Number.isNaN(pgNumber) || pgNumber === 0 ? 50 : pgNumber * 50;
+
+      const matchQuery = query
+        ? {
+            $or: [
+              { 'language.name': { $regex: query, $options: 'i' } },
+              { youtube_id: { $regex: query, $options: 'i' } },
+              { category: { $regex: query, $options: 'i' } },
+              { title: { $regex: query, $options: 'i' } },
+              {
+                tags: {
+                  $elemMatch: { $regex: query, $options: 'i' },
+                },
+              },
+              {
+                custom_tags: {
+                  $elemMatch: { $regex: query, $options: 'i' },
+                },
+              },
+            ],
+          }
+        : {};
 
       const videos = await MongoVideosModel.aggregate([
         {
@@ -280,6 +301,7 @@ class VideosService {
         },
         {
           $match: {
+            ...matchQuery,
             'populated_audio_descriptions.status': 'published',
           },
         },
@@ -312,14 +334,6 @@ class VideosService {
           },
         },
       ]).exec();
-
-      // const videosFiltered = videos
-      //   .map(video => {
-      //     const audioDescriptionsFiltered = video.audio_descriptions.filter(ad => ad.status === 'published');
-      //     video.audio_descriptions = audioDescriptionsFiltered;
-      //     return audioDescriptionsFiltered.length > 0 ? video : null;
-      //   })
-      //   .filter(Boolean);
 
       return videos;
     } catch (err) {
