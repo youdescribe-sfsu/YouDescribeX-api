@@ -32,7 +32,7 @@ jobs:
     steps:
       - uses: eic/trigger-gitlab-ci@v2
         with:
-          project_id: 47563165
+          project_id: 47563126
           token: ${{ secrets.GITLAB_TRIGGER_TOKEN }}
           ref: 'main'
 
@@ -42,6 +42,6 @@ jobs:
     steps:
       - uses: eic/trigger-gitlab-ci@v2
         with:
-          project_id: 47563165
+          project_id: 47563126
           token: ${{ secrets.GITLAB_TRIGGER_TOKEN }}
           ref_name: 'dev'
