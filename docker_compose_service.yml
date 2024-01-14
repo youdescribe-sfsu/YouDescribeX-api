@@ -7,7 +7,7 @@ youdescribex-api:
      - "host.docker.internal:host-gateway"
   network_mode: host
   volumes:
-    - "/home/ubuntu/ydx_data/public:/app/public"
+    - "/mnt/ebs/audio-descriptions-files:/app/public"
     - "/home/ubuntu/ydx_data/logs:/app/logs"
   environment:
     - GOOGLE_APPLICATION_CREDENTIALS=#GOOGLE_APPLICATION_CREDENTIALS
