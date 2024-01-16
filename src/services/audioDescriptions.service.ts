@@ -19,7 +19,7 @@ import {
   PostGres_Videos,
 } from '../models/postgres/init-models';
 import { logger } from '../utils/logger';
-import { getYouTubeVideoStatus, isEmpty } from '../utils/util';
+import { getYouTubeVideoStatus, isEmpty, nowUtc } from '../utils/util';
 import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
 import { ObjectId } from 'mongodb';
 import { isVideoAvailable } from './videos.util';
@@ -174,7 +174,7 @@ class AudioDescriptionsService {
           custom_tags: [],
           views: 0,
           youtube_status: 'ready',
-          updated_at: new Date(),
+          updated_at: nowUtc(),
         });
         const newSavedVideo = await newVid.save();
         if (!newSavedVideo) throw new HttpException(409, "Video couldn't be created");
@@ -340,7 +340,7 @@ class AudioDescriptionsService {
 
       const audioDescription = await MongoAudio_Descriptions_Model.findByIdAndUpdate(audioDescriptionId, {
         status: 'published',
-        updated_at: new Date(),
+        updated_at: nowUtc(),
         collaborative_editing: enrolled_in_collaborative_editing,
       });
 

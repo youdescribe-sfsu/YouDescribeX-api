@@ -1,4 +1,5 @@
 import { Document, Schema, model } from 'mongoose';
+import { nowUtc } from '../../utils/util';
 
 interface IWishList extends Document {
   youtube_id: string;
@@ -15,16 +16,42 @@ interface IWishList extends Document {
 
 const WishlistSchema = new Schema<IWishList>(
   {
-    youtube_id: String,
-    category: String,
-    category_id: Number,
-    created_at: Number,
-    duration: Number,
-    status: String,
+    youtube_id: {
+      type: String,
+      required: true,
+    },
+    category: {
+      type: String,
+      required: true,
+    },
+    category_id: {
+      type: Number,
+      required: true,
+    },
+    created_at: {
+      type: Number,
+      required: true,
+      default: () => nowUtc(),
+    },
+    duration: {
+      type: Number,
+      required: true,
+    },
+    status: {
+      type: String,
+      required: true,
+    },
     tags: [String],
-    updated_at: Number,
+    updated_at: {
+      type: Number,
+      required: true,
+      default: () => nowUtc(),
+    },
     votes: Number,
-    youtube_status: String,
+    youtube_status: {
+      type: String,
+      required: true,
+    },
   },
   { collection: 'wish_list' },
 );

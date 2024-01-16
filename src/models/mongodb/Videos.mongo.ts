@@ -6,7 +6,6 @@ interface IVideo extends Document {
   category: string;
   category_id: number;
   created_at: Date;
-  custom_tags: string[];
   description: string;
   duration: number;
   tags: string[];
@@ -14,7 +13,7 @@ interface IVideo extends Document {
   updated_at: Date;
   views: number;
   youtube_id: string;
-  youtube_status: string;
+  youtube_status: 'available' | 'unavailable';
 }
 
 const VideoSchema: Schema = new Schema(
@@ -27,23 +26,17 @@ const VideoSchema: Schema = new Schema(
     ],
     category: {
       type: String,
-      required: false,
+      required: true,
     },
     category_id: {
-      type: Number,
-      required: false,
+      type: String,
+      required: true,
     },
     created_at: {
-      type: Date,
+      type: Number,
       required: true,
-      default: () => new Date(),
+      // default: () =>nowUtc(),
     },
-    custom_tags: [
-      {
-        type: String,
-        required: true,
-      },
-    ],
     description: {
       type: String,
       required: false,
@@ -63,12 +56,12 @@ const VideoSchema: Schema = new Schema(
       required: true,
     },
     updated_at: {
-      type: Date,
+      type: Number,
       required: true,
     },
     views: {
       type: Number,
-      required: true,
+      required: false,
     },
     youtube_id: {
       type: String,
