@@ -1,37 +1,52 @@
-import mongoose, { Document, Schema } from 'mongoose';
-import passport from 'passport';
+import { Document, Schema } from 'mongoose';
 import passportLocalMongoose from 'passport-local-mongoose';
-import { Strategy } from 'passport-google-oauth20';
-import crypto from 'crypto';
-import moment from 'moment';
-import { PASSPORT_CALLBACK_URL, CRYPTO_SECRET, CRYPTO_SEED } from '../../config/index';
-import { logger } from '../../utils/logger';
+import { nowUtc } from '../../utils/util';
+
+// Date should be nowUtc
+
+// const moment = require('moment');
+
+// module.exports = {
+//   nowUtc: () => {
+//     return moment().utc().format('YYYYMMDDHHmmss');
+//   },
+//   utcToLongInt: (timestampUtc) => {
+//     return parseInt(moment(parseInt(timestampUtc)).format("YYYYMMDDHHmmss"));
+//   }
+// };
 
 interface IUser extends Document {
   admin_level: number;
   email: string;
+  created_at: number;
   alias: string;
   google_user_id: string;
-  last_login: Date;
+  last_login: Number;
   dialects: string;
   name: string;
   opt_in: boolean;
   picture: string;
   policy_review: boolean;
   token: string;
-  updated_at: Date;
-  user_type: string; // volunteer, admin
+  updated_at: Number;
+  user_type: 'volunteer' | 'AI'; // volunteer, admin
 }
 
 const UserSchema: Schema = new Schema(
   {
     admin_level: {
       type: Number,
+      default: 0,
       required: true,
     },
     email: {
       type: String,
       required: true,
+    },
+    created_at: {
+      type: Number,
+      required: true,
+      default: () => nowUtc(),
     },
     alias: {
       type: String,
@@ -39,10 +54,10 @@ const UserSchema: Schema = new Schema(
     },
     google_user_id: {
       type: String,
-      required: false,
+      required: true,
     },
     last_login: {
-      type: Date,
+      type: Number,
       required: false,
     },
     dialects: {
@@ -71,8 +86,9 @@ const UserSchema: Schema = new Schema(
       required: false,
     },
     updated_at: {
-      type: Date,
-      required: false,
+      type: Number,
+      required: true,
+      default: () => nowUtc(),
     },
     user_type: {
       type: String,

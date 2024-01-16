@@ -1,8 +1,9 @@
 import { Schema, Document, model, Types } from 'mongoose';
+import { nowUtc } from '../../utils/util';
 
 interface IVisit extends Document {
   video: Types.ObjectId;
-  created_at: Date;
+  created_at: number;
   ip: string;
   url: string;
   youtube_id: string;
@@ -11,7 +12,7 @@ interface IVisit extends Document {
 const VisitSchema = new Schema(
   {
     video: { type: Types.ObjectId, ref: 'Video' },
-    created_at: { type: Date, default: Date.now },
+    created_at: { type: Number, required: true, default: () => nowUtc() },
     ip: String,
     url: String,
     youtube_id: String,
