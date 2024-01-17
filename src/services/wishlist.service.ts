@@ -197,68 +197,56 @@ class WishListService {
   }
 
   public async addOneWishlistItem(youtube_id: string, user: IUser): Promise<any> {
-    const video = await getYouTubeVideoStatus(youtube_id);
+    try {
+      const video = await getYouTubeVideoStatus(youtube_id);
 
-    if (!video) {
-      throw new HttpException(400, 'Video not found');
-    }
-    let published = false;
-    const audioDescriptions = video.audio_descriptions;
-
-    for (let i = 0; i < audioDescriptions.length; ++i) {
-      if (audioDescriptions[i].status === 'published') {
-        published = true;
-        break;
+      if (!video) {
+        return { status: 400, message: 'Video not found' };
       }
+
+      if (video.audio_descriptions.some(ad => ad.status === 'published')) {
+        return { status: 400, message: 'The requested video already has audio description' };
+      }
+
+      const userVote = await MongoUserVotesModel.findOne({ user: user._id, youtube_id: youtube_id });
+
+      if (userVote) {
+        return { status: 400, message: 'User has already voted for this video' };
+      }
+
+      await MongoUserVotesModel.create({
+        user: user._id,
+        youtube_id: youtube_id,
+        updated_at: formattedDate(new Date()),
+        created_at: formattedDate(new Date()),
+      });
+
+      const wishListItem = await MongoWishListModel.findOne({ youtube_id: youtube_id });
+
+      if (wishListItem) {
+        wishListItem.votes = Number(wishListItem.votes) + 1;
+        wishListItem.updated_at = Number(formattedDate(new Date()));
+
+        await wishListItem.save();
+        return { status: 400, message: 'The requested video is already in the wish list' };
+      }
+
+      const newWishList = new MongoWishListModel({
+        youtube_id: youtube_id,
+        status: 'queued',
+        votes: 1,
+        created_at: formattedDate(new Date()),
+        updated_at: formattedDate(new Date()),
+      });
+
+      const wishListItemSaved = await newWishList.save();
+
+      await this.updateWishListItem(wishListItemSaved);
+      return { status: 200, message: 'The requested video is added to the wish list' };
+    } catch (error) {
+      console.error('Error in addOneWishlistItem:', error);
+      return { status: 500, message: 'Internal Server Error' };
     }
-
-    if (published) {
-      throw new HttpException(400, 'The requested video already has audio description');
-    }
-
-    const userVote = await MongoUserVotesModel.findOne({ user: user._id, youtube_id: youtube_id });
-
-    if (userVote) {
-      throw new HttpException(400, 'User has already voted for this video');
-    }
-
-    await MongoUserVotesModel.create({
-      user: user._id,
-      youtube_id: youtube_id,
-      updated_at: formattedDate(new Date()),
-      created_at: formattedDate(new Date()),
-    });
-
-    const wishListItem = await MongoWishListModel.findOne({ youtube_id: youtube_id });
-
-    if (wishListItem) {
-      wishListItem.votes = Number(wishListItem.votes) + 1;
-      wishListItem.updated_at = Number(formattedDate(new Date()));
-
-      await wishListItem.save();
-      return {
-        status: 200,
-        message: 'The requested video is already in the wish list',
-      };
-    }
-
-    const newWishList = new MongoWishListModel({
-      youtube_id: youtube_id,
-      status: 'queued',
-      votes: 1,
-      created_at: formattedDate(new Date()),
-      updated_at: formattedDate(new Date()),
-    });
-
-    const wishListItemSaved = await newWishList.save();
-
-    // Fetch YouTube video details
-
-    await this.updateWishListItem(wishListItemSaved);
-    return {
-      status: 200,
-      message: 'The requested video is added to the wish list',
-    };
   }
 
   private convertISO8601ToSeconds = (input: string): number => {
