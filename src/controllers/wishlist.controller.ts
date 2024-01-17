@@ -37,14 +37,13 @@ class WishListController {
 
   public addOneWishlistItem = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userData = req.user as unknown as IUser;
-      // console.log(req.body);
-
       const { youTubeId } = req.body;
-      if (!userData) {
+      const { userId } = req.body;
+
+      if (!userId) {
         throw new Error('User not logged in');
       }
-      const user = await MongoUsersModel.findById(userData._id);
+      const user = await MongoUsersModel.findById(userId);
       if (!user) {
         throw new Error('User not found');
       }
@@ -52,7 +51,6 @@ class WishListController {
       if (!youTubeId) {
         throw new Error('YouTube ID not provided');
       }
-
       const wishlistResponse = await this.wishlistService.addOneWishlistItem(youTubeId, user);
       res.status(201).json(wishlistResponse);
     } catch (error) {
