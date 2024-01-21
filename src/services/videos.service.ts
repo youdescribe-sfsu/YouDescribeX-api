@@ -22,7 +22,7 @@ import axios from 'axios';
 import App from '../app';
 
 class VideosService {
-  public async getVideobyYoutubeId(youtubeId: string): Promise<IVideo | VideosAttributes> {
+  public async getVideobyYoutubeId(youtubeId: string): Promise<any> {
     if (isEmpty(youtubeId)) throw new HttpException(400, 'youtubeId is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
@@ -30,15 +30,24 @@ class VideosService {
         youtube_id: youtubeId,
       });
       if (!findVideoById) throw new HttpException(409, "YouTube Video doesn't exist");
-      const return_val = {
-        video_id: findVideoById._id,
-        youtube_video_id: findVideoById.youtube_id,
-        video_name: findVideoById.title,
-        video_length: findVideoById.duration,
-        createdAt: findVideoById.created_at,
-        updatedAt: findVideoById.updated_at,
-      };
-      return return_val;
+
+      const keys = Object.keys(findVideoById.toObject());
+      const nullFields = keys.filter(key => findVideoById[key] === null);
+
+      if (nullFields.length > 0) {
+        const updatedData = await getVideoDataByYoutubeId(youtubeId);
+        await MongoVideosModel.findOneAndUpdate({ youtube_id: youtubeId }, { $set: updatedData }, { new: true });
+        return updatedData;
+      } else {
+        return {
+          video_id: findVideoById._id,
+          youtube_video_id: findVideoById.youtube_id,
+          video_name: findVideoById.title,
+          video_length: findVideoById.duration,
+          createdAt: findVideoById.created_at,
+          updatedAt: findVideoById.updated_at,
+        };
+      }
     } else {
       const findVideoById: VideosAttributes = await PostGres_Videos.findOne({
         where: { youtube_video_id: youtubeId },
