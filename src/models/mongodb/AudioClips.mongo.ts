@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { nowUtc } from '../../utils/util';
 
 interface ITranscript {
   _id: string;
@@ -10,8 +11,8 @@ interface ITranscript {
 interface IAudioClip extends Document {
   // _id: string;
   audio_description: Schema.Types.ObjectId;
-  created_at: Date;
-  description_type: string;
+  created_at: number;
+  description_type: 'Visual' | 'Text on Screen';
   description_text: string;
   duration: number;
   end_time: number;
@@ -24,7 +25,7 @@ interface IAudioClip extends Document {
   playback_type: string;
   start_time: number;
   transcript: ITranscript[];
-  updated_at: Date;
+  updated_at: number;
   user: string;
   video: string;
 }
@@ -37,8 +38,9 @@ const AudioClipSchema: Schema = new Schema(
       required: true,
     },
     created_at: {
-      type: Date,
-      default: Date.now,
+      type: Number,
+      required: true,
+      default: () => nowUtc(),
     },
     description_type: {
       type: String,
@@ -49,27 +51,27 @@ const AudioClipSchema: Schema = new Schema(
     },
     duration: {
       type: Number,
-      required: false,
+      required: true,
     },
     end_time: {
       type: Number,
-      required: false,
+      required: true,
     },
     file_mime_type: {
       type: String,
-      required: false,
+      required: true,
     },
     file_name: {
       type: String,
-      required: false,
+      required: true,
     },
     file_path: {
       type: String,
-      required: false,
+      required: true,
     },
     file_size_bytes: {
       type: Number,
-      required: false,
+      required: true,
     },
     is_recorded: {
       type: Boolean,
@@ -78,7 +80,7 @@ const AudioClipSchema: Schema = new Schema(
     },
     label: {
       type: String,
-      required: true,
+      required: false,
     },
     playback_type: {
       type: String,
@@ -109,8 +111,9 @@ const AudioClipSchema: Schema = new Schema(
       },
     ],
     updated_at: {
-      type: Date,
-      default: Date.now,
+      type: Number,
+      required: true,
+      default: () => nowUtc(),
     },
     user: {
       type: Schema.Types.ObjectId,
