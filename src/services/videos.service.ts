@@ -262,18 +262,17 @@ class VideosService {
       const matchQuery = query
         ? {
             $or: [
-              { 'language.name': { $regex: query, $options: 'i' } },
-              { youtube_id: { $regex: query, $options: 'i' } },
-              { category: { $regex: query, $options: 'i' } },
-              { title: { $regex: query, $options: 'i' } },
+              { 'language.name': { $regex: '\\b' + query + '\\b', $options: 'i' } },
+              { category: { $regex: '\\b' + query + '\\b', $options: 'i' } },
+              { title: { $regex: '\\b' + query + '\\b', $options: 'i' } },
               {
                 tags: {
-                  $elemMatch: { $regex: query, $options: 'i' },
+                  $elemMatch: { $regex: '\\b' + query + '\\b', $options: 'i' },
                 },
               },
               {
                 custom_tags: {
-                  $elemMatch: { $regex: query, $options: 'i' },
+                  $elemMatch: { $regex: '\\b' + query + '\\b', $options: 'i' },
                 },
               },
             ],
