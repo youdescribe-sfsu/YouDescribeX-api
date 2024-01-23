@@ -3,6 +3,7 @@ import { MongoUsersModel, MongoVideosModel } from '../models/mongodb/init-models
 import { IVideo } from '../models/mongodb/Videos.mongo';
 import { getVideoDataByYoutubeId } from '../services/videos.util';
 import { GPU_URL } from '../config';
+import moment from 'moment';
 
 /**
  * @method isEmpty
@@ -64,7 +65,7 @@ export const getYouTubeVideoStatus = async (youtube_id: string): Promise<IVideo>
       custom_tags: [],
       views: 0,
       youtube_status: 'ready',
-      updated_at: new Date(),
+      updated_at: nowUtc(),
     });
     const newSavedVideo = await newVid.save();
     return newSavedVideo;
@@ -105,3 +106,5 @@ export const utcToLongInt = (timestampUtc: number): number => {
 
   return parseInt(formattedDate);
 };
+
+export const nowUtc = () => moment().utc().format('YYYYMMDDHHmmss') as unknown as number;

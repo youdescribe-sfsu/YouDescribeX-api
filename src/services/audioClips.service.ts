@@ -2,7 +2,7 @@ import { AddNewAudioClipDto, UpdateAudioClipDescriptionDto, UpdateAudioClipStart
 import { CURRENT_DATABASE } from '../config';
 import { HttpException } from '../exceptions/HttpException';
 import { Audio_ClipsAttributes, Audio_Descriptions, PostGres_Audio_Clips, Videos } from '../models/postgres/init-models';
-import { isEmpty } from '../utils/util';
+import { isEmpty, nowUtc } from '../utils/util';
 import {
   analyzePlaybackType,
   deleteOldAudioFile,
@@ -614,8 +614,8 @@ class AudioClipsService {
         audio_description: adId,
         user: userId,
         video: videoId,
-        created_at: new Date(),
-        updated_at: new Date(),
+        created_at: nowUtc(),
+        updated_at: nowUtc(),
         transcript: [],
         label: newACTitle,
       });

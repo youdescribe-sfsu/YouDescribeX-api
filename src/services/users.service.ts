@@ -1,6 +1,6 @@
 import { CreateUserAudioDescriptionDto, CreateUserDto, NewUserDto } from '../dtos/users.dto';
 import { HttpException } from '../exceptions/HttpException';
-import { getYouTubeVideoStatus, isEmpty } from '../utils/util';
+import { getYouTubeVideoStatus, isEmpty, nowUtc } from '../utils/util';
 import { CURRENT_DATABASE, CURRENT_YDX_HOST, GPU_URL, AI_USER_ID } from '../config';
 import { PostGres_Users, UsersAttributes } from '../models/postgres/init-models';
 import { PostGres_Videos } from '../models/postgres/init-models';
@@ -142,7 +142,7 @@ class UserService {
             custom_tags: [],
             views: 0,
             youtube_status: 'ready',
-            updated_at: new Date(),
+            updated_at: nowUtc(),
           });
           const newSavedVideo = await newVideo.save();
           if (!newSavedVideo) throw new HttpException(409, "Video couldn't be created");
@@ -150,10 +150,10 @@ class UserService {
           const createNewAudioDescription = new MongoAudio_Descriptions_Model({
             admin_review: false,
             audio_clips: [],
-            created_at: new Date(),
+            created_at: nowUtc(),
             language: 'en',
             legacy_notes: '',
-            updated_at: new Date(),
+            updated_at: nowUtc(),
             video: newSavedVideo._id,
             user: user._id,
           });
@@ -229,10 +229,10 @@ class UserService {
       const createNewAudioDescription = new MongoAudio_Descriptions_Model({
         admin_review: false,
         audio_clips: [],
-        created_at: new Date(),
+        created_at: nowUtc(),
         language: 'en',
         legacy_notes: '',
-        updated_at: new Date(),
+        updated_at: nowUtc(),
         video: videoIdStatus._id,
         user: user._id,
       });
@@ -254,7 +254,7 @@ class UserService {
           const clip = await MongoAudioClipsModel.findById(aiAudioDescriptions[0].video_ad.audio_clips[i]);
           const createNewAudioClip = new MongoAudioClipsModel({
             audio_description: createNewAudioDescription._id,
-            created_at: new Date(),
+            created_at: nowUtc(),
             description_type: clip.description_type,
             description_text: clip.description_text,
             duration: clip.duration,
@@ -267,7 +267,7 @@ class UserService {
             playback_type: clip.playback_type,
             start_time: clip.start_time,
             transcript: [],
-            updated_at: new Date(),
+            updated_at: nowUtc(),
             user: user._id,
             video: videoIdStatus._id,
             is_recorded: false,
@@ -515,10 +515,10 @@ class UserService {
     const createNewAudioDescription = new MongoAudio_Descriptions_Model({
       admin_review: false,
       audio_clips: [],
-      created_at: new Date(),
+      created_at: nowUtc(),
       language: 'en',
       legacy_notes: '',
-      updated_at: new Date(),
+      updated_at: nowUtc(),
       video: videoIdStatus._id,
       user: userIdObject._id,
     });
@@ -534,7 +534,7 @@ class UserService {
       // console.log(`Clip :: ${JSON.stringify(clip)}`);
       const createNewAudioClip = new MongoAudioClipsModel({
         audio_description: createNewAudioDescription._id,
-        created_at: new Date(),
+        created_at: nowUtc(),
         description_type: clip.description_type,
         description_text: clip.description_text,
         duration: clip.duration,
@@ -547,7 +547,7 @@ class UserService {
         playback_type: clip.playback_type,
         start_time: clip.start_time,
         transcript: [],
-        updated_at: new Date(),
+        updated_at: nowUtc(),
         user: userIdObject._id,
         video: videoIdStatus._id,
         is_recorded: false,
@@ -856,10 +856,10 @@ class UserService {
     const createNewAudioDescription = new MongoAudio_Descriptions_Model({
       admin_review: false,
       audio_clips: [],
-      created_at: new Date(),
+      created_at: nowUtc(),
       language: 'en',
       legacy_notes: '',
-      updated_at: new Date(),
+      updated_at: nowUtc(),
       video: videoIdStatus._id,
       user: userIdObject._id,
     });
@@ -875,7 +875,7 @@ class UserService {
       // console.log(`Clip :: ${JSON.stringify(clip)}`);
       const createNewAudioClip = new MongoAudioClipsModel({
         audio_description: createNewAudioDescription._id,
-        created_at: new Date(),
+        created_at: nowUtc(),
         description_type: clip.description_type,
         description_text: clip.description_text,
         duration: clip.duration,
@@ -888,7 +888,7 @@ class UserService {
         playback_type: clip.playback_type,
         start_time: clip.start_time,
         transcript: [],
-        updated_at: new Date(),
+        updated_at: nowUtc(),
         user: userIdObject._id,
         video: videoIdStatus._id,
         is_recorded: false,

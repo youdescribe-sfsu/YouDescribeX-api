@@ -4,14 +4,14 @@ import { IAudioClip } from './AudioClips.mongo';
 interface IAudioDescription extends Document {
   admin_review: boolean;
   audio_clips: Array<IAudioClip['_id']>;
-  created_at: Date;
+  created_at: Number;
   language: string;
   legacy_notes: string;
   overall_rating_votes_average: number;
   overall_rating_votes_counter: number;
   overall_rating_votes_sum: number;
   status: string;
-  updated_at: Date;
+  updated_at: Number;
   user: string;
   video: string;
   views: number;
@@ -31,12 +31,12 @@ const AudioDescriptionSchema: Schema = new Schema(
       },
     ],
     created_at: {
-      type: Date,
-      default: Date.now,
+      type: Number,
+      required: true,
     },
     language: {
       type: String,
-      required: false,
+      required: true,
     },
     legacy_notes: {
       type: String,
@@ -59,8 +59,8 @@ const AudioDescriptionSchema: Schema = new Schema(
       default: 'draft',
     },
     updated_at: {
-      type: Date,
-      default: Date.now,
+      type: Number,
+      required: true,
     },
     user: {
       type: Schema.Types.ObjectId,
