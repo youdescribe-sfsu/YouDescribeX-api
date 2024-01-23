@@ -92,65 +92,43 @@ class WishListService {
     };
   }
 
-  public async getTopWishlist(user_id: string | undefined) {
-    // console.log('user_id', user_id);
-    // if (!user_id) {
-    //   throw new HttpException(400, 'No data provided');
-    // }
-    const userWishlist = await MongoAICaptionRequestModel.aggregate([
-      {
-        $project: {
-          _id: 1,
-          youtube_id: 1,
-          status: 1,
-          captionCount: { $size: '$caption_requests' },
-        },
-      },
-      { $sort: { captionCount: -1 } },
-      { $limit: 3 },
-    ]);
+  public async getTopWishlist(user_id: string) {
+    const top3Requested = await MongoAICaptionRequestModel.aggregate([{ $match: { status: 'completed' } }, { $sort: { captionCount: -1 } }, { $limit: 3 }])
+      .project({ youtube_id: 1 })
+      .exec();
 
-    const youtubeIds = userWishlist.map(entry => entry.youtube_id);
+    const top3Videos = await MongoVideosModel.find({
+      youtube_id: { $in: top3Requested.map(r => r.youtube_id) },
+    })
+      .select({ youtube_id: 1 })
+      .lean();
 
-    const top3AIRequestedVideos = await MongoVideosModel.find({ youtube_id: { $in: youtubeIds }, status: 'completed' }).select({
-      tags: 1,
-      _id: 1,
-      youtube_id: 1,
-      votes: 1,
-      status: 1,
-      created_at: 1,
-      updated_at: 1,
-      v: 1,
-      youtube_status: 1,
-      duration: 1,
-      category_id: 1,
-      category: 1,
-    });
+    const top3YoutubeIds = top3Videos.map(video => video.youtube_id);
 
-    const top3UniqueYouTubeIds = [...new Set(top3AIRequestedVideos.map(video => video.youtube_id))];
-
-    const top2WishlistVideos = await MongoWishListModel.find({
+    const top2Wishlist = await MongoWishListModel.find({
       status: 'queued',
-      youtube_status: 'available',
-      youtube_id: { $nin: top3UniqueYouTubeIds },
+      youtube_id: { $nin: top3YoutubeIds },
     })
       .sort({ votes: -1 })
-      .limit(2);
+      .limit(2)
+      .lean();
 
-    const top2WithAiRequested = top2WishlistVideos.map(video => ({ ...video.toObject(), aiRequested: false }));
+    const userVotes = (await MongoUserVotesModel.find({ user: user_id })).map(v => v.youtube_id);
 
-    // const filteredTop3AIRequested = top3AIRequestedVideos.filter(video => !top3UniqueYouTubeIds.includes(video.youtube_id));
+    const aiVideos = top3Videos.map(video => ({
+      youtube_id: video.youtube_id,
+      aiRequested: true,
+    }));
 
-    const top3WithAiRequested = top3AIRequestedVideos.map(video => ({ ...video.toObject(), aiRequested: true }));
-    const user_votes = await MongoUserVotesModel.find({ user: user_id });
+    const wishlistVideos = top2Wishlist.map(video => ({
+      ...video,
+      aiRequested: false,
+    }));
 
-    const returnArray = [...top3WithAiRequested, ...top2WithAiRequested].map((video: any) => {
-      return {
-        ...video,
-        voted: user_votes.some((vote: any) => vote.youtube_id === video.youtube_id),
-      };
-    });
-    return returnArray;
+    return [...aiVideos, ...wishlistVideos].map(video => ({
+      ...video,
+      voted: userVotes.includes(video.youtube_id),
+    }));
   }
 
   public async getUserWishlist(user_id: string | undefined, pageNumber: string) {
@@ -167,11 +145,11 @@ class WishListService {
       user: userIdObject._id,
     });
 
-    // console.log('userVotes', userVotes);
     const youtubeIds = userVotes.map(entry => entry.youtube_id);
     const aiRequestedMap = new Map();
     const aiRequests = await MongoAICaptionRequestModel.find({
       youtube_id: { $in: youtubeIds },
+      status: 'completed',
     });
 
     aiRequests.forEach(request => {
