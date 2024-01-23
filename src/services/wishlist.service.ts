@@ -132,46 +132,49 @@ class WishListService {
   }
 
   public async getUserWishlist(user_id: string | undefined, pageNumber: string) {
-    if (!user_id) {
-      throw new HttpException(400, 'No data provided');
+    try {
+      if (!user_id) {
+        throw new HttpException(400, 'No User ID provided');
+      }
+
+      const page = parseInt(pageNumber, 10);
+      const perPage = 5;
+      const skipCount = Math.max((page - 1) * perPage, 0);
+
+      const userVotes = await MongoUserVotesModel.find({
+        user: user_id,
+      });
+
+      const youtubeIds = userVotes.map(entry => entry.youtube_id);
+      const aiRequestedMap = new Map();
+      const aiRequests = await MongoAICaptionRequestModel.find({
+        youtube_id: { $in: youtubeIds },
+        status: 'completed',
+      });
+
+      aiRequests.forEach(request => {
+        aiRequestedMap.set(request.youtube_id, true);
+      });
+
+      const totalVideos = await MongoWishListModel.countDocuments({
+        youtube_id: { $in: youtubeIds },
+      });
+
+      const wishListEntries = await MongoWishListModel.find({
+        youtube_id: { $in: youtubeIds },
+      })
+        .skip(skipCount)
+        .limit(perPage);
+
+      const wishListEntriesWithAiRequested = wishListEntries.map(entry => ({
+        ...entry.toObject(),
+        aiRequested: aiRequestedMap.get(entry.youtube_id) || false,
+      }));
+
+      return { result: wishListEntriesWithAiRequested, totalVideos: totalVideos };
+    } catch (error) {
+      return error;
     }
-
-    const page = parseInt(pageNumber, 10);
-    const perPage = 5;
-    const skipCount = Math.max((page - 1) * perPage, 0);
-
-    const userIdObject = await MongoUsersModel.findById(user_id);
-    const userVotes = await MongoUserVotesModel.find({
-      user: userIdObject._id,
-    });
-
-    const youtubeIds = userVotes.map(entry => entry.youtube_id);
-    const aiRequestedMap = new Map();
-    const aiRequests = await MongoAICaptionRequestModel.find({
-      youtube_id: { $in: youtubeIds },
-      status: 'completed',
-    });
-
-    aiRequests.forEach(request => {
-      aiRequestedMap.set(request.youtube_id, true);
-    });
-
-    const totalVideos = await MongoWishListModel.countDocuments({
-      youtube_id: { $in: youtubeIds },
-    });
-
-    const wishListEntries = await MongoWishListModel.find({
-      youtube_id: { $in: youtubeIds },
-    })
-      .skip(skipCount)
-      .limit(perPage);
-
-    const wishListEntriesWithAiRequested = wishListEntries.map(entry => ({
-      ...entry.toObject(),
-      aiRequested: aiRequestedMap.get(entry.youtube_id) || false,
-    }));
-
-    return { result: wishListEntriesWithAiRequested, totalVideos: totalVideos };
   }
 
   public async addOneWishlistItem(youtube_id: string, user: IUser): Promise<any> {
