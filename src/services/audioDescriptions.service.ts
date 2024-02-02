@@ -33,7 +33,16 @@ class AudioDescriptionsService {
     videoId: string,
     userId: string,
     audio_description_id: string,
-  ): Promise<IAudioDescription | Audio_DescriptionsAttributes> {
+  ): Promise<{
+    Audio_Clips: any[];
+    createdAt: any;
+    ad_id: any;
+    is_published: boolean;
+    VideoVideoId: string;
+    UserUserId: any;
+    Notes: any;
+    updatedAt: any;
+  }> {
     if (isEmpty(videoId)) throw new HttpException(400, 'Video ID is empty');
     if (!userId) throw new HttpException(400, 'User ID is empty');
     if (isEmpty(audio_description_id)) throw new HttpException(400, 'Audio Description ID is empty');
@@ -103,27 +112,27 @@ class AudioDescriptionsService {
       };
 
       return newObj;
-    } else {
-      const audioDescriptions: Audio_DescriptionsAttributes = await PostGres_Audio_Descriptions.findOne({
-        where: {
-          VideoVideoId: videoId,
-          UserUserId: userId,
-        },
-        // nesting Audio_Clips & Notes data too
-        include: [
-          {
-            model: PostGres_Audio_Clips,
-            separate: true, // this is nested data, so ordering works only with separate true
-            order: ['clip_start_time'],
-            as: 'Audio_Clips',
-          },
-          {
-            model: PostGres_Notes,
-            as: 'Notes',
-          },
-        ],
-      });
-      return audioDescriptions;
+      // } else {
+      //   const audioDescriptions: Audio_DescriptionsAttributes = await PostGres_Audio_Descriptions.findOne({
+      //     where: {
+      //       VideoVideoId: videoId,
+      //       UserUserId: userId,
+      //     },
+      //     // nesting Audio_Clips & Notes data too
+      //     include: [
+      //       {
+      //         model: PostGres_Audio_Clips,
+      //         separate: true, // this is nested data, so ordering works only with separate true
+      //         order: ['clip_start_time'],
+      //         as: 'Audio_Clips',
+      //       },
+      //       {
+      //         model: PostGres_Notes,
+      //         as: 'Notes',
+      //       },
+      //     ],
+      //   });
+      //   return audioDescriptions;
     }
   }
 
@@ -353,7 +362,21 @@ class AudioDescriptionsService {
     }
   };
 
-  public getAudioDescription = async (audioDescriptionId: string, preview = false): Promise<IAudioDescription | Audio_DescriptionsAttributes> => {
+  public getAudioDescription = async (
+    audioDescriptionId: string,
+    preview = false,
+  ): Promise<{
+    Audio_Clips: any[];
+    createdAt: any;
+    ad_id: any;
+    editing_allowed: any;
+    is_published: boolean;
+    VideoVideoId: any;
+    UserUserId: any;
+    youtube_id: any;
+    Notes: any;
+    updatedAt: any;
+  }> => {
     const audioDescriptions = await MongoAudio_Descriptions_Model.findOne({
       _id: audioDescriptionId,
     });
