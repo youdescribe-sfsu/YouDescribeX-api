@@ -36,13 +36,20 @@ class VideosService {
       });
       if (!findVideoById) throw new HttpException(409, "YouTube Video doesn't exist");
 
-      const keys = Object.keys(findVideoById.toObject());
-      const nullFields = keys.filter(key => findVideoById[key] === null);
-
+      const fieldsToCheck = ['title', 'duration', 'created_at', 'updated_at'];
+      const nullFields = fieldsToCheck.filter(field => !findVideoById[field]);
+      console.log('nullFields', nullFields);
       if (nullFields.length > 0) {
         const updatedData = await getVideoDataByYoutubeId(youtubeId);
-        await MongoVideosModel.findOneAndUpdate({ youtube_id: youtubeId }, { $set: updatedData }, { new: true });
-        return updatedData;
+        const update = await MongoVideosModel.findOneAndUpdate({ youtube_id: youtubeId }, { $set: updatedData }, { new: true });
+        return {
+          video_id: update._id,
+          youtube_video_id: update.youtube_id,
+          video_name: update.title,
+          video_length: update.duration,
+          createdAt: update.created_at,
+          updatedAt: update.updated_at,
+        };
       } else {
         return {
           video_id: findVideoById._id,
@@ -261,26 +268,41 @@ class VideosService {
 
       const pgNumber = Number(page);
       const searchPage = Number.isNaN(pgNumber) || pgNumber === 0 ? 50 : pgNumber * 50;
+      const nameRegex = /^[a-zA-Z]+(?:[-\s'][a-zA-Z]+)*$/;
+      const isNameQuery = nameRegex.test(query);
+      console.log('nameQuery', isNameQuery);
 
-      const matchQuery = query
-        ? {
-            $or: [
-              { 'language.name': { $regex: '\\b' + query + '\\b', $options: 'i' } },
-              { category: { $regex: '\\b' + query + '\\b', $options: 'i' } },
-              { title: { $regex: '\\b' + query + '\\b', $options: 'i' } },
-              {
-                tags: {
-                  $elemMatch: { $regex: '\\b' + query + '\\b', $options: 'i' },
-                },
+      let matchQuery = null;
+
+      if (query && isNameQuery) {
+        console.log('INSIDE QUERY', query);
+        const user = await MongoUsersModel.findOne({ name: query }).select('_id');
+        if (user) {
+          console.log('user', user._id);
+          matchQuery = {
+            'populated_audio_descriptions.user': user._id,
+          };
+        }
+      } else if (query) {
+        matchQuery = {
+          $or: [
+            { 'language.name': { $regex: '\\b' + query + '\\b', $options: 'i' } },
+            { category: { $regex: '\\b' + query + '\\b', $options: 'i' } },
+            { title: { $regex: '\\b' + query + '\\b', $options: 'i' } },
+            {
+              tags: {
+                $elemMatch: { $regex: '\\b' + query + '\\b', $options: 'i' },
               },
-              {
-                custom_tags: {
-                  $elemMatch: { $regex: '\\b' + query + '\\b', $options: 'i' },
-                },
+            },
+            {
+              custom_tags: {
+                $elemMatch: { $regex: '\\b' + query + '\\b', $options: 'i' },
               },
-            ],
-          }
-        : {};
+            },
+          ],
+        };
+      }
+      console.log('query', matchQuery);
 
       return await MongoVideosModel.aggregate([
         {
