@@ -1,14 +1,19 @@
 import { HttpException } from '../exceptions/HttpException';
-import { isEmpty, convertISO8601ToSeconds } from '../utils/util';
+import { convertISO8601ToSeconds, getYouTubeVideoStatus, isEmpty } from '../utils/util';
 import { CURRENT_DATABASE } from '../config';
-import { PostGres_Notes, PostGres_Users, UsersAttributes, VideosAttributes } from '../models/postgres/init-models';
-import { PostGres_Videos } from '../models/postgres/init-models';
-import { PostGres_Audio_Descriptions } from '../models/postgres/init-models';
-import { PostGres_Audio_Clips } from '../models/postgres/init-models';
 import {
+  PostGres_Audio_Clips,
+  PostGres_Audio_Descriptions,
+  PostGres_Notes,
+  PostGres_Users,
+  PostGres_Videos,
+  UsersAttributes,
+  VideosAttributes,
+} from '../models/postgres/init-models';
+import {
+  MongoAudio_Descriptions_Model,
   MongoAudioClipsModel,
   MongoAudioDescriptionRatingModel,
-  MongoAudio_Descriptions_Model,
   MongoNotesModel,
   MongoUsersModel,
   MongoVideosModel,
@@ -76,7 +81,7 @@ class VideosService {
       if (!audioDescriptions) throw new HttpException(409, "Audio Description doesn't exist");
 
       const response = await MongoAudio_Descriptions_Model.deleteOne({ _id: audioDescriptions._id });
-      // console.log(`response: ${JSON.stringify(response)}`);
+      console.log(`response: ${JSON.stringify(response)}`);
 
       const audioClipsData = await MongoAudioClipsModel.findOne({
         where: { audio_description: audioDescriptions._id },
@@ -156,7 +161,7 @@ class VideosService {
       logger.info(`Found videos: ${videos.map(video => video.youtube_id)}`);
 
       // Merge Audio Descriptions and Videos
-      const return_val = videos.map(video => {
+      return videos.map(video => {
         const audioDescription = audioDescriptions.find(ad => ad.video == `${video._id}`);
 
         return {
@@ -173,7 +178,6 @@ class VideosService {
           overall_rating_votes_sum: audioDescription.overall_rating_votes_sum,
         };
       });
-      return return_val;
     } else {
       // Implementation in Postgres
       const audioDescriptions = await PostGres_Audio_Descriptions.findAll({ where: { UserUserId: userId } });
@@ -181,7 +185,7 @@ class VideosService {
       const videoIds = audioDescriptions.map(ad => ad.VideoVideoId);
       const videos = await PostGres_Videos.findAll({ where: { video_id: videoIds } });
       // Merge Audio Descriptions and Videos
-      const return_val = videos.map(video => {
+      return videos.map(video => {
         const audioDescription = audioDescriptions.find(ad => ad.VideoVideoId == video.video_id);
         return {
           video_id: video.video_id,
@@ -193,7 +197,6 @@ class VideosService {
           audio_description_id: audioDescription.ad_id,
         };
       });
-      return return_val;
     }
   }
 
@@ -207,9 +210,9 @@ class VideosService {
         { path: 'user' }, // Populate user data for each audio description
       ],
     });
-
     if (!video) {
-      return { result: null };
+      const newVideo = await getYouTubeVideoStatus(video_id);
+      return { result: newVideo };
     }
 
     const newVideo = video.toJSON();
@@ -279,7 +282,7 @@ class VideosService {
           }
         : {};
 
-      const videos = await MongoVideosModel.aggregate([
+      return await MongoVideosModel.aggregate([
         {
           $lookup: {
             from: 'audio_descriptions',
@@ -342,8 +345,6 @@ class VideosService {
           },
         },
       ]).exec();
-
-      return videos;
     } catch (err) {
       throw new Error('Error fetching videos: ' + err);
     }
@@ -440,9 +441,7 @@ class VideosService {
         },
       });
 
-      const category = response.data.items.map((item: any) => item.snippet.title).join(',');
-
-      return category;
+      return response.data.items.map((item: any) => item.snippet.title).join(',');
     } catch (error) {
       console.error('Error in getYouTubeCategory:', error);
       return '';
