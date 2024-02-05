@@ -52,7 +52,6 @@ export const getYouTubeVideoStatus = async (youtube_id: string): Promise<IVideo>
     return videoIdStatus;
   } else {
     const videoMeta = await getVideoDataByYoutubeId(youtube_id);
-
     const newVid = new MongoVideosModel({
       audio_descriptions: [],
       category: videoMeta.category,
@@ -65,6 +64,7 @@ export const getYouTubeVideoStatus = async (youtube_id: string): Promise<IVideo>
       custom_tags: [],
       views: 0,
       youtube_status: 'ready',
+      created_at: nowUtc(),
       updated_at: nowUtc(),
     });
     const newSavedVideo = await newVid.save();
