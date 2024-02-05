@@ -461,7 +461,7 @@ class AudioDescriptionsService {
     try {
       const pageSize = 4;
       const skip = (parseInt(pageNumber) - 1) * pageSize;
-      const allVideoIds = await MongoAudio_Descriptions_Model.find({ user: user_id, status: 'pusblished' }).distinct('video');
+      const allVideoIds = await MongoAudio_Descriptions_Model.find({ user: user_id }).distinct('video');
       const totalVideos = await MongoVideosModel.countDocuments({
         _id: { $in: allVideoIds },
       });
