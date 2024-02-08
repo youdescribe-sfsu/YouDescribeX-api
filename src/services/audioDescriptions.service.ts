@@ -464,9 +464,11 @@ class AudioDescriptionsService {
       const allVideoIds = await MongoAudio_Descriptions_Model.find({ user: user_id }).distinct('video');
       const totalVideos = await MongoVideosModel.countDocuments({
         _id: { $in: allVideoIds },
+        youtube_status: 'available',
       });
       const videos = await MongoVideosModel.find({
         _id: { $in: allVideoIds },
+        youtube_status: 'available',
       })
         .limit(pageSize)
         .skip(skip);
