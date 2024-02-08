@@ -20,11 +20,12 @@ import { logger } from '../utils/logger';
 import { getVideoDataByYoutubeId, isVideoAvailable } from './videos.util';
 import moment from 'moment';
 import axios from 'axios';
-import mongoose, { Schema } from 'mongoose';
+import mongoose, { ClientSession, Schema } from 'mongoose';
 import AudioClipsService from './audioClips.service';
 import { ObjectId } from 'mongodb';
 import sendEmail from '../utils/emailService';
 import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
+import { processAllClipsInDBSession } from './audiodescriptions.util';
 
 class UserService {
   public audioClipsService = new AudioClipsService();
@@ -423,12 +424,12 @@ class UserService {
     }
   }
 
-  public async increaseRequestCount(youtube_id: string, user_id: string, aiUserId: string) {
+  public async increaseRequestCount(youtube_id: string, user_id: string, aiUserId: string, client: ClientSession) {
     try {
-      const userIdObject = await MongoUsersModel.findById(user_id);
+      const userIdObject = await MongoUsersModel.findById(user_id).session(client);
       const userObjectId = userIdObject._id;
 
-      const captionRequest = await MongoAICaptionRequestModel.findOne({ youtube_id, ai_user_id: aiUserId });
+      const captionRequest = await MongoAICaptionRequestModel.findOne({ youtube_id, ai_user_id: aiUserId }).session(client);
 
       if (!captionRequest) {
         // If the video has not been requested by anyone yet
@@ -438,11 +439,11 @@ class UserService {
           status: 'pending',
           caption_requests: [userIdObject],
         });
-        await newCaptionRequest.save();
+        await newCaptionRequest.save({ session: client });
       } else if (!captionRequest.caption_requests.includes(userObjectId)) {
         // If the video has been requested by other users but not by the current user
         captionRequest.caption_requests.push(userObjectId);
-        await captionRequest.save();
+        await captionRequest.save({ session: client });
       }
       return true;
     } catch (error) {
@@ -451,8 +452,13 @@ class UserService {
     }
   }
 
-  private async checkIfVideoHasAudioDescription(youtubeVideoId: string, aiUserId: string, userId: string): Promise<boolean | mongoose.Types.ObjectId> {
-    const userIdObject = await MongoUsersModel.findById(userId);
+  private async checkIfVideoHasAudioDescription(
+    youtubeVideoId: string,
+    aiUserId: string,
+    userId: string,
+    client: ClientSession,
+  ): Promise<boolean | mongoose.Types.ObjectId> {
+    const userIdObject = await MongoUsersModel.findById(userId).session(client);
 
     if (!userIdObject) throw new HttpException(409, "User couldn't be found");
 
@@ -462,7 +468,7 @@ class UserService {
 
     if (!videoIdStatus) throw new HttpException(409, "Video couldn't be found in checkIfVideoHasAudioDescription");
 
-    const aiUser = await MongoUsersModel.findById(aiUserObjectId);
+    const aiUser = await MongoUsersModel.findById(aiUserObjectId).session(client);
 
     if (!aiUser) throw new HttpException(409, "AI User couldn't be found");
 
@@ -510,8 +516,10 @@ class UserService {
           'video_ad_user._id': aiUser._id,
         },
       },
-    ]);
+    ]).session(client);
+
     if (aiAudioDescriptions.length === 0) return false;
+
     const createNewAudioDescription = new MongoAudio_Descriptions_Model({
       admin_review: false,
       audio_clips: [],
@@ -523,15 +531,12 @@ class UserService {
       user: userIdObject._id,
     });
 
-    // console.log(`createNewAudioDescription :: ${JSON.stringify(createNewAudioDescription)}`);
-
     logger.info(`createNewAudioDescription :: ${JSON.stringify(createNewAudioDescription)}`);
     const audioClipArray = [];
 
     for (let i = 0; i < aiAudioDescriptions[0].video_ad.audio_clips.length; i++) {
       const clipId = aiAudioDescriptions[0].video_ad.audio_clips[i];
-      const clip = await MongoAudioClipsModel.findById(clipId);
-      // console.log(`Clip :: ${JSON.stringify(clip)}`);
+      const clip = await MongoAudioClipsModel.findById(clipId).session(client);
       const createNewAudioClip = new MongoAudioClipsModel({
         audio_description: createNewAudioDescription._id,
         created_at: nowUtc(),
@@ -552,30 +557,35 @@ class UserService {
         video: videoIdStatus._id,
         is_recorded: false,
       });
+
       if (!createNewAudioClip) throw new HttpException(409, "Audio Clip couldn't be created");
+
       audioClipArray.push(createNewAudioClip);
     }
 
-    const createNewAudioClips = await MongoAudioClipsModel.insertMany(audioClipArray);
+    const createNewAudioClips = await MongoAudioClipsModel.insertMany(audioClipArray, { session: client });
     if (!createNewAudioClips) throw new HttpException(409, "Audio Clips couldn't be created");
+
     createNewAudioClips.forEach(async clip => createNewAudioDescription.audio_clips.push(clip));
-    createNewAudioClips.forEach(async clip => clip.save());
-    createNewAudioDescription.save();
+    createNewAudioClips.forEach(async clip => clip.save({ session: client }));
+    createNewAudioDescription.save({ session: client });
+
     if (!createNewAudioDescription) throw new HttpException(409, "Audio Description couldn't be created");
 
-    // Add Audio Description to Video Audio Description Array for consistency with old MongodB and YD Classic logic
     await MongoVideosModel.findByIdAndUpdate(videoIdStatus._id, {
       $push: {
         audio_descriptions: {
           $each: [{ _id: createNewAudioDescription._id }],
         },
       },
-    }).catch(err => {
-      logger.error(err);
-      throw new HttpException(409, "Video couldn't be updated.");
-    });
+    })
+      .session(client)
+      .catch(err => {
+        logger.error(err);
+        throw new HttpException(409, "Video couldn't be updated.");
+      });
 
-    logger.info('Successfully created new Audio Description for existing Video that has an AI Audio Description');
+    logger.info('Successfully created new Audio Description for an existing Video that has an AI Audio Description');
     return createNewAudioDescription._id;
   }
 
@@ -586,7 +596,8 @@ class UserService {
     if (!youtube_id) {
       throw new HttpException(400, 'No youtube_id provided');
     }
-
+    const session = await mongoose.startSession();
+    session.startTransaction();
     const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
 
     // console.log(`youtubeVideoData ::  ${JSON.stringify(youtubeVideoData)}`);
@@ -596,14 +607,14 @@ class UserService {
       throw new HttpException(400, 'No youtubeVideoData provided');
     }
 
-    const aiAudioDescriptions = await this.checkIfVideoHasAudioDescription(youtube_id, AI_USER_ID, userData._id);
+    const aiAudioDescriptions = await this.checkIfVideoHasAudioDescription(youtube_id, AI_USER_ID, userData._id, session);
 
     if (aiAudioDescriptions) {
-      const counterIncrement = await this.increaseRequestCount(youtube_id, userData._id, AI_USER_ID);
+      const counterIncrement = await this.increaseRequestCount(youtube_id, userData._id, AI_USER_ID, session);
       if (!counterIncrement) {
         throw new HttpException(500, 'Error incrementing counter');
       }
-      await this.audioClipsService.processAllClipsInDB(aiAudioDescriptions.toString());
+      await processAllClipsInDBSession(aiAudioDescriptions.toString(), session);
 
       logger.info(`Sending email to ${userData.email}`);
 
@@ -650,7 +661,7 @@ class UserService {
         // user_email: userData.email,
         // user_name: userData.name,
       });
-      const counterIncrement = await this.increaseRequestCount(youtube_id, userData._id, AI_USER_ID);
+      const counterIncrement = await this.increaseRequestCount(youtube_id, userData._id, AI_USER_ID, session);
 
       if (!counterIncrement) {
         throw new HttpException(500, 'Error incrementing counter');
