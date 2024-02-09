@@ -268,40 +268,40 @@ class VideosService {
 
       const pgNumber = Number(page);
       const searchPage = Number.isNaN(pgNumber) || pgNumber === 0 ? 50 : pgNumber * 50;
-      const nameRegex = /^[a-zA-Z]+(?:[-\s'][a-zA-Z]+)*$/;
-      const isNameQuery = nameRegex.test(query);
-      console.log('nameQuery', isNameQuery);
 
-      let matchQuery = null;
+      const matchQuery = query
+        ? {
+            $or: [
+              { 'language.name': { $regex: query, $options: 'i' } },
+              { youtube_id: { $regex: query, $options: 'i' } },
+              { category: { $regex: query, $options: 'i' } },
+              { title: { $regex: query, $options: 'i' } },
+              {
+                tags: {
+                  $elemMatch: { $regex: query, $options: 'i' },
+                },
+              },
+              {
+                custom_tags: {
+                  $elemMatch: { $regex: query, $options: 'i' },
+                },
+              },
+            ],
+          }
+        : {};
 
-      if (query && isNameQuery) {
-        console.log('INSIDE QUERY', query);
-        const user = await MongoUsersModel.findOne({ name: query }).select('_id');
-        if (user) {
-          console.log('user', user._id);
-          matchQuery = {
-            'populated_audio_descriptions.user': user._id,
-          };
+      if (query) {
+        const nameRegex = /^[a-zA-Z]+(?:[-\s'][a-zA-Z]+)*$/;
+        const isNameQuery = nameRegex.test(query);
+
+        if (isNameQuery) {
+          const user = await MongoUsersModel.findOne({ name: query }).select('_id');
+          if (user) {
+            matchQuery.$or.push({ 'populated_audio_descriptions.user._id': user._id });
+          }
         }
-      } else if (query) {
-        matchQuery = {
-          $or: [
-            { 'language.name': { $regex: '\\b' + query + '\\b', $options: 'i' } },
-            { category: { $regex: '\\b' + query + '\\b', $options: 'i' } },
-            { title: { $regex: '\\b' + query + '\\b', $options: 'i' } },
-            {
-              tags: {
-                $elemMatch: { $regex: '\\b' + query + '\\b', $options: 'i' },
-              },
-            },
-            {
-              custom_tags: {
-                $elemMatch: { $regex: '\\b' + query + '\\b', $options: 'i' },
-              },
-            },
-          ],
-        };
       }
+
       console.log('query', matchQuery);
 
       return await MongoVideosModel.aggregate([
