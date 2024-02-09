@@ -269,7 +269,7 @@ class VideosService {
       const pgNumber = Number(page);
       const searchPage = Number.isNaN(pgNumber) || pgNumber === 0 ? 50 : pgNumber * 50;
 
-      const matchQuery = query
+      const matchQuery: any = query
         ? {
             $or: [
               { 'language.name': { $regex: query, $options: 'i' } },
