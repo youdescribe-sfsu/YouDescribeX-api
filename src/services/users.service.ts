@@ -724,7 +724,7 @@ class UserService {
 
       if (userAudioDescription) {
         return {
-          status: 'completed',
+          status: 'draft',
           requested: false,
           preview: false,
           url: `editor/${youtube_id}/${userAudioDescription._id}`,
@@ -736,7 +736,7 @@ class UserService {
       if (aiAudioDescription) {
         return {
           url: `audio-description/preview/${youtube_id}/${aiAudioDescription._id}`,
-          status: 'available',
+          status: 'completed',
           requested: false,
           preview: true,
         };
