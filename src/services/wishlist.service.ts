@@ -93,21 +93,47 @@ class WishListService {
   }
 
   public async getTopWishlist(user_id: string) {
-    const top3Requested = await MongoAICaptionRequestModel.aggregate([{ $match: { status: 'completed' } }, { $sort: { captionCount: -1 } }, { $limit: 3 }])
+    const topWishlistVideos = await MongoWishListModel.find({
+      status: 'queued',
+    })
+      .sort({ votes: -1 })
+      .lean();
+
+    const topWishlistVideosYoutubeIds = topWishlistVideos.map(video => video.youtube_id);
+
+    const top3AIRequestedVideos = await MongoAICaptionRequestModel.aggregate([
+      { $match: { youtube_id: { $in: topWishlistVideosYoutubeIds }, status: 'completed' } },
+      { $addFields: { numCaptionRequests: { $size: '$caption_requests' } } },
+      { $sort: { numCaptionRequests: -1 } },
+      { $limit: 3 },
+    ])
       .project({ youtube_id: 1 })
       .exec();
 
-    const top3Videos = await MongoVideosModel.find({
-      youtube_id: { $in: top3Requested.map(r => r.youtube_id) },
-    })
-      .select({ youtube_id: 1 })
-      .lean();
+    const top3AIRequestedyoutubeids = top3AIRequestedVideos.map(video => video.youtube_id);
 
-    const top3YoutubeIds = top3Videos.map(video => video.youtube_id);
+    const top3Videos = await MongoVideosModel.aggregate([
+      {
+        $match: {
+          youtube_id: { $in: top3AIRequestedyoutubeids },
+        },
+      },
+      {
+        $group: {
+          _id: '$youtube_id',
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          youtube_id: '$_id',
+        },
+      },
+    ]);
 
     const top2Wishlist = await MongoWishListModel.find({
       status: 'queued',
-      youtube_id: { $nin: top3YoutubeIds },
+      youtube_id: { $nin: top3AIRequestedyoutubeids },
     })
       .sort({ votes: -1 })
       .limit(2)
