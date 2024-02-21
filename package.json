@@ -33,6 +33,7 @@
   "homepage": "https://github.com/bhavani-goruganthu/ydx-ai-backend#readme",
   "dependencies": {
     "@google-cloud/text-to-speech": "^3.4.0",
+    "@types/string-similarity": "^4.0.2",
     "axios": "^1.5.0",
     "class-validator": "^0.14.0",
     "compression": "^1.7.4",
@@ -60,6 +61,7 @@
     "pg-hstore": "^2.3.4",
     "sequelize": "^6.16.2",
     "sequelize-typescript": "^2.1.5",
+    "string-similarity": "^4.0.4",
     "swagger-jsdoc": "5.0.1",
     "swagger-ui-express": "^4.5.0",
     "uuid": "^8.3.2",
