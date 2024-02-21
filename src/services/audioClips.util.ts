@@ -12,7 +12,6 @@ import { MongoAudioClipsModel, MongoDialog_Timestamps_Model, MongoVideosModel } 
 import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
 import mime from 'mime-types';
 import { getYouTubeVideoStatus } from '../utils/util';
-import { ClientSession } from 'mongoose';
 
 interface NudgeStartTimeIfZeroResult {
   data: [] | null;
@@ -27,7 +26,7 @@ function isAudioClips(clip: IAudioClip | Audio_Clips): clip is Audio_Clips {
   return (clip as Audio_Clips).clip_start_time !== undefined;
 }
 
-export const nudgeStartTimeIfZero = async (audioClips: Audio_Clips[] | IAudioClip[], session: ClientSession): Promise<NudgeStartTimeIfZeroResult> => {
+export const nudgeStartTimeIfZero = async (audioClips: Audio_Clips[] | IAudioClip[]): Promise<NudgeStartTimeIfZeroResult> => {
   const startTimeZeroaudioClipIds: string[] = [];
 
   for (const clip of audioClips) {
@@ -53,7 +52,7 @@ export const nudgeStartTimeIfZero = async (audioClips: Audio_Clips[] | IAudioCli
     if (CURRENT_DATABASE == 'mongodb') {
       const clipsToUpdate = await MongoAudioClipsModel.find({
         clip_id: { $in: startTimeZeroaudioClipIds },
-      }).session(session);
+      });
 
       await Promise.all(clipsToUpdate.map(async clip => await clip.update({ start_time: clip.start_time + 1 })));
       return {
@@ -181,7 +180,6 @@ export const analyzePlaybackType = async (
   adId: string,
   clipId: string | null,
   processingAllClips: boolean,
-  session: ClientSession,
 ): Promise<AnalyzePlaybackTypeResponse> => {
   if (CURRENT_DATABASE == 'mongodb') {
     try {
@@ -194,9 +192,7 @@ export const analyzePlaybackType = async (
       const overlappingDialogs = await MongoDialog_Timestamps_Model.find({
         video: videoId,
         $and: [{ dialog_start_time: { $lte: currentClipEndTime } }, { dialog_end_time: { $gte: currentClipStartTime } }],
-      })
-        .session(session)
-        .select('dialog_start_time dialog_end_time');
+      }).select('dialog_start_time dialog_end_time');
       console.log('overlappingDialogs', overlappingDialogs.length);
       if (overlappingDialogs.length !== 0) {
         return {
@@ -246,7 +242,7 @@ export const analyzePlaybackType = async (
             data: 'extended',
           };
         }
-        const playbackType = (await MongoAudioClipsModel.findById(clipId).session(session)).toJSON()['playback_type'];
+        const playbackType = (await MongoAudioClipsModel.findById(clipId)).toJSON()['playback_type'];
         return {
           message: `Success - ${playbackType}!`,
           data: playbackType,
@@ -365,10 +361,9 @@ export const deleteOldAudioFile = async (old_audio_path: string) => {
   }
 };
 
-export const getClipStartTimebyId = async (clipId: string, session: ClientSession) => {
+export const getClipStartTimebyId = async (clipId: string) => {
   if (CURRENT_DATABASE === 'mongodb') {
     return MongoAudioClipsModel.findById(clipId)
-      .session(session)
       .then(clip => {
         return {
           message: 'Success',
@@ -403,10 +398,9 @@ export const getClipStartTimebyId = async (clipId: string, session: ClientSessio
   }
 };
 
-export const getOldAudioFilePath = async (clipId: string, session: ClientSession) => {
+export const getOldAudioFilePath = async (clipId: string) => {
   if (CURRENT_DATABASE === 'mongodb') {
     return MongoAudioClipsModel.findById(clipId)
-      .session(session)
       .then(clip => {
         return {
           message: 'Success',
@@ -471,7 +465,7 @@ export const getVideoFromYoutubeId = async youtubeVideoID => {
   }
 };
 
-export const updatePlaybackinDB = async (clipId: string, playbackType: any, session: ClientSession) => {
+export const updatePlaybackinDB = async (clipId: string, playbackType: any) => {
   if (CURRENT_DATABASE === 'mongodb') {
     return MongoAudioClipsModel.updateOne(
       {
@@ -481,7 +475,6 @@ export const updatePlaybackinDB = async (clipId: string, playbackType: any, sess
         playback_type: playbackType,
       },
     )
-      .session(session)
       .then(async clip => {
         return {
           message: 'Updated Playback Type',
@@ -520,7 +513,7 @@ export const updatePlaybackinDB = async (clipId: string, playbackType: any, sess
   }
 };
 
-export const processCurrentClip = async (data, session: ClientSession) => {
+export const processCurrentClip = async data => {
   // check if there is an error in text to speech generation
   if (!data.textToSpeechOutput.status) {
     return {
@@ -548,7 +541,7 @@ export const processCurrentClip = async (data, session: ClientSession) => {
       const clipDuration = clipDurationStatus.data;
 
       // fetch the updated nudged start time - done by nudgeStartTimeIfZero()
-      const getClipStartTimeStatus = await getClipStartTimebyId(data.clip_id, session);
+      const getClipStartTimeStatus = await getClipStartTimebyId(data.clip_id);
       // check if the returned data is null - an error in analyzing Playback type
       if (getClipStartTimeStatus.data === null) {
         return {
@@ -574,7 +567,6 @@ export const processCurrentClip = async (data, session: ClientSession) => {
               file_size_bytes: data.textToSpeechOutput.file_size_bytes,
             },
           )
-            .session(session)
             .then(async () => {
               // analyze clip playback type from dialog timestamp & Audio Clips data
               logger.info('Analyzing clip playback type from dialog timestamp & Audio Clips data');
@@ -585,7 +577,6 @@ export const processCurrentClip = async (data, session: ClientSession) => {
                 data.ad_id,
                 data.clip_id,
                 true, // passing true as this is processing all audio clips at once
-                session,
               );
               // check if the returned data is null - an error in analyzing Playback type
               if (analysisStatus.data === null) {
@@ -596,7 +587,7 @@ export const processCurrentClip = async (data, session: ClientSession) => {
               } else {
                 const playbackType = analysisStatus.data;
 
-                const updatePlaybackStatus = await updatePlaybackinDB(data.clip_id, playbackType, session);
+                const updatePlaybackStatus = await updatePlaybackinDB(data.clip_id, playbackType);
                 // check if the returned data is null - an error in updatingPlayback type
                 if (updatePlaybackStatus.data === null) {
                   return {
@@ -622,63 +613,64 @@ export const processCurrentClip = async (data, session: ClientSession) => {
             });
         } else {
           // update the path of the audio file, duration, end time, start time of the audio clip in the db
-          //   return await Audio_Clips.update(
-          //     {
-          //       clip_start_time: Number(parseFloat(clipStartTime).toFixed(2)), // rounding the start time
-          //       clip_audio_path: data.textToSpeechOutput.filepath,
-          //       clip_duration: parseFloat(clipDuration),
-          //       clip_end_time: clipEndTime,
-          //     },
-          //     {
-          //       where: {
-          //         clip_id: data.clip_id,
-          //       },
-          //       // logging: false,
-          //     },
-          //   )
-          //     .then(async () => {
-          //       // analyze clip playback type from dialog timestamp & Audio Clips data
-          //       logger.info('Analyzing clip playback type from dialog timestamp & Audio Clips data');
-          //       const analysisStatus = await analyzePlaybackType(
-          //         Number(clipStartTime),
-          //         clipEndTime,
-          //         data.video_id,
-          //         data.ad_id,
-          //         data.clip_id,
-          //         true, // passing true as this is processing all audio clips at once
-          //       );
-          //       // check if the returned data is null - an error in analyzing Playback type
-          //       if (analysisStatus.data === null) {
-          //         return {
-          //           clip_id: data.clip_id,
-          //           message: analysisStatus.message,
-          //         };
-          //       } else {
-          //         const playbackType = analysisStatus.data;
-          //         const updatePlaybackStatus = await updatePlaybackinDB(data.clip_id, playbackType);
-          //         // check if the returned data is null - an error in updatingPlayback type
-          //         if (updatePlaybackStatus.data === null) {
-          //           return {
-          //             clip_id: data.clip_id,
-          //             message: updatePlaybackStatus.message,
-          //           };
-          //         } else {
-          //           return {
-          //             clip_id: data.clip_id,
-          //             message: 'Success OK',
-          //             playbackType: playbackType,
-          //           };
-          //         }
-          //       }
-          //     })
-          //     .catch(err => {
-          //       logger.info(err);
-          //       return {
-          //         clip_id: data.clip_id,
-          //         message: 'Unable to Update DB !! Please try again' + err,
-          //       };
-          //       // return the error msg with the clip_id
-          //     });
+          return await Audio_Clips.update(
+            {
+              clip_start_time: Number(parseFloat(clipStartTime).toFixed(2)), // rounding the start time
+              clip_audio_path: data.textToSpeechOutput.filepath,
+              clip_duration: parseFloat(clipDuration),
+              clip_end_time: clipEndTime,
+            },
+            {
+              where: {
+                clip_id: data.clip_id,
+              },
+              // logging: false,
+            },
+          )
+            .then(async () => {
+              // analyze clip playback type from dialog timestamp & Audio Clips data
+              logger.info('Analyzing clip playback type from dialog timestamp & Audio Clips data');
+              const analysisStatus = await analyzePlaybackType(
+                Number(clipStartTime),
+                clipEndTime,
+                data.video_id,
+                data.ad_id,
+                data.clip_id,
+                true, // passing true as this is processing all audio clips at once
+              );
+              // check if the returned data is null - an error in analyzing Playback type
+              if (analysisStatus.data === null) {
+                return {
+                  clip_id: data.clip_id,
+                  message: analysisStatus.message,
+                };
+              } else {
+                const playbackType = analysisStatus.data;
+
+                const updatePlaybackStatus = await updatePlaybackinDB(data.clip_id, playbackType);
+                // check if the returned data is null - an error in updatingPlayback type
+                if (updatePlaybackStatus.data === null) {
+                  return {
+                    clip_id: data.clip_id,
+                    message: updatePlaybackStatus.message,
+                  };
+                } else {
+                  return {
+                    clip_id: data.clip_id,
+                    message: 'Success OK',
+                    playbackType: playbackType,
+                  };
+                }
+              }
+            })
+            .catch(err => {
+              logger.info(err);
+              return {
+                clip_id: data.clip_id,
+                message: 'Unable to Update DB !! Please try again' + err,
+              };
+              // return the error msg with the clip_id
+            });
         }
       }
     }

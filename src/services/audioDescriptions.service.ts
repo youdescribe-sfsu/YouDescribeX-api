@@ -24,7 +24,7 @@ import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
 import { ObjectId } from 'mongodb';
 import { isVideoAvailable } from './videos.util';
 import audioDescriptionsController from '../controllers/audioDescriptions.controller';
-import { newAIAudioDescription } from './audiodescriptions.util';
+import { exceptions } from 'winston';
 
 const fs = require('fs');
 
@@ -151,8 +151,92 @@ class AudioDescriptionsService {
     }
 
     if (CURRENT_DATABASE == 'mongodb') {
-      const audiodescriptionID = await newAIAudioDescription(newAIDescription);
-      return audiodescriptionID;
+      // console.log('aiUserId', aiUserId);
+      const aiUserObjectId = new ObjectId(aiUserId);
+      const aiUser = await MongoUsersModel.findById(aiUserObjectId);
+      if (!aiUser) throw new HttpException(404, "ai User doesn't exist");
+      let vid: any = await getYouTubeVideoStatus(youtube_id);
+      const ad = new MongoAudio_Descriptions_Model();
+      if (!ad) throw new HttpException(409, "Audio Descriptions couldn't be created");
+      if (vid) {
+        ad.set('video', vid._id);
+        // Add Audio Description to Video Audio Description Array for consistency with old MongodB and YD Classic logic
+        await MongoVideosModel.findByIdAndUpdate(vid._id, {
+          $push: {
+            audio_descriptions: {
+              $each: [{ _id: ad._id }],
+            },
+          },
+        }).catch(err => {
+          logger.error(err);
+          throw new HttpException(409, "Video couldn't be updated.");
+        });
+      } else {
+        const newVid = new MongoVideosModel({
+          audio_descriptions: [],
+          category: '',
+          category_id: 0,
+          youtube_id: youtube_id,
+          title: video_name,
+          duration: video_length,
+          description: '',
+          tags: [],
+          custom_tags: [],
+          views: 0,
+          youtube_status: 'ready',
+          updated_at: nowUtc(),
+        });
+        const newSavedVideo = await newVid.save();
+        if (!newSavedVideo) throw new HttpException(409, "Video couldn't be created");
+        await MongoVideosModel.findByIdAndUpdate(newVid._id, {
+          $push: {
+            audio_descriptions: {
+              $each: [{ _id: ad._id }],
+            },
+          },
+        }).catch(err => {
+          logger.error(err);
+          throw new HttpException(409, "Video couldn't be updated.");
+        });
+        ad.set('video', newSavedVideo._id);
+        vid = newSavedVideo;
+      }
+      ad.set('user', aiUser);
+      const new_clip = await MongoAudioClipsModel.insertMany(
+        audio_clips.map(clip => {
+          return {
+            audio_description: ad._id,
+            user: aiUser._id,
+            video: vid._id,
+            description_text: clip.text,
+            description_type: clip.type,
+            label: `scene ${clip.scene_number}`,
+            playback_type: 'extended',
+            start_time: clip.start_time,
+          };
+        }),
+      );
+      if (!new_clip) throw new HttpException(409, "Audio Clips couldn't be created");
+      ad.set(
+        'audio_clips',
+        new_clip.map(clip => clip._id),
+      );
+
+      const new_timestamp = await MongoDialog_Timestamps_Model.create(
+        dialogue_timestamps.map(timestamp => {
+          return {
+            video: vid,
+            dialog_sequence_num: timestamp.sequence_num,
+            dialog_start_time: timestamp.start_time,
+            dialog_end_time: timestamp.end_time,
+            dialog_duration: timestamp.duration,
+          };
+        }),
+      );
+      if (!new_timestamp) throw new HttpException(409, "Dialog Timestamps couldn't be created");
+      // console.log('new_timestamp', ad);
+      ad.save();
+      return ad;
     } else {
       const aiUser = await PostGres_Users.findOne({
         where: {
