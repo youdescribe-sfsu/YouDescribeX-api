@@ -19,7 +19,6 @@ import { MongoAudioClipsModel, MongoAudio_Descriptions_Model, MongoVideosModel }
 import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
 import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
 import { getVideoDataByYoutubeId, isVideoAvailable } from './videos.util';
-import { ClientSession, ObjectId, startSession } from 'mongoose';
 
 interface IProcessedClips {
   clip_id: any;
@@ -70,171 +69,171 @@ interface IProcessedClips {
   message: string;
 }
 class AudioClipsService {
-  // public async processAllClipsInDB(audioDescriptionAdId: string): Promise<IProcessedClips[]> {
-  //   if (isEmpty(audioDescriptionAdId)) throw new HttpException(400, 'Audio Description ID is empty');
+  public async processAllClipsInDB(audioDescriptionAdId: string): Promise<IProcessedClips[]> {
+    if (isEmpty(audioDescriptionAdId)) throw new HttpException(400, 'Audio Description ID is empty');
 
-  //   if (CURRENT_DATABASE == 'mongodb') {
-  //     const audioDescriptions = await MongoAudioClipsModel.find({
-  //       audio_description: audioDescriptionAdId,
-  //     });
-  //     if (!audioDescriptions) throw new HttpException(409, "Audio Descriptions couldn't be found");
-  //     const populatedAudioClip: PopulatedAudioDescription[] = [];
-  //     for (let i = 0; i < audioDescriptions.length; i++) {
-  //       const audioDescription: IAudioClip = audioDescriptions[i];
-  //       const populatedAudioDescription = await MongoAudio_Descriptions_Model.findById(audioDescription.audio_description);
-  //       const populatedVideo = await MongoVideosModel.findById(populatedAudioDescription.video);
+    if (CURRENT_DATABASE == 'mongodb') {
+      const audioDescriptions = await MongoAudioClipsModel.find({
+        audio_description: audioDescriptionAdId,
+      });
+      if (!audioDescriptions) throw new HttpException(409, "Audio Descriptions couldn't be found");
+      const populatedAudioClip: PopulatedAudioDescription[] = [];
+      for (let i = 0; i < audioDescriptions.length; i++) {
+        const audioDescription: IAudioClip = audioDescriptions[i];
+        const populatedAudioDescription = await MongoAudio_Descriptions_Model.findById(audioDescription.audio_description);
+        const populatedVideo = await MongoVideosModel.findById(populatedAudioDescription.video);
 
-  //       const youtubeVideoData = await isVideoAvailable(populatedVideo.youtube_id);
-  //       if (!youtubeVideoData) {
-  //         throw new HttpException(400, 'No youtubeVideoData provided');
-  //       }
+        const youtubeVideoData = await isVideoAvailable(populatedVideo.youtube_id);
+        if (!youtubeVideoData) {
+          throw new HttpException(400, 'No youtubeVideoData provided');
+        }
 
-  //       const obj = {
-  //         _id: audioDescription._id,
-  //         audio_description: audioDescription.audio_description,
-  //         created_at: audioDescription.created_at,
-  //         description_type: audioDescription.description_type,
-  //         description_text: audioDescription.description_text,
-  //         label: audioDescription.label,
-  //         playback_type: audioDescription.playback_type,
-  //         start_time: audioDescription.start_time,
-  //         transcript: audioDescription.transcript,
-  //         updated_at: audioDescription.updated_at,
-  //         user: audioDescription.user,
-  //         video: audioDescription.video,
-  //         Audio_Description: {
-  //           user: populatedAudioDescription.user,
-  //           video: populatedAudioDescription.video,
-  //           Video: {
-  //             youtube_id: populatedVideo.youtube_id,
-  //             duration: populatedVideo.duration,
-  //           },
-  //         },
-  //       } as PopulatedAudioDescription;
-  //       populatedAudioClip.push(obj);
-  //     }
+        const obj = {
+          _id: audioDescription._id,
+          audio_description: audioDescription.audio_description,
+          created_at: audioDescription.created_at,
+          description_type: audioDescription.description_type,
+          description_text: audioDescription.description_text,
+          label: audioDescription.label,
+          playback_type: audioDescription.playback_type,
+          start_time: audioDescription.start_time,
+          transcript: audioDescription.transcript,
+          updated_at: audioDescription.updated_at,
+          user: audioDescription.user,
+          video: audioDescription.video,
+          Audio_Description: {
+            user: populatedAudioDescription.user,
+            video: populatedAudioDescription.video,
+            Video: {
+              youtube_id: populatedVideo.youtube_id,
+              duration: populatedVideo.duration,
+            },
+          },
+        } as PopulatedAudioDescription;
+        populatedAudioClip.push(obj);
+      }
 
-  //     const nudgeStatus = await nudgeStartTimeIfZero(populatedAudioClip);
-  //     if (nudgeStatus.data === null) throw new HttpException(409, nudgeStatus.message);
-  //     const descriptionTexts = populatedAudioClip.map(clip => {
-  //       const typeCastedClip = clip;
-  //       return {
-  //         clip_id: typeCastedClip._id,
-  //         clip_description_type: typeCastedClip.description_type,
-  //         clip_description_text: typeCastedClip.description_text,
-  //         video_id: typeCastedClip.Audio_Description.video._id,
-  //         user_id: typeCastedClip.Audio_Description.user._id,
-  //         youtube_id: typeCastedClip.Audio_Description.Video.youtube_id,
-  //         video_length: typeCastedClip.Audio_Description.Video.duration,
-  //       };
-  //     });
-  //     const statusData = [];
+      const nudgeStatus = await nudgeStartTimeIfZero(populatedAudioClip);
+      if (nudgeStatus.data === null) throw new HttpException(409, nudgeStatus.message);
+      const descriptionTexts = populatedAudioClip.map(clip => {
+        const typeCastedClip = clip;
+        return {
+          clip_id: typeCastedClip._id,
+          clip_description_type: typeCastedClip.description_type,
+          clip_description_text: typeCastedClip.description_text,
+          video_id: typeCastedClip.Audio_Description.video._id,
+          user_id: typeCastedClip.Audio_Description.user._id,
+          youtube_id: typeCastedClip.Audio_Description.Video.youtube_id,
+          video_length: typeCastedClip.Audio_Description.Video.duration,
+        };
+      });
+      const statusData = [];
 
-  //     for (let index = 0; index < descriptionTexts.length; index++) {
-  //       const desc = descriptionTexts[index];
-  //       const textToSpeechOutput = await generateMp3forDescriptionText(
-  //         audioDescriptionAdId,
-  //         desc.youtube_id,
-  //         desc.clip_description_text,
-  //         desc.clip_description_type,
-  //       );
-  //       const data = {
-  //         textToSpeechOutput,
-  //         clip_id: desc.clip_id,
-  //         video_id: desc.video_id,
-  //         ad_id: audioDescriptionAdId,
-  //         description_type: desc.clip_description_type,
-  //         video_length: desc.video_length,
-  //       };
-  //       statusData.push(data);
-  //     }
+      for (let index = 0; index < descriptionTexts.length; index++) {
+        const desc = descriptionTexts[index];
+        const textToSpeechOutput = await generateMp3forDescriptionText(
+          audioDescriptionAdId,
+          desc.youtube_id,
+          desc.clip_description_text,
+          desc.clip_description_type,
+        );
+        const data = {
+          textToSpeechOutput,
+          clip_id: desc.clip_id,
+          video_id: desc.video_id,
+          ad_id: audioDescriptionAdId,
+          description_type: desc.clip_description_type,
+          video_length: desc.video_length,
+        };
+        statusData.push(data);
+      }
 
-  //     if (statusData.some(data => !data.textToSpeechOutput.status)) throw new HttpException(409, "Audio Descriptions couldn't be generated");
-  //     const updateStatusOfAllClips: IProcessedClips[] = [];
-  //     await Promise.all(
-  //       statusData.map(async data => {
-  //         logger.info('Yet to update data in DB');
-  //         // to update clip_audio_path, clip_duration, clip_end_time columns of Audio_Clips Table
-  //         const updateStatus = await processCurrentClip(data);
-  //         // get the status message and push it to an array
-  //         updateStatusOfAllClips.push(updateStatus);
-  //       }),
-  //     );
-  //     if (!updateStatusOfAllClips) throw new HttpException(409, "Audio Descriptions couldn't be updated");
-  //     return updateStatusOfAllClips;
-  //   } else {
-  //     const audioDescriptions = await PostGres_Audio_Clips.findAll({
-  //       where: {
-  //         AudioDescriptionAdId: audioDescriptionAdId,
-  //       },
-  //       // nesting the associations to fetch userID, videoID, YoutubeVideoID - eager loading example
-  //       include: [
-  //         {
-  //           model: Audio_Descriptions,
-  //           attributes: ['UserUserId', 'VideoVideoId'],
-  //           as: 'Audio_Description',
-  //           include: [
-  //             {
-  //               model: Videos,
-  //               attributes: ['youtube_video_id', 'video_length'],
-  //               as: 'Videos',
-  //             },
-  //           ],
-  //         },
-  //       ],
-  //       logging: false,
-  //     });
-  //     if (!audioDescriptions) throw new HttpException(409, "Audio Descriptions couldn't be found");
-  //     const nudgeStatus = await nudgeStartTimeIfZero(audioDescriptions);
-  //     if (nudgeStatus.data === null) throw new HttpException(409, nudgeStatus.message);
-  //     const descriptionTexts = audioDescriptions.map(clip => {
-  //       const typeCastedClip = clip as unknown as IAudioDescriptionsWithADID;
-  //       return {
-  //         clip_id: typeCastedClip.clip_id,
-  //         clip_description_type: typeCastedClip.description_type,
-  //         clip_description_text: typeCastedClip.description_text,
-  //         video_id: typeCastedClip.Audio_Description.VideoVideoId,
-  //         user_id: typeCastedClip.Audio_Description.UserUserId,
-  //         youtube_id: typeCastedClip.Audio_Description.Video.youtube_video_id,
-  //         video_length: typeCastedClip.Audio_Description.Video.video_length,
-  //       };
-  //     });
-  //     const statusData = [];
-  //     const generateMp3Status = await Promise.all(
-  //       descriptionTexts.map(async desc => {
-  //         const data = {
-  //           textToSpeechOutput: await generateMp3forDescriptionText(
-  //             audioDescriptionAdId,
-  //             desc.youtube_id,
-  //             desc.clip_description_text,
-  //             desc.clip_description_type,
-  //           ),
-  //           clip_id: desc.clip_id,
-  //           video_id: desc.video_id,
-  //           ad_id: audioDescriptionAdId,
-  //           description_type: desc.clip_description_type,
-  //           video_length: desc.video_length,
-  //         };
-  //         statusData.push(data);
-  //       }),
-  //     );
-  //     if (!generateMp3Status) throw new HttpException(409, "Audio Descriptions couldn't be generated");
-  //     const updateStatusOfAllClips: IProcessedClips[] = [];
-  //     await Promise.all(
-  //       statusData.map(async data => {
-  //         logger.info('Yet to update data in DB');
-  //         // to update clip_audio_path, clip_duration, clip_end_time columns of Audio_Clips Table
-  //         const updateStatus = await processCurrentClip(data);
-  //         // get the status message and push it to an array
-  //         updateStatusOfAllClips.push(updateStatus);
-  //       }),
-  //     );
-  //     if (!updateStatusOfAllClips) throw new HttpException(409, "Audio Descriptions couldn't be updated");
-  //     return updateStatusOfAllClips;
-  //   }
-  // }
+      if (statusData.some(data => !data.textToSpeechOutput.status)) throw new HttpException(409, "Audio Descriptions couldn't be generated");
+      const updateStatusOfAllClips: IProcessedClips[] = [];
+      await Promise.all(
+        statusData.map(async data => {
+          logger.info('Yet to update data in DB');
+          // to update clip_audio_path, clip_duration, clip_end_time columns of Audio_Clips Table
+          const updateStatus = await processCurrentClip(data);
+          // get the status message and push it to an array
+          updateStatusOfAllClips.push(updateStatus);
+        }),
+      );
+      if (!updateStatusOfAllClips) throw new HttpException(409, "Audio Descriptions couldn't be updated");
+      return updateStatusOfAllClips;
+    } else {
+      const audioDescriptions = await PostGres_Audio_Clips.findAll({
+        where: {
+          AudioDescriptionAdId: audioDescriptionAdId,
+        },
+        // nesting the associations to fetch userID, videoID, YoutubeVideoID - eager loading example
+        include: [
+          {
+            model: Audio_Descriptions,
+            attributes: ['UserUserId', 'VideoVideoId'],
+            as: 'Audio_Description',
+            include: [
+              {
+                model: Videos,
+                attributes: ['youtube_video_id', 'video_length'],
+                as: 'Videos',
+              },
+            ],
+          },
+        ],
+        logging: false,
+      });
+      if (!audioDescriptions) throw new HttpException(409, "Audio Descriptions couldn't be found");
+      const nudgeStatus = await nudgeStartTimeIfZero(audioDescriptions);
+      if (nudgeStatus.data === null) throw new HttpException(409, nudgeStatus.message);
+      const descriptionTexts = audioDescriptions.map(clip => {
+        const typeCastedClip = clip as unknown as IAudioDescriptionsWithADID;
+        return {
+          clip_id: typeCastedClip.clip_id,
+          clip_description_type: typeCastedClip.description_type,
+          clip_description_text: typeCastedClip.description_text,
+          video_id: typeCastedClip.Audio_Description.VideoVideoId,
+          user_id: typeCastedClip.Audio_Description.UserUserId,
+          youtube_id: typeCastedClip.Audio_Description.Video.youtube_video_id,
+          video_length: typeCastedClip.Audio_Description.Video.video_length,
+        };
+      });
+      const statusData = [];
+      const generateMp3Status = await Promise.all(
+        descriptionTexts.map(async desc => {
+          const data = {
+            textToSpeechOutput: await generateMp3forDescriptionText(
+              audioDescriptionAdId,
+              desc.youtube_id,
+              desc.clip_description_text,
+              desc.clip_description_type,
+            ),
+            clip_id: desc.clip_id,
+            video_id: desc.video_id,
+            ad_id: audioDescriptionAdId,
+            description_type: desc.clip_description_type,
+            video_length: desc.video_length,
+          };
+          statusData.push(data);
+        }),
+      );
+      if (!generateMp3Status) throw new HttpException(409, "Audio Descriptions couldn't be generated");
+      const updateStatusOfAllClips: IProcessedClips[] = [];
+      await Promise.all(
+        statusData.map(async data => {
+          logger.info('Yet to update data in DB');
+          // to update clip_audio_path, clip_duration, clip_end_time columns of Audio_Clips Table
+          const updateStatus = await processCurrentClip(data);
+          // get the status message and push it to an array
+          updateStatusOfAllClips.push(updateStatus);
+        }),
+      );
+      if (!updateStatusOfAllClips) throw new HttpException(409, "Audio Descriptions couldn't be updated");
+      return updateStatusOfAllClips;
+    }
+  }
 
-  public async updateAudioClipTitle(clipId: string, adTitle: string, session: ClientSession): Promise<number[]> {
+  public async updateAudioClipTitle(clipId: string, adTitle: string): Promise<number[]> {
     if (isEmpty(clipId)) throw new HttpException(400, 'Clip ID is empty');
     if (isEmpty(adTitle)) throw new HttpException(400, 'Audio Title is empty');
 
@@ -246,7 +245,7 @@ class AudioClipsService {
         {
           $set: { label: adTitle },
         },
-      ).session(session);
+      );
       if (!updatedClipId) throw new HttpException(409, "Audio Description couldn't be updated");
       return [updatedClipId.matchedCount, updatedClipId.modifiedCount, updatedClipId.upsertedCount];
     } else {
@@ -265,7 +264,7 @@ class AudioClipsService {
     }
   }
 
-  public async updateAudioClipPlaybackType(clipId: string, clipPlaybackType: string, session: ClientSession): Promise<number[]> {
+  public async updateAudioClipPlaybackType(clipId: string, clipPlaybackType: string): Promise<number[]> {
     if (isEmpty(clipId)) throw new HttpException(400, 'Clip ID is empty');
     if (isEmpty(clipPlaybackType)) throw new HttpException(400, 'Clip Playback Type is empty');
 
@@ -296,7 +295,7 @@ class AudioClipsService {
     }
   }
 
-  public async updateAudioClipStartTime(clipId: string, audioBody: UpdateAudioClipStartTimeDto, session: ClientSession): Promise<number[]> {
+  public async updateAudioClipStartTime(clipId: string, audioBody: UpdateAudioClipStartTimeDto): Promise<number[]> {
     const { youtubeVideoId, clipStartTime, audioDescriptionId } = audioBody;
 
     if (isEmpty(clipId)) throw new HttpException(400, 'Clip ID is empty');
@@ -305,7 +304,7 @@ class AudioClipsService {
     if (isEmpty(audioDescriptionId)) throw new HttpException(400, 'Audio Description ID is empty');
 
     if (CURRENT_DATABASE == 'mongodb') {
-      const audioClip = await MongoAudioClipsModel.findById(clipId).session(session);
+      const audioClip = await MongoAudioClipsModel.findById(clipId);
       if (!audioClip) throw new HttpException(409, "Audio Description couldn't be found");
       const videoIdStatus = await getVideoFromYoutubeId(youtubeVideoId);
       if (videoIdStatus.data === null) throw new HttpException(409, videoIdStatus.message);
@@ -318,7 +317,6 @@ class AudioClipsService {
         audioDescriptionId,
         clipId,
         false, // passing false, as this is a single clip process
-        session,
       );
 
       console.log('playbackTypeStatus', playbackTypeStatus);
@@ -332,7 +330,7 @@ class AudioClipsService {
         {
           $set: { start_time: clipStartTime, playback_type: playbackType, end_time: clipEndTime },
         },
-      ).session(session);
+      );
       if (!updatedAudioClipStartTime) throw new HttpException(409, "Audio Description couldn't be updated");
       return [updatedAudioClipStartTime.matchedCount, updatedAudioClipStartTime.modifiedCount, updatedAudioClipStartTime.upsertedCount];
     } else {
@@ -354,7 +352,6 @@ class AudioClipsService {
         audioDescriptionId,
         clipId,
         false, // passing false, as this is a single clip process
-        session,
       );
 
       if (playbackTypeStatus.data === null) throw new HttpException(500, playbackTypeStatus.message);
@@ -376,7 +373,7 @@ class AudioClipsService {
     }
   }
 
-  public async updateAudioClipDescription(clipId: string, audioBody: UpdateAudioClipDescriptionDto, session: ClientSession): Promise<number[]> {
+  public async updateAudioClipDescription(clipId: string, audioBody: UpdateAudioClipDescriptionDto): Promise<number[]> {
     const { youtubeVideoId, clipDescriptionText, clipDescriptionType, userId, audioDescriptionId } = audioBody;
 
     if (isEmpty(clipId)) throw new HttpException(400, 'Clip ID is empty');
@@ -391,14 +388,14 @@ class AudioClipsService {
     const newAudioClipPath = generatedMP3Response.filepath;
     const newAudioClipName = generatedMP3Response.filename;
     const fullAudioClipPath = newAudioClipName == null || newAudioClipName.length <= 0 ? newAudioClipPath : newAudioClipPath + '/' + newAudioClipName;
-    const oldAudioFilePathStatus = await getOldAudioFilePath(clipId, session);
+    const oldAudioFilePathStatus = await getOldAudioFilePath(clipId);
     if (oldAudioFilePathStatus.data === null) throw new HttpException(409, oldAudioFilePathStatus.message);
     const clipDurationStatus = await getAudioDuration(fullAudioClipPath);
     if (clipDurationStatus.data === null) throw new HttpException(409, clipDurationStatus.message);
     const getVideoIdStatus = await getVideoFromYoutubeId(youtubeVideoId);
     if (getVideoIdStatus.data === null) throw new HttpException(409, getVideoIdStatus.message);
     const videoId = getVideoIdStatus.data;
-    const getClipStartTimeStatus = await getClipStartTimebyId(clipId, session);
+    const getClipStartTimeStatus = await getClipStartTimebyId(clipId);
     if (getClipStartTimeStatus.data === null) throw new HttpException(409, getClipStartTimeStatus.message);
     const clipStartTime = getClipStartTimeStatus.data;
     const updatedAudioDuration = clipDurationStatus.data;
@@ -410,7 +407,6 @@ class AudioClipsService {
       audioDescriptionId,
       clipId,
       false, // passing false, as this is a single clip process
-      session,
     );
     if (playbackTypeStatus.data === null) throw new HttpException(409, playbackTypeStatus.message);
     const playbackType = playbackTypeStatus.data;
@@ -462,7 +458,7 @@ class AudioClipsService {
     }
   }
 
-  public async updateClipAudioPath(clipId: string, audioBody: UpdateClipAudioPathDto, file: Express.Multer.File, session: ClientSession): Promise<number[]> {
+  public async updateClipAudioPath(clipId: string, audioBody: UpdateClipAudioPathDto, file: Express.Multer.File): Promise<number[]> {
     const { youtubeVideoId, clipDescriptionText, audioDescriptionId, clipStartTime, recordedClipDuration } = audioBody;
 
     if (isEmpty(clipId)) throw new HttpException(400, 'Clip ID is empty');
@@ -493,10 +489,9 @@ class AudioClipsService {
       audioDescriptionId,
       clipId,
       false, // passing false, as this is a single clip process
-      session,
     );
     if (playbackTypeStatus.data === null) throw new HttpException(409, playbackTypeStatus.message);
-    const oldAudioFilePathStatus = await getOldAudioFilePath(clipId, session);
+    const oldAudioFilePathStatus = await getOldAudioFilePath(clipId);
     if (oldAudioFilePathStatus.data === null) throw new HttpException(409, oldAudioFilePathStatus.message);
     const old_audio_path = oldAudioFilePathStatus.data;
     const deleteOldAudioFileStatus = await deleteOldAudioFile(old_audio_path);
@@ -523,8 +518,6 @@ class AudioClipsService {
         },
       );
       if (!updatedAudioClip) throw new HttpException(409, 'Problem Saving Audio!! Please try again');
-      session.commitTransaction();
-      session.endSession();
       return [updatedAudioClip.matchedCount, updatedAudioClip.modifiedCount, updatedAudioClip.upsertedCount];
     } else {
       // All audio clip paths have the ./audio/ prefix so, need to find /audio/ and then add a . to the beginning
@@ -548,7 +541,7 @@ class AudioClipsService {
     }
   }
 
-  public async addNewAudioClip(adId: string, audioBody: AddNewAudioClipDto, file: Express.Multer.File | null, session: ClientSession): Promise<string> {
+  public async addNewAudioClip(adId: string, audioBody: AddNewAudioClipDto, file: Express.Multer.File | null): Promise<string> {
     const { isRecorded, newACDescriptionText, newACPlaybackType, newACStartTime, newACTitle, newACType, newACDuration, userId, youtubeVideoId } = audioBody;
 
     if (isEmpty(adId)) throw new HttpException(400, 'Clip ID is empty');
@@ -602,34 +595,30 @@ class AudioClipsService {
       adId,
       null, // see condition in method - sends null for clipId
       false, // passing false, as this is a single clip process
-      session,
     );
     if (playbackTypeStatus.data === null) throw new HttpException(409, playbackTypeStatus.message);
     const newPlaybackType = playbackTypeStatus.data;
 
     if (CURRENT_DATABASE == 'mongodb') {
-      const newAudioClip: any = await MongoAudioClipsModel.create(
-        {
-          description_type: newACType,
-          description_text: newACDescriptionText,
-          playback_type: newPlaybackType,
-          start_time: Number(parseFloat(newACStartTime).toFixed(2)),
-          end_time: newClipEndTime,
-          duration: Number(newAudioDuration),
-          file_path: newClipAudioFilePath,
-          file_name: fileName,
-          file_mime_type: file_mime_type,
-          file_size_bytes: file_size_bytes,
-          audio_description: adId,
-          user: userId,
-          video: videoId,
-          created_at: nowUtc(),
-          updated_at: nowUtc(),
-          transcript: [],
-          label: newACTitle,
-        },
-        { session },
-      );
+      const newAudioClip = await MongoAudioClipsModel.create({
+        description_type: newACType,
+        description_text: newACDescriptionText,
+        playback_type: newPlaybackType,
+        start_time: Number(parseFloat(newACStartTime).toFixed(2)),
+        end_time: newClipEndTime,
+        duration: Number(newAudioDuration),
+        file_path: newClipAudioFilePath,
+        file_name: fileName,
+        file_mime_type: file_mime_type,
+        file_size_bytes: file_size_bytes,
+        audio_description: adId,
+        user: userId,
+        video: videoId,
+        created_at: nowUtc(),
+        updated_at: nowUtc(),
+        transcript: [],
+        label: newACTitle,
+      });
 
       const updatedAudioDescription = await MongoAudio_Descriptions_Model.findOneAndUpdate(
         newAudioClip.audio_description,
@@ -644,7 +633,7 @@ class AudioClipsService {
         {
           new: true, // return updated row
         },
-      ).session(session);
+      );
 
       if (!updatedAudioDescription) throw new HttpException(409, "Audio Description couldn't be updated");
       if (!newAudioClip) throw new HttpException(409, "Audio Description couldn't be created");
@@ -669,13 +658,12 @@ class AudioClipsService {
     }
   }
 
-  public async deleteAudioClip(clipId: string, session: ClientSession): Promise<number> {
+  public async deleteAudioClip(clipId: string): Promise<number> {
     if (!clipId) {
       throw new HttpException(400, 'Clip ID is empty');
     }
 
-    const oldAudioFilePathStatus = await getOldAudioFilePath(clipId, session);
-
+    const oldAudioFilePathStatus = await getOldAudioFilePath(clipId);
     if (oldAudioFilePathStatus.data === null) {
       throw new HttpException(409, oldAudioFilePathStatus.message);
     }
@@ -685,7 +673,7 @@ class AudioClipsService {
     try {
       let deletedAudioClip;
       if (CURRENT_DATABASE === 'mongodb') {
-        deletedAudioClip = await MongoAudioClipsModel.findByIdAndDelete(clipId).session(session);
+        deletedAudioClip = await MongoAudioClipsModel.findByIdAndDelete(clipId);
 
         // Delete Audio Clip from Audio Clip Array in Audio Description Object
         await MongoAudio_Descriptions_Model.findByIdAndUpdate(
@@ -696,12 +684,10 @@ class AudioClipsService {
           {
             new: true,
           },
-        )
-          .session(session)
-          .catch(err => {
-            logger.error(err);
-            throw new HttpException(409, "Audio clip couldn't be deleted.");
-          });
+        ).catch(err => {
+          logger.error(err);
+          throw new HttpException(409, "Audio clip couldn't be deleted.");
+        });
       } else {
         deletedAudioClip = await PostGres_Audio_Clips.destroy({
           where: { clip_id: clipId },

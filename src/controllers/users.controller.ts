@@ -9,8 +9,6 @@ import { IUser } from '../models/mongodb/User.mongo';
 import { MongoUsersModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import sendEmail from '../utils/emailService';
 import { getYouTubeVideoStatus } from '../utils/util';
-import { startSession } from 'mongoose';
-import { generateAudioDescGpuWithSession, processAllClipsInDBSession } from '../services/audiodescriptions.util';
 
 class UsersController {
   public userService = new userService();
@@ -152,23 +150,18 @@ class UsersController {
    */
 
   public createNewUserAudioDescription = async (req: Request, res: Response, next: NextFunction) => {
-    const session = await startSession();
-    session.startTransaction();
     try {
       const newUserAudioDescription: CreateUserAudioDescriptionDto = req.body;
       const { audioDescriptionId, fromAI } = await this.userService.createNewUserAudioDescription(newUserAudioDescription, req.user);
       if (fromAI) {
-        await processAllClipsInDBSession(audioDescriptionId.toString(), session);
+        await this.audioClipsService.processAllClipsInDB(audioDescriptionId.toString());
       }
-      await session.commitTransaction();
-      session.endSession();
+
       res.status(201).json({
         message: `Successfully created new user Audio Description`,
         url: `${newUserAudioDescription.youtubeVideoId}/${audioDescriptionId}`,
       });
     } catch (error) {
-      await session.abortTransaction();
-      session.endSession();
       next(error);
     }
   };
@@ -197,22 +190,17 @@ class UsersController {
   };
 
   public generateAudioDescGpu = async (req: Request, res: Response, next: NextFunction) => {
-    const session = await startSession();
-    session.startTransaction();
-
     try {
       const newUserAudioDescription: AudioDescGenerationRequestDTO = req.body;
-      const user = await MongoUsersModel.findById(newUserAudioDescription.userId).session(session);
+      const user = await MongoUsersModel.findById(newUserAudioDescription.userId);
       const videoInfo = await getYouTubeVideoStatus(newUserAudioDescription.youtubeVideoId);
       if (!user) {
         throw new Error('User not found');
       }
       const audioDescriptionId = await this.userService.generateAudioDescGpu(newUserAudioDescription, user._id);
-      await processAllClipsInDBSession(audioDescriptionId.audioDescriptionId.toString(), session);
+      await this.audioClipsService.processAllClipsInDB(audioDescriptionId.audioDescriptionId.toString());
 
       logger.info(`Sending email to ${user.email}`);
-      session.commitTransaction();
-      session.endSession();
 
       if (newUserAudioDescription?.ydx_app_host) {
         const YDX_APP_URL = `${newUserAudioDescription.ydx_app_host}/editor/${newUserAudioDescription.youtubeVideoId}/${audioDescriptionId.audioDescriptionId}`;
@@ -241,8 +229,6 @@ class UsersController {
         });
       }
     } catch (error) {
-      await session.abortTransaction();
-      session.endSession();
       logger.error(error);
       // console.log(error);
       next(error);
@@ -294,22 +280,19 @@ class UsersController {
     const newUserAudioDescription: {
       youtube_id: string;
     } = req.body;
-    const session = await startSession();
-    session.startTransaction();
     try {
-      const user = await MongoUsersModel.findById(userData._id).session(session);
+      const user = await MongoUsersModel.findById(userData._id);
       if (!user) {
         throw new Error('User not found');
       }
-      const audioDescriptionId = await generateAudioDescGpuWithSession(
+      const audioDescriptionId = await this.userService.generateAudioDescGpu(
         {
           youtubeVideoId: newUserAudioDescription.youtube_id,
           aiUserId: AI_USER_ID,
         },
         user._id,
-        session,
       );
-      await processAllClipsInDBSession(audioDescriptionId.audioDescriptionId.toString(), session);
+      await this.audioClipsService.processAllClipsInDB(audioDescriptionId.audioDescriptionId.toString());
       res.status(201).json({
         message: `Successfully created new user Audio Description`,
         url: `${newUserAudioDescription.youtube_id}/${audioDescriptionId.audioDescriptionId.toString()}`,
@@ -363,18 +346,10 @@ class UsersController {
     if (!ad_id) {
       throw new Error('No Audio Description ID provided');
     }
-
-    const session = await startSession();
-    session.startTransaction();
-
     try {
-      const response = await processAllClipsInDBSession(ad_id, session);
-      await session.commitTransaction();
-      session.endSession();
+      const response = await this.audioClipsService.processAllClipsInDB(ad_id);
       return res.status(200).json(response);
     } catch (error) {
-      await session.abortTransaction();
-      session.endSession();
       next(error);
     }
   };
