@@ -245,12 +245,12 @@ class AudioDescriptionsService {
 
   public publishAudioDescription = async (
     audioDescriptionId: string,
-    video_id: string,
+    youtube_id: string,
     user_id: string,
     enrolled_in_collaborative_editing: boolean,
   ): Promise<string> => {
     try {
-      const videoIdStatus = await getYouTubeVideoStatus(video_id);
+      const videoIdStatus = await getYouTubeVideoStatus(youtube_id);
 
       if (!videoIdStatus) {
         throw new HttpException(400, 'No videoIdStatus provided');
@@ -270,7 +270,10 @@ class AudioDescriptionsService {
         collaborative_editing: enrolled_in_collaborative_editing,
       });
 
-      audioDescription.save();
+      const result = await MongoVideosModel.findByIdAndUpdate(videoIdStatus._id, {
+        $push: { audio_descriptions: audioDescriptionId },
+      });
+
       return audioDescription._id.toString();
     } catch (error) {
       logger.error(error);

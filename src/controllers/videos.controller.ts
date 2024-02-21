@@ -150,7 +150,7 @@ class VideosController {
     try {
       const page = req.query.page as string;
       const searchQuery = req.query.q as string;
-      const videos = await this.videosService.getAllVideos(page, searchQuery);
+      const videos = await this.videosService.getSearchVideos(page, searchQuery);
 
       // Create your response object
       const ret = {

@@ -25,6 +25,7 @@ import cache from 'memory-cache';
 import moment from 'moment';
 import axios from 'axios';
 import App from '../app';
+import stringSimilarity from 'string-similarity';
 
 class VideosService {
   public async getVideobyYoutubeId(youtubeId: string): Promise<any> {
@@ -38,7 +39,6 @@ class VideosService {
 
       const fieldsToCheck = ['title', 'duration', 'created_at', 'updated_at'];
       const nullFields = fieldsToCheck.filter(field => !findVideoById[field]);
-      console.log('nullFields', nullFields);
       if (nullFields.length > 0) {
         const updatedData = await getVideoDataByYoutubeId(youtubeId);
         const update = await MongoVideosModel.findOneAndUpdate({ youtube_id: youtubeId }, { $set: updatedData }, { new: true });
@@ -208,6 +208,7 @@ class VideosService {
   }
 
   public async getVideoById(video_id: string) {
+    console.log('Getting videos for ' + video_id);
     if (!video_id) throw new HttpException(400, 'video_id is empty');
     const video = await MongoVideosModel.findOne({ youtube_id: video_id }).populate({
       path: 'audio_descriptions',
@@ -262,6 +263,131 @@ class VideosService {
     // return { result: video };
   }
 
+  public async getSearchVideos(page?: string, query?: string) {
+    try {
+      console.log('INSIDE SEARCH VIDEOS');
+      console.log(`page - ${page} , query - ${query}`);
+
+      const pgNumber = Number(page);
+      const searchPage = Number.isNaN(pgNumber) || pgNumber === 0 ? 50 : pgNumber * 50;
+      console.log(`searchPage - ${searchPage}`);
+
+      let matchQuery: any = {};
+      let similarUserIds: string[] = [];
+
+      if (query) {
+        matchQuery = {
+          $or: [
+            { 'language.name': { $regex: query, $options: 'i' } },
+            { youtube_id: { $regex: query, $options: 'i' } },
+            { category: { $regex: query, $options: 'i' } },
+            { title: { $regex: query, $options: 'i' } },
+            {
+              tags: {
+                $elemMatch: { $regex: query, $options: 'i' },
+              },
+            },
+            {
+              custom_tags: {
+                $elemMatch: { $regex: query, $options: 'i' },
+              },
+            },
+          ],
+        };
+
+        const allUsers = await MongoUsersModel.find({ name: { $exists: true } }, 'name');
+        const usernames = allUsers.map(user => user.name);
+
+        const matches = stringSimilarity.findBestMatch(query, usernames);
+
+        similarUserIds = matches.ratings.filter(({ rating }) => rating > 0.5).map(({ target }) => allUsers.find(user => user.name === target)._id);
+        console.log('similarIDs ', similarUserIds);
+        if (similarUserIds.length > 0) {
+          matchQuery.$or.push({ 'populated_audio_descriptions.user._id': similarUserIds });
+        }
+      }
+
+      console.log('query:', matchQuery);
+
+      if (Object.keys(matchQuery).length === 0) {
+        return [];
+      }
+
+      const videos = await MongoVideosModel.aggregate([
+        {
+          $lookup: {
+            from: 'audio_descriptions',
+            localField: 'audio_descriptions',
+            foreignField: '_id',
+            as: 'populated_audio_descriptions',
+          },
+        },
+        {
+          $unwind: '$populated_audio_descriptions',
+        },
+        {
+          $lookup: {
+            from: 'audio_clips',
+            localField: 'populated_audio_descriptions.audio_clips',
+            foreignField: '_id',
+            as: 'populated_audio_descriptions.audio_clips',
+          },
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'populated_audio_descriptions.user',
+            foreignField: '_id',
+            as: 'populated_audio_descriptions.user',
+          },
+        },
+        {
+          $unwind: '$populated_audio_descriptions.user',
+        },
+        {
+          $match: {
+            ...matchQuery,
+            'populated_audio_descriptions.status': 'published',
+            'populated_audio_descriptions.user._id': { $in: similarUserIds },
+          },
+        },
+        {
+          $sort: { 'populated_audio_descriptions.updated_at': -1 },
+        },
+        {
+          $skip: searchPage - 50,
+        },
+        {
+          $limit: 50,
+        },
+        {
+          $project: {
+            audio_descriptions: '$populated_audio_descriptions',
+            category: 1,
+            category_id: 1,
+            created_at: 1,
+            custom_tags: 1,
+            description: 1,
+            duration: 1,
+            tags: 1,
+            title: 1,
+            updated_at: 1,
+            views: 1,
+            youtube_id: 1,
+            youtube_status: 1,
+            __v: 1,
+            _id: 1,
+          },
+        },
+      ]).exec();
+
+      return videos;
+    } catch (err) {
+      console.log(err);
+      throw new Error('Error fetching videos: ' + err);
+    }
+  }
+
   public async getAllVideos(page?: string, query?: string) {
     try {
       console.log('page', page);
@@ -269,7 +395,7 @@ class VideosService {
       const pgNumber = Number(page);
       const searchPage = Number.isNaN(pgNumber) || pgNumber === 0 ? 50 : pgNumber * 50;
 
-      const matchQuery: any = query
+      const matchQuery = query
         ? {
             $or: [
               { 'language.name': { $regex: query, $options: 'i' } },
@@ -290,21 +416,7 @@ class VideosService {
           }
         : {};
 
-      if (query) {
-        const nameRegex = /^[a-zA-Z]+(?:[-\s'][a-zA-Z]+)*$/;
-        const isNameQuery = nameRegex.test(query);
-
-        if (isNameQuery) {
-          const user = await MongoUsersModel.findOne({ name: query }).select('_id');
-          if (user) {
-            matchQuery.$or.push({ 'populated_audio_descriptions.user._id': user._id });
-          }
-        }
-      }
-
-      console.log('query', matchQuery);
-
-      return await MongoVideosModel.aggregate([
+      const videos = await MongoVideosModel.aggregate([
         {
           $lookup: {
             from: 'audio_descriptions',
@@ -367,6 +479,8 @@ class VideosService {
           },
         },
       ]).exec();
+
+      return videos;
     } catch (err) {
       throw new Error('Error fetching videos: ' + err);
     }
