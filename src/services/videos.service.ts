@@ -278,38 +278,40 @@ class VideosService {
       if (query) {
         matchQuery = {
           $or: [
-            { 'language.name': { $regex: query, $options: 'i' } },
-            { youtube_id: { $regex: query, $options: 'i' } },
-            { category: { $regex: query, $options: 'i' } },
-            { title: { $regex: query, $options: 'i' } },
+            { 'language.name': { $regex: '\\b' + query + '\\b', $options: 'i' } },
+            { category: { $regex: '\\b' + query + '\\b', $options: 'i' } },
+            { title: { $regex: '\\b' + query + '\\b', $options: 'i' } },
             {
               tags: {
-                $elemMatch: { $regex: query, $options: 'i' },
+                $elemMatch: { $regex: '\\b' + query + '\\b', $options: 'i' },
               },
             },
             {
               custom_tags: {
-                $elemMatch: { $regex: query, $options: 'i' },
+                $elemMatch: { $regex: '\\b' + query + '\\b', $options: 'i' },
               },
             },
           ],
         };
 
-        const allUsers = await MongoUsersModel.find({ name: { $exists: true } }, 'name');
+        const allUsers = await MongoUsersModel.find({ name: { $exists: true } }, { _id: 1, name: 1 });
         const usernames = allUsers.map(user => user.name);
 
         const matches = stringSimilarity.findBestMatch(query, usernames);
 
         similarUserIds = matches.ratings.filter(({ rating }) => rating > 0.5).map(({ target }) => allUsers.find(user => user.name === target)._id);
-        console.log('similarIDs ', similarUserIds);
-        if (similarUserIds.length > 0) {
-          matchQuery.$or.push({ 'populated_audio_descriptions.user._id': similarUserIds });
-        }
       }
 
-      console.log('query:', matchQuery);
+      const videoMatchQuery = {
+        ...matchQuery,
+        'populated_audio_descriptions.status': 'published',
+      };
 
-      if (Object.keys(matchQuery).length === 0) {
+      if (similarUserIds.length > 0) {
+        videoMatchQuery.$or.push({ 'populated_audio_descriptions.user._id': { $in: similarUserIds } });
+      }
+
+      if (Object.keys(videoMatchQuery).length === 0) {
         return [];
       }
 
@@ -342,14 +344,7 @@ class VideosService {
           },
         },
         {
-          $unwind: '$populated_audio_descriptions.user',
-        },
-        {
-          $match: {
-            ...matchQuery,
-            'populated_audio_descriptions.status': 'published',
-            'populated_audio_descriptions.user._id': { $in: similarUserIds },
-          },
+          $match: videoMatchQuery,
         },
         {
           $sort: { 'populated_audio_descriptions.updated_at': -1 },
