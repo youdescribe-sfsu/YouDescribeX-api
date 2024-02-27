@@ -208,11 +208,9 @@ class VideosService {
   }
 
   public async getVideoById(video_id: string) {
-    console.log('Getting videos for ' + video_id);
     if (!video_id) throw new HttpException(400, 'video_id is empty');
     const video = await MongoVideosModel.findOne({ youtube_id: video_id }).populate({
       path: 'audio_descriptions',
-      match: { status: 'published' }, // Filter published descriptions
       populate: [
         { path: 'audio_clips' },
         { path: 'user' }, // Populate user data for each audio description
