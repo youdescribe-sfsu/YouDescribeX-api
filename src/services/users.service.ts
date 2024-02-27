@@ -708,37 +708,15 @@ class UserService {
         throw new HttpException(400, 'AI User not found');
       }
 
-      const userAudioDescription = await this.checkIfAudioDescriptionExistsforUser(youtube_id, user_id);
-      logger.info(`userAudioDescription :: ${JSON.stringify(userAudioDescription)}`);
-
-      if (userAudioDescription) {
-        return {
-          status: 'draft',
-          requested: false,
-          preview: false,
-          url: `editor/${youtube_id}/${userAudioDescription._id}`,
-        };
-      }
-      // Check if AI Captions are available
       const aiAudioDescription = await this.checkIfAudioDescriptionExistsforUser(youtube_id, ai_user_id);
-
-      if (aiAudioDescription) {
-        return {
-          url: `audio-description/preview/${youtube_id}/${aiAudioDescription._id}`,
-          status: 'completed',
-          requested: false,
-          preview: true,
-        };
-      }
-
-      // Check if AI Captions have been requested
+      console.log('aiAudioDescription:', aiAudioDescription);
 
       const captionRequest = await MongoAICaptionRequestModel.findOne({
         youtube_id,
         ai_user_id: ai_user_id,
       });
+      console.log('Requested:', captionRequest);
 
-      // if not requested, return notavailable
       if (!captionRequest) {
         return {
           status: 'notavailable',
@@ -747,13 +725,37 @@ class UserService {
       }
 
       const requested = captionRequest.caption_requests.includes(userIdObject._id);
+      const status = captionRequest.status;
 
-      // console.log(`captionRequest.status :: ${captionRequest.status}`);
-      logger.info(`captionRequest.status :: ${captionRequest.status}`);
+      console.log('Received status:', status);
+      console.log('Requested:', requested);
 
-      return { status: captionRequest.status, requested };
+      if (aiAudioDescription && requested && status == 'completed') {
+        return {
+          url: `editor/${youtube_id}/${aiAudioDescription._id}`,
+          status: 'completed',
+          requested: true,
+          preview: false,
+        };
+      } else if (aiAudioDescription && !requested && status == 'completed') {
+        return {
+          url: `preview/${youtube_id}/${aiAudioDescription._id}`,
+          status: 'completed',
+          requested: false,
+          preview: true,
+        };
+      } else if (!aiAudioDescription && requested && status == 'pending') {
+        return {
+          status: 'pending',
+          requested: true,
+        };
+      } else if (!aiAudioDescription && !requested && status == 'pending') {
+        return {
+          status: 'pending',
+          requested: false,
+        };
+      }
     } catch (error) {
-      // Handle errors here or log them using your logger library.
       if (error instanceof Error) {
         logger.error(`Error in aiDescriptionStatusUTIL: ${error.message}`);
         if (error.stack) {

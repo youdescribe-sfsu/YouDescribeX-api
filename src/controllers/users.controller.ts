@@ -234,20 +234,15 @@ class UsersController {
       next(error);
     }
   };
+
   public aiDescriptionStatus = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userData = req.user as unknown as IUser;
       const youtube_id = req.body.youtube_id;
-      // const videoInfo = await MongoVideosModel.findOne({ youtube_id: newUserAudioDescription.youtubeVideoId });
-
-      // if(!videoInfo) {
-      //   throw new Error('Video not found');
-      // }
 
       if (!userData) {
         throw new Error('User not found');
       }
-      // console.log('USER DATA', JSON.stringify(userData));
       const response = await this.userService.aiDescriptionStatus(userData._id, youtube_id);
 
       res.status(201).json(response);

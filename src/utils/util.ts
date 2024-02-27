@@ -1,4 +1,4 @@
-import axios, { AxiosResponse } from 'axios';
+import axios from 'axios';
 import { MongoUsersModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import { IVideo } from '../models/mongodb/Videos.mongo';
 import { getVideoDataByYoutubeId } from '../services/videos.util';
@@ -67,8 +67,7 @@ export const getYouTubeVideoStatus = async (youtube_id: string): Promise<IVideo>
       created_at: nowUtc(),
       updated_at: nowUtc(),
     });
-    const newSavedVideo = await newVid.save();
-    return newSavedVideo;
+    return await newVid.save();
   }
 };
 
