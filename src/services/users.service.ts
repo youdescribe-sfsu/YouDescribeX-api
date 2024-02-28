@@ -936,53 +936,64 @@ class UserService {
     };
   }
 
-  public async getAllAiDescriptionRequests(user_id: string, pageNumber: string) {
+  public async getAllAiDescriptionRequests(user_id: string, pageNumber: string, paginate: boolean) {
     if (!user_id) {
       throw new HttpException(400, 'No data provided');
     }
-    const page = parseInt(pageNumber, 10);
-    const perPage = 4;
-    const skipCount = Math.max((page - 1) * perPage, 0);
 
     const userIdObject = await MongoUsersModel.findById(user_id);
-    const aiAudioDescriptions = await MongoAICaptionRequestModel.find({ caption_requests: userIdObject._id }).sort({ _id: -1 }).skip(skipCount).limit(perPage);
-    const totalItemCount = await MongoAICaptionRequestModel.countDocuments({ caption_requests: userIdObject._id });
-    const return_arr = [];
+    let aiAudioDescriptions;
+    if (paginate) {
+      const page = parseInt(pageNumber, 10);
+      const perPage = 4;
+      const skipCount = Math.max((page - 1) * perPage, 0);
 
-    for (let index = 0; index < aiAudioDescriptions.length; index++) {
-      const element = aiAudioDescriptions[index];
-      const videoIdStatus = await MongoVideosModel.findOne({ youtube_id: element.youtube_id });
-      if (element.status === 'completed') {
-        const response = await this.aiDescriptionStatusUtil(user_id, element.youtube_id, element.ai_user_id);
-        return_arr.push({
-          video_id: videoIdStatus._id,
-          youtube_video_id: element.youtube_id,
-          video_name: videoIdStatus.title,
-          video_length: videoIdStatus.duration,
-          createdAt: videoIdStatus.created_at,
-          updatedAt: videoIdStatus.updated_at,
-          status: response.status,
-          requested: response.requested,
-          url: response.url,
-        });
-      } else {
-        return_arr.push({
-          video_id: videoIdStatus._id,
-          youtube_video_id: element.youtube_id,
-          video_name: videoIdStatus.title,
-          video_length: videoIdStatus.duration,
-          createdAt: videoIdStatus.created_at,
-          updatedAt: videoIdStatus.updated_at,
-          status: 'requested',
-          requested: true,
-          url: null,
-        });
-      }
+      aiAudioDescriptions = await MongoAICaptionRequestModel.find({ caption_requests: userIdObject._id }).sort({ _id: -1 }).skip(skipCount).limit(perPage);
+    } else {
+      aiAudioDescriptions = await this.getAllAiDescriptionRequestsAllVideos(user_id);
     }
+
+    const return_arr = [];
+    for (const element of aiAudioDescriptions) {
+      const videoIdStatus = await MongoVideosModel.findOne({ youtube_id: element.youtube_id });
+      const response = await this.processAiAudioDescription(user_id, element, videoIdStatus);
+      return_arr.push(response);
+    }
+
+    const totalItemCount = await MongoAICaptionRequestModel.countDocuments({ caption_requests: userIdObject._id });
+
     return {
       result: return_arr,
       totalVideos: totalItemCount,
     };
+  }
+
+  private async getAllAiDescriptionRequestsAllVideos(user_id: string) {
+    const userIdObject = await MongoUsersModel.findById(user_id);
+    return MongoAICaptionRequestModel.find({ caption_requests: userIdObject._id }).sort({ _id: -1 });
+  }
+
+  private async processAiAudioDescription(user_id: string, element, videoIdStatus) {
+    const response = {
+      video_id: videoIdStatus._id,
+      youtube_video_id: element.youtube_id,
+      video_name: videoIdStatus.title,
+      video_length: videoIdStatus.duration,
+      createdAt: videoIdStatus.created_at,
+      updatedAt: videoIdStatus.updated_at,
+      status: 'requested',
+      requested: true,
+      url: null,
+    };
+
+    if (element.status === 'completed') {
+      const aiDescriptionStatus = await this.aiDescriptionStatusUtil(user_id, element.youtube_id, element.ai_user_id);
+      response.status = aiDescriptionStatus.status;
+      response.requested = aiDescriptionStatus.requested;
+      response.url = aiDescriptionStatus.url;
+    }
+
+    return response;
   }
 
   public async saveVisitedVideosHistory(user_id: string, youtube_id: string) {
