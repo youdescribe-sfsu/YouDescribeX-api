@@ -727,6 +727,17 @@ class UserService {
       const requested = captionRequest.caption_requests.includes(userIdObject._id);
       const status = captionRequest.status;
 
+      if (!aiAudioDescription && status == 'completed') {
+        await MongoAICaptionRequestModel.findOneAndDelete({
+          youtube_id,
+          ai_user_id: ai_user_id,
+        });
+        return {
+          status: 'notavailable',
+          requested: false,
+        };
+      }
+
       console.log('Received status:', status);
       console.log('Requested:', requested);
 
