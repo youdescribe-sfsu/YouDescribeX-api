@@ -152,7 +152,7 @@ class VideosService {
     }
   }
 
-  public async getVideosForUserId(userId: string): Promise<IVideo[] | VideosAttributes[]> {
+  public async getVideosForUserId(userId: string) {
     if (!userId) throw new HttpException(400, 'userId is empty');
     if (CURRENT_DATABASE == 'mongodb') {
       logger.info(`Retrieving audio descriptions for ${userId}`);
@@ -167,11 +167,12 @@ class VideosService {
 
       logger.info(`Found videos: ${videos.map(video => video.youtube_id)}`);
 
-      // Merge Audio Descriptions and Videos
-      return videos.map(video => {
+      const return_arr = [];
+
+      videos.map(video => {
         const audioDescription = audioDescriptions.find(ad => ad.video == `${video._id}`);
 
-        return {
+        return_arr.push({
           video_id: video._id,
           youtube_video_id: video.youtube_id,
           video_name: video.title,
@@ -183,8 +184,12 @@ class VideosService {
           overall_rating_votes_average: audioDescription.overall_rating_votes_average,
           overall_rating_votes_counter: audioDescription.overall_rating_votes_counter,
           overall_rating_votes_sum: audioDescription.overall_rating_votes_sum,
-        };
+        });
       });
+
+      return {
+        result: return_arr,
+      };
     } else {
       // Implementation in Postgres
       const audioDescriptions = await PostGres_Audio_Descriptions.findAll({ where: { UserUserId: userId } });
@@ -192,7 +197,7 @@ class VideosService {
       const videoIds = audioDescriptions.map(ad => ad.VideoVideoId);
       const videos = await PostGres_Videos.findAll({ where: { video_id: videoIds } });
       // Merge Audio Descriptions and Videos
-      return videos.map(video => {
+      videos.map(video => {
         const audioDescription = audioDescriptions.find(ad => ad.VideoVideoId == video.video_id);
         return {
           video_id: video.video_id,
