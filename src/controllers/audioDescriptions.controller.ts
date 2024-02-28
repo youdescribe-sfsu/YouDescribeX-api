@@ -1,9 +1,10 @@
 import { NextFunction, Request, Response } from 'express';
 import AudioDescriptionsService from '../services/audioDescriptions.service';
 import { NewAiDescriptionDto } from '../dtos/audioDescriptions.dto';
-import { MongoAICaptionRequestModel } from '../models/mongodb/init-models.mongo';
+import { MongoAICaptionRequestModel, MongoUsersModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import { logger } from '../utils/logger';
 import { IUser } from '../models/mongodb/User.mongo';
+import sendEmail from '../utils/emailService';
 
 class AudioDescripionsController {
   public audioDescriptionsService = new AudioDescriptionsService();
@@ -34,10 +35,17 @@ class AudioDescripionsController {
         ai_user_id: newAiDescriptionData.aiUserId,
       });
       if (captionRequest) {
-        await MongoAICaptionRequestModel.updateOne(
-          { _id: captionRequest._id }, // Assuming _id is the unique identifier for the document
-          { $set: { status: 'completed' } },
-        ).exec();
+        const youtubeVideoData = await MongoVideosModel.findOne({ youtube_id: newAiDescriptionData.youtube_id });
+
+        const userIds = captionRequest.caption_requests;
+
+        const users = await MongoUsersModel.find({ _id: { $in: userIds } });
+
+        const emailAddresses = users.map(user => user.email);
+
+        for (const email of emailAddresses) {
+          await sendEmail(email, `Requested Audio Description for ${youtubeVideoData.title} ready`, `Your Audio Description is now available!`);
+        }
       }
       res.status(200).json(newAIDescription);
     } catch (error) {
