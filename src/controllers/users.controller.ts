@@ -189,6 +189,18 @@ class UsersController {
     }
   };
 
+  public increaseRequestCount = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userData = req.user as unknown as IUser;
+      console.log(userData);
+      const youtube_id = req.body.youtube_id;
+      const returnData = await this.userService.increaseRequestCount(youtube_id, userData._id, AI_USER_ID);
+      res.status(201).json(returnData);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   public generateAudioDescGpu = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const newUserAudioDescription: AudioDescGenerationRequestDTO = req.body;
