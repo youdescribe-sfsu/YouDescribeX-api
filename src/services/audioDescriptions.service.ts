@@ -1,3 +1,8 @@
+import { ObjectId } from 'mongodb';
+import { AUDIO_DIRECTORY, CURRENT_DATABASE } from '../config';
+import { NewAiDescriptionDto } from '../dtos/audioDescriptions.dto';
+import { HttpException } from '../exceptions/HttpException';
+import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
 import {
   MongoAudioClipsModel,
   MongoAudio_Descriptions_Model,
@@ -6,25 +11,17 @@ import {
   MongoUsersModel,
   MongoVideosModel,
 } from '../models/mongodb/init-models.mongo';
-import { AUDIO_DIRECTORY, CURRENT_DATABASE } from '../config';
-import { NewAiDescriptionDto } from '../dtos/audioDescriptions.dto';
-import { HttpException } from '../exceptions/HttpException';
 import {
   Audio_DescriptionsAttributes,
   PostGres_Audio_Clips,
   PostGres_Audio_Descriptions,
   PostGres_Dialog_Timestamps,
-  PostGres_Notes,
   PostGres_Users,
   PostGres_Videos,
 } from '../models/postgres/init-models';
 import { logger } from '../utils/logger';
 import { getYouTubeVideoStatus, isEmpty, nowUtc } from '../utils/util';
-import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
-import { ObjectId } from 'mongodb';
 import { isVideoAvailable } from './videos.util';
-import audioDescriptionsController from '../controllers/audioDescriptions.controller';
-import { exceptions } from 'winston';
 
 const fs = require('fs');
 
