@@ -1,16 +1,17 @@
-import getMP3Duration from 'get-mp3-duration';
-import { Audio_Clips, Dialog_Timestamps, Videos } from '../models/postgres/init-models';
 import textToSpeech from '@google-cloud/text-to-speech';
 import fs from 'fs';
+import getMP3Duration from 'get-mp3-duration';
+import mime from 'mime-types';
+import { ClientSession } from 'mongoose';
 import multer from 'multer'; // to process form-data
 import { Op } from 'sequelize';
 import util from 'util';
 import { v4 as uuidv4 } from 'uuid';
 import { AUDIO_DIRECTORY, CURRENT_DATABASE } from '../config';
-import { logger } from '../utils/logger';
-import { MongoAudioClipsModel, MongoDialog_Timestamps_Model, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
-import mime from 'mime-types';
+import { MongoAudioClipsModel, MongoDialog_Timestamps_Model } from '../models/mongodb/init-models.mongo';
+import { Audio_Clips, Dialog_Timestamps, Videos } from '../models/postgres/init-models';
+import { logger } from '../utils/logger';
 import { getYouTubeVideoStatus } from '../utils/util';
 
 interface NudgeStartTimeIfZeroResult {
