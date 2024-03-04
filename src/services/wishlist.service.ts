@@ -62,7 +62,13 @@ class WishListService {
             aiRequested: {
               $cond: {
                 if: { $gt: [{ $size: '$aiCaptionRequests' }, 0] },
-                then: true,
+                then: {
+                  $cond: {
+                    if: { $eq: [{ $arrayElemAt: ['$aiCaptionRequests.status', 0] }, 'completed'] },
+                    then: true,
+                    else: false,
+                  },
+                },
                 else: false,
               },
             },
@@ -93,17 +99,9 @@ class WishListService {
   }
 
   public async getTopWishlist(user_id: string) {
-    const topWishlistVideos = await MongoWishListModel.find({
-      status: 'queued',
-    })
-      .sort({ votes: -1 })
-      .lean();
-
-    const topWishlistVideosYoutubeIds = topWishlistVideos.map(video => video.youtube_id);
-
     const top3AIRequestedVideos = await MongoAICaptionRequestModel.aggregate([
-      { $match: { youtube_id: { $in: topWishlistVideosYoutubeIds }, status: 'completed' } },
       { $addFields: { numCaptionRequests: { $size: '$caption_requests' } } },
+      { $match: { status: 'completed' } },
       { $sort: { numCaptionRequests: -1 } },
       { $limit: 3 },
     ])
