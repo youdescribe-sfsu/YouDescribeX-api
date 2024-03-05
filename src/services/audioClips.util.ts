@@ -151,7 +151,7 @@ export const generateMp3forDescriptionText = async (
       const fileMimeType = mime.lookup(filepath);
       const fileSizeBytes = fs.statSync(filepath).size;
       // remove public from the file path
-      const servingFilepath = `/audio/${youtubeVideoId}/${adId}`;
+      const servingFilepath = `./audio/${youtubeVideoId}/${adId}`;
       logger.info(`Converted Text to Speech:Serving file path ${servingFilepath}`);
       return {
         status: true,
