@@ -51,27 +51,27 @@ const AudioClipSchema: Schema = new Schema(
     },
     duration: {
       type: Number,
-      required: true,
+      required: false,
     },
     end_time: {
       type: Number,
-      required: true,
+      required: false,
     },
     file_mime_type: {
       type: String,
-      required: true,
+      required: false,
     },
     file_name: {
       type: String,
-      required: true,
+      required: false,
     },
     file_path: {
       type: String,
-      required: true,
+      required: false,
     },
     file_size_bytes: {
       type: Number,
-      required: true,
+      required: false,
     },
     is_recorded: {
       type: Boolean,
