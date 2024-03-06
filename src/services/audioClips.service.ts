@@ -81,7 +81,6 @@ class AudioClipsService {
       for (let i = 0; i < audioDescriptions.length; i++) {
         const audioDescription: IAudioClip = audioDescriptions[i];
         const populatedAudioDescription = await MongoAudio_Descriptions_Model.findById(audioDescription.audio_description);
-        if (!populatedAudioDescription) throw new HttpException(409, "Populated Audio Descriptions couldn't be found");
         const populatedVideo = await MongoVideosModel.findById(populatedAudioDescription.video);
 
         const youtubeVideoData = await isVideoAvailable(populatedVideo.youtube_id);

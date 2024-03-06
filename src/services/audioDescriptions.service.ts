@@ -230,7 +230,7 @@ class AudioDescriptionsService {
       );
       if (!new_timestamp) throw new HttpException(409, "Dialog Timestamps couldn't be created");
       // console.log('new_timestamp', ad);
-      await ad.save();
+      ad.save();
       return ad;
     } else {
       const aiUser = await PostGres_Users.findOne({
@@ -361,9 +361,7 @@ class AudioDescriptionsService {
   };
 
   public getAudioDescription = async (
-    videoId: string,
     audioDescriptionId: string,
-    userId: string,
     preview = false,
   ): Promise<{
     Audio_Clips: any[];
@@ -377,10 +375,6 @@ class AudioDescriptionsService {
     Notes: any;
     updatedAt: any;
   }> => {
-    if (isEmpty(videoId)) throw new HttpException(400, 'Video ID is empty');
-    if (!userId) throw new HttpException(400, 'User ID is empty');
-    if (isEmpty(audioDescriptionId)) throw new HttpException(400, 'Audio Description ID is empty');
-
     const audioDescriptions = await MongoAudio_Descriptions_Model.findOne({
       _id: audioDescriptionId,
     });
