@@ -230,7 +230,7 @@ class AudioDescriptionsService {
       );
       if (!new_timestamp) throw new HttpException(409, "Dialog Timestamps couldn't be created");
       // console.log('new_timestamp', ad);
-      ad.save();
+      await ad.save();
       return ad;
     } else {
       const aiUser = await PostGres_Users.findOne({
