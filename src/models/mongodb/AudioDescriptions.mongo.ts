@@ -1,5 +1,6 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import { IAudioClip } from './AudioClips.mongo';
+import { nowUtc } from '../../utils/util';
 
 interface IAudioDescription extends Document {
   admin_review: boolean;
@@ -33,10 +34,12 @@ const AudioDescriptionSchema: Schema = new Schema(
     created_at: {
       type: Number,
       required: true,
+      default: () => nowUtc(),
     },
     language: {
       type: String,
       required: true,
+      default: 'en',
     },
     legacy_notes: {
       type: String,
@@ -61,6 +64,7 @@ const AudioDescriptionSchema: Schema = new Schema(
     updated_at: {
       type: Number,
       required: true,
+      default: () => nowUtc(),
     },
     user: {
       type: Schema.Types.ObjectId,
