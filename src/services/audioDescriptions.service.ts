@@ -10,6 +10,7 @@ import {
   MongoNotesModel,
   MongoUsersModel,
   MongoVideosModel,
+  MongoAICaptionRequestModel,
 } from '../models/mongodb/init-models.mongo';
 import {
   Audio_DescriptionsAttributes,
@@ -231,6 +232,7 @@ class AudioDescriptionsService {
       if (!new_timestamp) throw new HttpException(409, "Dialog Timestamps couldn't be created");
       // console.log('new_timestamp', ad);
       await ad.save();
+      await MongoAICaptionRequestModel.findOneAndUpdate({ youtube_id: youtube_id }, { status: 'completed' });
       return ad;
     } else {
       const aiUser = await PostGres_Users.findOne({
