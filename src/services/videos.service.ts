@@ -302,7 +302,14 @@ class VideosService {
 
         const matches = stringSimilarity.findBestMatch(query, usernames);
 
-        similarUserIds = matches.ratings.filter(({ rating }) => rating > 0.5).map(({ target }) => allUsers.find(user => user.name === target)._id);
+        similarUserIds = Array.from(
+          new Set(
+            matches.ratings
+              .filter(({ rating }) => rating > 0.5)
+              .map(({ target }) => allUsers.filter(user => user.name === target).map(user => user._id))
+              .flat(),
+          ),
+        );
       }
 
       const videoMatchQuery = {
