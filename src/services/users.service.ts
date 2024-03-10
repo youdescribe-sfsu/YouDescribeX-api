@@ -1042,6 +1042,7 @@ class UserService {
     });
 
     const visitedVideosArray = [...new Set(visitedVideosHistory.flatMap(history => history.visited_videos))];
+    visitedVideosArray.reverse();
     const videos = [];
     const adjustedSkipCount = skipCount;
 
