@@ -321,6 +321,10 @@ class VideosService {
         videoMatchQuery.$or.push({ 'populated_audio_descriptions.user._id': { $in: similarUserIds } });
       }
 
+      if (query && /^[a-zA-Z0-9-_]{11}$/.test(query)) {
+        videoMatchQuery.$or.push({ youtube_id: query });
+      }
+
       if (Object.keys(videoMatchQuery).length === 0) {
         return [];
       }
