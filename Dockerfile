@@ -7,20 +7,14 @@ WORKDIR /app
 RUN ls -la
 # Copy the rest of the application code
 
-COPY . .
-
-ARG GOOGLE_CRED_FILE
-ARG GOOGLE_APPLICATION_CREDENTIALS
-
-ENV GOOGLE_CRED_FILE=${GOOGLE_CRED_FILE}
-ENV GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
+COPY package.json /app
 
 # Install the application dependencies
 RUN npm install
-RUN touch "/app/${GOOGLE_APPLICATION_CREDENTIALS}"
-RUN echo "$GOOGLE_CRED_FILE" | base64 -d -i - > "/app/$GOOGLE_APPLICATION_CREDENTIALS"
-# ADD "./${GOOGLE_APPLICATION_CREDENTIALS}" ${GOOGLE_APPLICATION_CREDENTIALS}
-# Build the application
+
+# Copy the rest of the application code
+COPY . /app
+
 RUN npm run build
 
 # Remove the development dependencies
