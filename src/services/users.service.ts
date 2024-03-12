@@ -609,24 +609,11 @@ class UserService {
 
       logger.info(`URL :: ${YDX_APP_URL}`);
 
-      const captionRequest = await MongoAICaptionRequestModel.findOne({
-        youtube_id: youtube_id,
-        ai_user_id: AI_USER_ID,
-      });
-
-      const userIds = captionRequest.caption_requests;
-      const users = await MongoUsersModel.find({ _id: { $in: userIds } });
-      const emailAddresses = users.map(user => user.email);
-
-      logger.info(`Sending email to ${emailAddresses.toString()}`);
-
-      for (const email of emailAddresses) {
-        await sendEmail(
-          email,
-          `Requested Audio Description for ${youtubeVideoData.title} ready`,
-          `Your Audio Description is now available! You're invited to view it by following this link: ${replaced_url}`,
-        );
-      }
+      await sendEmail(
+        userData.email,
+        `Requested Audio Description for ${youtubeVideoData.title} ready`,
+        `Your Audio Description is now available! You're invited to view it by following this link: ${replaced_url}`,
+      );
 
       logger.info(`Email sent to ${userData.email}`);
       return {
