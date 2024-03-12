@@ -618,6 +618,8 @@ class UserService {
       const users = await MongoUsersModel.find({ _id: { $in: userIds } });
       const emailAddresses = users.map(user => user.email);
 
+      logger.info(`Sending email to ${emailAddresses.toString()}`);
+
       for (const email of emailAddresses) {
         await sendEmail(
           email,
