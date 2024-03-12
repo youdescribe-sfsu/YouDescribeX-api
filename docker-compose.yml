@@ -29,7 +29,7 @@ services:
         - "com.centurylinklabs.watchtower.enable=true"
 
   youdescribex-api:
-    image: youdescribe/backend
+    image: youdescribe/youdescribex-api:dev
     restart: always
     ports:
       - "4001:4001"
