@@ -3,9 +3,6 @@ import { HttpException } from '../exceptions/HttpException';
 import { getYouTubeVideoStatus, isEmpty, nowUtc } from '../utils/util';
 import { CURRENT_DATABASE, CURRENT_YDX_HOST, GPU_URL, AI_USER_ID } from '../config';
 import { PostGres_Users, UsersAttributes } from '../models/postgres/init-models';
-import { PostGres_Videos } from '../models/postgres/init-models';
-import { PostGres_Audio_Descriptions } from '../models/postgres/init-models';
-import { PostGres_Audio_Clips } from '../models/postgres/init-models';
 import {
   MongoAICaptionRequestModel,
   MongoAudioClipsModel,
@@ -15,12 +12,11 @@ import {
   MongoVideosModel,
 } from '../models/mongodb/init-models.mongo';
 import { IUser } from '../models/mongodb/User.mongo';
-import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
 import { logger } from '../utils/logger';
 import { getVideoDataByYoutubeId, isVideoAvailable } from './videos.util';
 import moment from 'moment';
 import axios from 'axios';
-import mongoose, { Schema } from 'mongoose';
+import mongoose from 'mongoose';
 import AudioClipsService from './audioClips.service';
 import { ObjectId } from 'mongodb';
 import sendEmail from '../utils/emailService';
@@ -613,11 +609,22 @@ class UserService {
 
       logger.info(`URL :: ${YDX_APP_URL}`);
 
-      await sendEmail(
-        userData.email,
-        `Requested Audio Description for ${youtubeVideoData.title} ready`,
-        `Your Audio Description is now available! You're invited to view it by following this link: ${replaced_url}`,
-      );
+      const captionRequest = await MongoAICaptionRequestModel.findOne({
+        youtube_id: youtube_id,
+        ai_user_id: AI_USER_ID,
+      });
+
+      const userIds = captionRequest.caption_requests;
+      const users = await MongoUsersModel.find({ _id: { $in: userIds } });
+      const emailAddresses = users.map(user => user.email);
+
+      for (const email of emailAddresses) {
+        await sendEmail(
+          email,
+          `Requested Audio Description for ${youtubeVideoData.title} ready`,
+          `Your Audio Description is now available! You're invited to view it by following this link: ${replaced_url}`,
+        );
+      }
 
       logger.info(`Email sent to ${userData.email}`);
       return {

@@ -30,23 +30,6 @@ class AudioDescripionsController {
     try {
       const newAiDescriptionData: NewAiDescriptionDto = req.body;
       const newAIDescription = await this.audioDescriptionsService.newAiDescription(newAiDescriptionData);
-      const captionRequest = await MongoAICaptionRequestModel.findOne({
-        youtube_id: newAiDescriptionData.youtube_id,
-        ai_user_id: newAiDescriptionData.aiUserId,
-      });
-      if (captionRequest) {
-        const youtubeVideoData = await MongoVideosModel.findOne({ youtube_id: newAiDescriptionData.youtube_id });
-
-        const userIds = captionRequest.caption_requests;
-
-        const users = await MongoUsersModel.find({ _id: { $in: userIds } });
-
-        const emailAddresses = users.map(user => user.email);
-
-        for (const email of emailAddresses) {
-          await sendEmail(email, `Requested Audio Description for ${youtubeVideoData.title} ready`, `Your Audio Description is now available!`);
-        }
-      }
       res.status(200).json(newAIDescription);
     } catch (error) {
       logger.error(error);
