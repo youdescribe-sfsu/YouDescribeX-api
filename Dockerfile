@@ -6,31 +6,33 @@ WORKDIR /app
 
 RUN ls -la
 # Copy the rest of the application code
+COPY . .
 
-COPY package.json /app
+ARG GOOGLE_CRED_FILE
+ARG GOOGLE_APPLICATION_CREDENTIALS
+ARG CRYPTO_SEED
+
+ENV GOOGLE_CRED_FILE=${GOOGLE_CRED_FILE}
+ENV GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
+ENV CRYPTO_SEED=${CRYPTO_SEED}
+# RUN echo "GOOGLE_CRED_FILE=$GOOGLE_CRED_FILE"
+RUN echo "GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS"
+
+# RUN chmod +x run_build_docker.sh
+# RUN ./run_build_docker.sh ${GOOGLE_CRED_FILE} ${GOOGLE_APPLICATION_CREDENTIALS}
 
 # Install the application dependencies
 RUN npm install
-
-# Copy the rest of the application code
-COPY . /app
-
+RUN touch "/app/${GOOGLE_APPLICATION_CREDENTIALS}"
+RUN echo "$GOOGLE_CRED_FILE" | base64 -d -i - > "/app/$GOOGLE_APPLICATION_CREDENTIALS"
+# ADD "./${GOOGLE_APPLICATION_CREDENTIALS}" ${GOOGLE_APPLICATION_CREDENTIALS}
+# Build the application
 RUN npm run build
 
 # Remove the development dependencies
 RUN npm prune --production
 
 RUN ls -la
-
-# Install curl
-RUN apk --no-cache add curl
-
-# Install sudo
-RUN apk --no-cache add sudo
-
-RUN apk add --no-cache bash curl && curl -1sLf \
-'https://dl.cloudsmith.io/public/infisical/infisical-cli/setup.alpine.sh' | bash \
-&& apk add infisical
 
 ARG APP_PORT
 ENV APP_PORT=${APP_PORT}
@@ -43,5 +45,4 @@ EXPOSE ${APP_PORT}
 RUN chmod +x ./dist/server.js
 
 # Start the application
-CMD [ "infisical", "run", "--","node", "./dist/server.js" ]
-
+CMD [ "node", "./dist/server.js" ]
