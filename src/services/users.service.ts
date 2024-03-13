@@ -705,13 +705,11 @@ class UserService {
       }
 
       const aiAudioDescription = await this.checkIfAudioDescriptionExistsforUser(youtube_id, ai_user_id);
-      console.log('aiAudioDescription:', aiAudioDescription);
 
       const captionRequest = await MongoAICaptionRequestModel.findOne({
         youtube_id,
         ai_user_id: ai_user_id,
       });
-      console.log('Requested:', captionRequest);
 
       if (!captionRequest) {
         return {
@@ -733,9 +731,6 @@ class UserService {
           requested: false,
         };
       }
-
-      console.log('Received status:', status);
-      console.log('Requested:', requested);
 
       if (aiAudioDescription && requested && status == 'completed') {
         return {
@@ -937,31 +932,35 @@ class UserService {
       throw new HttpException(400, 'No data provided');
     }
 
-    const userIdObject = await MongoUsersModel.findById(user_id);
-    let aiAudioDescriptions;
-    if (paginate) {
-      const page = parseInt(pageNumber, 10);
-      const perPage = 4;
-      const skipCount = Math.max((page - 1) * perPage, 0);
+    try {
+      const userIdObject = await MongoUsersModel.findById(user_id);
+      let aiAudioDescriptions;
+      if (paginate) {
+        const page = parseInt(pageNumber, 10);
+        const perPage = 4;
+        const skipCount = Math.max((page - 1) * perPage, 0);
 
-      aiAudioDescriptions = await MongoAICaptionRequestModel.find({ caption_requests: userIdObject._id }).sort({ _id: -1 }).skip(skipCount).limit(perPage);
-    } else {
-      aiAudioDescriptions = await this.getAllAiDescriptionRequestsAllVideos(user_id);
+        aiAudioDescriptions = await MongoAICaptionRequestModel.find({ caption_requests: userIdObject._id }).sort({ _id: -1 }).skip(skipCount).limit(perPage);
+      } else {
+        aiAudioDescriptions = await this.getAllAiDescriptionRequestsAllVideos(user_id);
+      }
+
+      const return_arr = [];
+      for (const element of aiAudioDescriptions) {
+        const videoIdStatus = await MongoVideosModel.findOne({ youtube_id: element.youtube_id });
+        const response = await this.processAiAudioDescription(user_id, element, videoIdStatus);
+        return_arr.push(response);
+      }
+
+      const totalItemCount = await MongoAICaptionRequestModel.countDocuments({ caption_requests: userIdObject._id });
+
+      return {
+        result: return_arr,
+        totalVideos: totalItemCount,
+      };
+    } catch (error) {
+      return error;
     }
-
-    const return_arr = [];
-    for (const element of aiAudioDescriptions) {
-      const videoIdStatus = await MongoVideosModel.findOne({ youtube_id: element.youtube_id });
-      const response = await this.processAiAudioDescription(user_id, element, videoIdStatus);
-      return_arr.push(response);
-    }
-
-    const totalItemCount = await MongoAICaptionRequestModel.countDocuments({ caption_requests: userIdObject._id });
-
-    return {
-      result: return_arr,
-      totalVideos: totalItemCount,
-    };
   }
 
   private async getAllAiDescriptionRequestsAllVideos(user_id: string) {
@@ -1024,7 +1023,7 @@ class UserService {
     }
   }
 
-  public async getVisitedVideosHistory(user_id: string, pageNumber: string) {
+  public async getVisitedVideosHistory(user_id: string, pageNumber: string, paginate: boolean) {
     if (!user_id) {
       throw new HttpException(400, 'No data provided');
     }

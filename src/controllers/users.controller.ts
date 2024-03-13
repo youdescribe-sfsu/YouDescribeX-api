@@ -266,7 +266,7 @@ class UsersController {
   public getAllAiDescriptionRequests = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userData = req.user as unknown as IUser;
-      const { pageNumber = '0' }: any = req.query;
+      const pageNumber = req.query.page;
       const paginate = req.query.paginate !== 'false';
       if (!userData) {
         throw new Error('User not logged in');
@@ -275,7 +275,7 @@ class UsersController {
       if (!user) {
         throw new Error('User not found');
       }
-      const response = await this.userService.getAllAiDescriptionRequests(user._id, pageNumber, paginate);
+      const response = await this.userService.getAllAiDescriptionRequests(user._id, <string>pageNumber, paginate);
 
       res.status(201).json(response);
     } catch (error) {
@@ -332,7 +332,8 @@ class UsersController {
   public getVisitedVideosHistory = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userData = req.user as unknown as IUser;
-      const pageNumber = req.query.pageNumber as string;
+      const pageNumber = req.query.page;
+      const paginate = req.query.paginate !== 'false';
       if (!userData) {
         throw new Error('User not logged in');
       }
@@ -341,7 +342,7 @@ class UsersController {
         throw new Error('User not found');
       }
 
-      const response = await this.userService.getVisitedVideosHistory(user._id, pageNumber);
+      const response = await this.userService.getVisitedVideosHistory(user._id, <string>pageNumber, paginate);
 
       res.status(201).json(response);
     } catch (error) {
