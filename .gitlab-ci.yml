@@ -26,6 +26,8 @@ build-template:
     - saas-linux-large-amd64
   before_script:
     - docker login -u "$DOCKER_REGISTRY_USER" -p "$DOCKER_REGISTRY_PASSWORD" $CI_REGISTRY
+  script:
+    - echo "This is a placeholder script in the build-template job."
 
 build-staging:
   extends: build-template
