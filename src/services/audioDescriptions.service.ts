@@ -457,26 +457,40 @@ class AudioDescriptionsService {
     return newObj;
   };
 
-  public async getMyDescriptions(user_id: string, pageNumber: string) {
-    try {
-      const pageSize = 4;
-      const skip = (parseInt(pageNumber) - 1) * pageSize;
-      const allVideoIds = await MongoAudio_Descriptions_Model.find({ user: user_id }).distinct('video');
-      const totalVideos = await MongoVideosModel.countDocuments({
-        _id: { $in: allVideoIds },
-        youtube_status: 'available',
-      });
-      const videos = await MongoVideosModel.find({
-        _id: { $in: allVideoIds },
-        youtube_status: 'available',
-      })
-        .limit(pageSize)
-        .skip(skip);
+  public async getMyDescriptions(user_id: string, pageNumber: string, paginate: boolean) {
+    if (!user_id) {
+      throw new HttpException(400, 'No data provided');
+    }
 
+    try {
+      let videos;
+      const allVideoIds = await MongoAudio_Descriptions_Model.find({ user: user_id }).distinct('video');
       const audioDescriptions = await MongoAudio_Descriptions_Model.find({
         user: user_id,
         video: { $in: allVideoIds },
       });
+      const totalVideos = await MongoVideosModel.countDocuments({
+        _id: { $in: allVideoIds },
+        youtube_status: 'available',
+      });
+
+      if (paginate) {
+        const page = parseInt(pageNumber, 10);
+        const perPage = 4;
+        const skipCount = Math.max((page - 1) * perPage, 0);
+
+        videos = await MongoVideosModel.find({
+          _id: { $in: allVideoIds },
+          youtube_status: 'available',
+        })
+          .limit(perPage)
+          .skip(skipCount);
+      } else {
+        videos = await MongoVideosModel.find({
+          _id: { $in: allVideoIds },
+          youtube_status: 'available',
+        });
+      }
 
       const results = videos.map(video => {
         const audioDescription = audioDescriptions.find(ad => ad.video == `${video._id}`);

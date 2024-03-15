@@ -1,5 +1,4 @@
 version: '3'
-
 services:
   watchtower:
     image: containrrr/watchtower
@@ -9,11 +8,12 @@ services:
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_POLL_INTERVAL=30
       - WATCHTOWER_LABEL_ENABLE=true
+      - WATCHTOWER_ROLLING_RESTART=true
     restart: always
 
 
   youdescribe-docs:
-      image: youdescribe/youdescribe-docs:master.1114783926
+      image: youdescribe/youdescribe-docs:master
       restart: always
       ports:
         - "0.0.0.0:4321:4321"
@@ -21,7 +21,7 @@ services:
         - "com.centurylinklabs.watchtower.enable=true"
 
   youdescribex-app:
-      image: youdescribe/youdescribex-app:dev.1209511398
+      image: youdescribe/youdescribex-app:dev
       restart: always
       ports:
         - "0.0.0.0:3001:3001"
@@ -32,14 +32,31 @@ services:
     image: youdescribe/youdescribex-api:dev
     restart: always
     ports:
-      - "4001:4001"
+      - ${PORT}:${PORT}
+      - ${GPU_PIPELINE_PORT}:${GPU_PIPELINE_PORT}
     extra_hosts:
-       - "host.docker.internal:host-gateway"
-    network_mode: host
+      - 'host.docker.internal:host-gateway'
+        # - ${MONGO_DB_PORT}:${MONGO_DB_PORT}
+    # restart: always
     volumes:
-      - "/mnt/ebs/audio-descriptions-files:/app/public"
-      - "/home/ubuntu/ydx_data/logs:/app/logs"
+      - /home/ubuntu/ydx_data/public:/app/public
+      - /home/ubuntu/ydx_data/logs:/app/logs
+
+    # depends_on:
+    #   - mongodb
     environment:
       - INFISICAL_TOKEN=${INFISICAL_TOKEN}
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
+  yacht:
+    container_name: yacht
+    restart: unless-stopped
+    ports:
+      - 4765:8000
+    volumes:
+      - yacht:/config
+      - /var/run/docker.sock:/var/run/docker.sock
+    image: selfhostedpro/yacht
+    privileged: true
+volumes:
+  yacht:

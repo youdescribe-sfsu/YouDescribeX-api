@@ -97,8 +97,14 @@ class AudioDescripionsController {
   public getMyDescriptions = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userData = req.user as unknown as IUser;
-      const pageNumber = req.query.pageNumber as string;
-      const audioDescription = await this.audioDescriptionsService.getMyDescriptions(userData._id, pageNumber);
+      const pageNumber = req.query.page;
+      const paginate = req.query.paginate !== 'false';
+
+      if (!userData) {
+        throw new Error('User not logged in');
+      }
+
+      const audioDescription = await this.audioDescriptionsService.getMyDescriptions(userData._id, <string>pageNumber, paginate);
 
       res.status(200).json(audioDescription);
     } catch (error) {
