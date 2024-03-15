@@ -17,21 +17,18 @@ cache:
   paths:
     - node_modules/
 
-build-template:
+build-staging:
   stage: build
   image: docker:20.10.16
   services:
     - docker:20.10.16-dind
   tags:
     - saas-linux-large-amd64
-  before_script:
-    - docker login -u "$DOCKER_REGISTRY_USER" -p "$DOCKER_REGISTRY_PASSWORD" $CI_REGISTRY
-
-build-staging:
-  extends: build-template
   rules:
     - if: '$CI_COMMIT_BRANCH == "dev"'
       when: always
+  before_script:
+    - docker login -u "$DOCKER_REGISTRY_USER" -p "$DOCKER_REGISTRY_PASSWORD" $CI_REGISTRY
   script:
     - echo "Building YouDescribe Backend in staging"
     - docker build --no-cache --build-arg APP_PORT=$PORT --build-arg GPU_PIPELINE_PORT=$GPU_PIPELINE_PORT -t "${DOCKER_IMAGE_TAG}" .
@@ -39,10 +36,17 @@ build-staging:
     - echo "Build complete"
 
 build-prod:
-  extends: build-template
+  stage: build
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  tags:
+    - saas-linux-large-amd64
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: always
+  before_script:
+    - docker login -u "$DOCKER_REGISTRY_USER" -p "$DOCKER_REGISTRY_PASSWORD" $CI_REGISTRY
   script:
     - echo "Building YouDescribe Backend in prod"
     - docker build --build-arg APP_PORT=$PORT -t "${DOCKER_IMAGE_TAG}" .
