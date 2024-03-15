@@ -338,9 +338,8 @@ class AudioDescriptionsService {
       }
       const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
         video: videoIdStatus._id,
-        user: user_id,
+        _id: audioDescriptionId,
       });
-
       if (!checkIfAudioDescriptionExists) {
         throw new HttpException(404, 'No audioDescriptionId Found');
       }
@@ -349,8 +348,8 @@ class AudioDescriptionsService {
         status: 'published',
         updated_at: nowUtc(),
         collaborative_editing: enrolled_in_collaborative_editing,
+        user: user_id,
       });
-
       const result = await MongoVideosModel.findByIdAndUpdate(videoIdStatus._id, {
         $push: { audio_descriptions: audioDescriptionId },
       });
