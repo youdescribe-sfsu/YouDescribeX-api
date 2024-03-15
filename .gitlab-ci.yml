@@ -17,7 +17,7 @@ cache:
   paths:
     - node_modules/
 
-build-stage:
+build-template:
   stage: build
   image: docker:20.10.16
   services:
@@ -27,30 +27,22 @@ build-stage:
   before_script:
     - docker login -u "$DOCKER_REGISTRY_USER" -p "$DOCKER_REGISTRY_PASSWORD" $CI_REGISTRY
 
+build-staging:
+  extends: build-template
   rules:
     - if: '$CI_COMMIT_BRANCH == "dev"'
       when: always
-
   script:
     - echo "Building YouDescribe Backend in staging"
-    - docker build --no-cache --build-arg APP_PORT=$PORT --build-arg GOOGLE_CRED_FILE=$GOOGLE_CRED_FILE --build-arg GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS --build-arg GPU_PIPELINE_PORT=$GPU_PIPELINE_PORT --build-arg CRYPTO_SEED=$CRYPTO_SEED -t "${DOCKER_IMAGE_TAG}" .
+    - docker build --no-cache --build-arg APP_PORT=$PORT --build-arg GPU_PIPELINE_PORT=$GPU_PIPELINE_PORT -t "${DOCKER_IMAGE_TAG}" .
     - docker push "${DOCKER_IMAGE_TAG}"
     - echo "Build complete"
 
 build-prod:
-  stage: build
-  image: docker:20.10.16
-  services:
-    - docker:20.10.16-dind
-  tags:
-    - saas-linux-large-amd64
-  before_script:
-    - docker login -u "$DOCKER_REGISTRY_USER" -p "$DOCKER_REGISTRY_PASSWORD" $CI_REGISTRY
-
+  extends: build-template
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: always
-
   script:
     - echo "Building YouDescribe Backend in prod"
     - docker build --build-arg APP_PORT=$PORT -t "${DOCKER_IMAGE_TAG}" .
