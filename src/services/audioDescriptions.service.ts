@@ -462,7 +462,7 @@ class AudioDescriptionsService {
     }
 
     try {
-      let videos;
+      let videos: any[];
       const allVideoIds = await MongoAudio_Descriptions_Model.find({ user: user_id }).distinct('video');
       const audioDescriptions = await MongoAudio_Descriptions_Model.find({
         user: user_id,
@@ -470,9 +470,7 @@ class AudioDescriptionsService {
       });
       const totalVideos = await MongoVideosModel.countDocuments({
         _id: { $in: allVideoIds },
-        youtube_status: 'available',
       });
-
       if (paginate) {
         const page = parseInt(pageNumber, 10);
         const perPage = 4;
@@ -480,14 +478,12 @@ class AudioDescriptionsService {
 
         videos = await MongoVideosModel.find({
           _id: { $in: allVideoIds },
-          youtube_status: 'available',
         })
           .limit(perPage)
           .skip(skipCount);
       } else {
         videos = await MongoVideosModel.find({
           _id: { $in: allVideoIds },
-          youtube_status: 'available',
         });
       }
 
