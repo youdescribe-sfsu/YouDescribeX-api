@@ -2,8 +2,9 @@ import { NextFunction, Request, Response } from 'express';
 import { logger } from '../utils/logger';
 import { AddNewAudioClipDto, UpdateAudioClipDescriptionDto, UpdateAudioClipStartTimeDto, UpdateClipAudioPathDto } from '../dtos/audioClips.dto';
 import AudioClipsService from '../services/audioClips.service';
+import { IUser } from '../models/mongodb/User.mongo';
 
-class AudioClipsController {
+export class AudioClipsController {
   public audioClipsService = new AudioClipsService();
 
   public processAllClipsInDB = async (req: Request, res: Response, next: NextFunction) => {
@@ -87,12 +88,36 @@ class AudioClipsController {
   public deleteAudioClip = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const clipId = req.params.clipId;
-      const deletedAudioClip = await this.audioClipsService.deleteAudioClip(clipId);
+      const userData = req.user as unknown as IUser;
+      const videoId = req.body.videoId;
+      if (!userData) {
+        throw new Error('User not logged in');
+      }
+      const deletedAudioClip = await this.audioClipsService.deleteAudioClip(clipId, userData._id, videoId);
       res.status(200).json(deletedAudioClip);
     } catch (error) {
       logger.error(error);
       next(error);
     }
   };
+
+  public undoDeletedAudioClip = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userData = req.user as unknown as IUser;
+      const videoId = req.body.videoId;
+
+      if (!userData) {
+        throw new Error('User not logged in');
+      }
+      const restoredClip = await this.audioClipsService.undoDeletedAudioClip(userData._id, videoId);
+      if (restoredClip) {
+        res.status(200).json({ message: 'Audio clip restored successfully', clip: restoredClip });
+      } else {
+        res.status(400).json({ message: 'No clips to undo' });
+      }
+    } catch (error) {
+      logger.error(error);
+      next(error);
+    }
+  };
 }
-export default AudioClipsController;

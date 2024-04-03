@@ -17,8 +17,10 @@ import {
 import { logger } from '../utils/logger';
 import { MongoAudioClipsModel, MongoAudio_Descriptions_Model, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
-import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
-import { getVideoDataByYoutubeId, isVideoAvailable } from './videos.util';
+import { isVideoAvailable } from './videos.util';
+import { IAudioClips } from '../interfaces/audioClips.interface';
+
+const userUndoStacks: { [userId: string]: { [videoId: string]: IAudioClips[] } } = {};
 
 interface IProcessedClips {
   clip_id: any;
@@ -658,7 +660,7 @@ class AudioClipsService {
     }
   }
 
-  public async deleteAudioClip(clipId: string): Promise<number> {
+  public async deleteAudioClip(clipId: string, userId: string, videoId: string): Promise<number> {
     if (!clipId) {
       throw new HttpException(400, 'Clip ID is empty');
     }
@@ -673,6 +675,19 @@ class AudioClipsService {
     try {
       let deletedAudioClip;
       if (CURRENT_DATABASE === 'mongodb') {
+        deletedAudioClip = await MongoAudioClipsModel.findById(clipId);
+
+        // Get the user-specific undo stacks or create a new one
+        const userStacks = userUndoStacks[userId] || {};
+
+        // Get the undo stack for the current video or create a new one
+        const undoStack = userStacks[videoId] || [];
+
+        // Push the clip to the undo stack
+        undoStack.push(deletedAudioClip);
+        userStacks[videoId] = undoStack;
+        userUndoStacks[userId] = userStacks;
+
         deletedAudioClip = await MongoAudioClipsModel.findByIdAndDelete(clipId);
 
         // Delete Audio Clip from Audio Clip Array in Audio Description Object
@@ -688,11 +703,26 @@ class AudioClipsService {
           logger.error(err);
           throw new HttpException(409, "Audio clip couldn't be deleted.");
         });
-      } else {
-        deletedAudioClip = await PostGres_Audio_Clips.destroy({
-          where: { clip_id: clipId },
-        });
       }
+      // } else {
+      //   // Find the clip to be deleted (assuming you have a way to fetch the clip data in PostgreSQL)
+      //   const clipToDelete = await PostGres_Audio_Clips.findOne({ where: { clip_id: clipId } });
+      //
+      //   // Get the user-specific undo stacks or create a new one
+      //   const userStacks = userUndoStacks[userId] || {};
+      //
+      //   // Get the undo stack for the current video or create a new one
+      //   const undoStack = userStacks[videoId] || [];
+      //
+      //   // Push the clip to the undo stack
+      //   undoStack.push(clipToDelete);
+      //   userStacks[videoId] = undoStack;
+      //   userUndoStacks[userId] = userStacks;
+      //
+      //   deletedAudioClip = await PostGres_Audio_Clips.destroy({
+      //     where: { clip_id: clipId },
+      //   });
+      // }
 
       if (!deletedAudioClip) {
         throw new HttpException(409, "Audio clip couldn't be deleted.");
@@ -703,6 +733,55 @@ class AudioClipsService {
         throw new HttpException(409, 'Problem deleting audio clip. Please try again.');
       }
       return deletedAudioClip;
+    } catch (error) {
+      throw new HttpException(error.statusCode || 500, error.message);
+    }
+  }
+
+  public async undoDeletedAudioClip(userId: string, videoId: string): Promise<IAudioClips | null> {
+    // Get the user-specific undo stacks
+    const userStacks = userUndoStacks[userId];
+
+    if (!userStacks) {
+      return null;
+    }
+
+    // Get the undo stack for the current video
+    const undoStack = userStacks[videoId];
+
+    if (!undoStack || undoStack.length === 0) {
+      return null;
+    }
+
+    try {
+      // Pop the most recently deleted clip from the undo stack
+      const restoredClip = undoStack.pop();
+
+      if (CURRENT_DATABASE === 'mongodb') {
+        // Save the restored clip to the MongoDB data store
+        const newClip = new MongoAudioClipsModel(restoredClip);
+        await newClip.save();
+
+        // Add the restored clip to the audio_clips array in the corresponding audio description
+        await MongoAudio_Descriptions_Model.findByIdAndUpdate(
+          restoredClip.AudioDescriptionAdId,
+          {
+            $push: { audio_clips: newClip._id },
+          },
+          {
+            new: true,
+          },
+        ).catch(err => {
+          logger.error(err);
+          throw new HttpException(409, "Audio clip couldn't be restored.");
+        });
+      }
+      // else {
+      //   // Save the restored clip to the PostgreSQL data store
+      //   await PostGres_Audio_Clips.create(restoredClip);
+      // }
+
+      return restoredClip;
     } catch (error) {
       throw new HttpException(error.statusCode || 500, error.message);
     }
