@@ -462,8 +462,15 @@ class AudioDescriptionsService {
     }
 
     try {
-      const pipeline = [
-        { $match: { user: user_id, status: 'published' } },
+      const pipeline: Array<
+        | { $match: { user: ObjectId; status: string } }
+        | { $lookup: { from: string; localField: string; foreignField: string; as: string } }
+        | { $unwind: string }
+        | { $project: { [key: string]: any } }
+        | { $skip: number }
+        | { $limit: number }
+      > = [
+        { $match: { user: new ObjectId(user_id), status: 'published' } },
         {
           $lookup: {
             from: 'videos',
