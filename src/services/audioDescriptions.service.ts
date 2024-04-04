@@ -462,55 +462,58 @@ class AudioDescriptionsService {
     }
 
     try {
-      let videos: any[];
-      const allVideoIds = await MongoAudio_Descriptions_Model.find({ user: user_id }).distinct('video');
-      const audioDescriptions = await MongoAudio_Descriptions_Model.find({
-        user: user_id,
-        video: { $in: allVideoIds },
-      });
-      const totalVideos = await MongoVideosModel.countDocuments({
-        _id: { $in: allVideoIds },
-      });
+      const pipeline = [
+        { $match: { user: user_id, status: 'published' } },
+        {
+          $lookup: {
+            from: 'videos',
+            localField: 'video',
+            foreignField: '_id',
+            as: 'videoData',
+          },
+        },
+        { $unwind: '$videoData' },
+        {
+          $project: {
+            video_id: '$videoData._id',
+            youtube_video_id: '$videoData.youtube_id',
+            video_name: '$videoData.title',
+            video_length: '$videoData.duration',
+            createdAt: '$videoData.created_at',
+            updatedAt: '$videoData.updated_at',
+            audio_description_id: '$_id',
+            status: 1,
+            overall_rating_votes_average: 1,
+            overall_rating_votes_counter: 1,
+            overall_rating_votes_sum: 1,
+          },
+        },
+      ];
+
+      let results;
+      let totalVideos;
+
       if (paginate) {
-        const page = parseInt(pageNumber, 10);
-        const perPage = 4;
-        const skipCount = Math.max((page - 1) * perPage, 0);
+        const page = parseInt(pageNumber, 10) || 1;
+        const pageSize = 4; // Set the desired page size here
+        const skipCount = (page - 1) * pageSize;
 
-        videos = await MongoVideosModel.find({
-          _id: { $in: allVideoIds },
-        })
-          .limit(perPage)
-          .skip(skipCount);
+        pipeline.push({ $skip: skipCount }, { $limit: pageSize });
+
+        results = await MongoAudio_Descriptions_Model.aggregate(pipeline);
+        totalVideos = await MongoAudio_Descriptions_Model.countDocuments({ user: user_id, status: 'published' });
       } else {
-        videos = await MongoVideosModel.find({
-          _id: { $in: allVideoIds },
-        });
+        results = await MongoAudio_Descriptions_Model.aggregate(pipeline);
+        totalVideos = results.length;
       }
-
-      const results = videos.map(video => {
-        const audioDescription = audioDescriptions.find(ad => ad.video == `${video._id}`);
-
-        return {
-          video_id: video._id,
-          youtube_video_id: video.youtube_id,
-          video_name: video.title,
-          video_length: video.duration,
-          createdAt: video.created_at,
-          updatedAt: video.updated_at,
-          audio_description_id: audioDescription._id,
-          status: audioDescription.status,
-          overall_rating_votes_average: audioDescription.overall_rating_votes_average,
-          overall_rating_votes_counter: audioDescription.overall_rating_votes_counter,
-          overall_rating_votes_sum: audioDescription.overall_rating_votes_sum,
-        };
-      });
 
       return {
         result: results,
-        totalVideos: totalVideos,
+        totalVideos,
       };
     } catch (error) {
-      return error;
+      logger.error('Error occurred:', error);
+      throw error;
     }
   }
 }
