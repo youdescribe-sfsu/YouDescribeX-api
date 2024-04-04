@@ -89,11 +89,11 @@ export class AudioClipsController {
     try {
       const clipId = req.params.clipId;
       const userData = req.user as unknown as IUser;
-      const videoId = req.body.videoId;
+      const videoId = req.query.youtubeVideoId;
       if (!userData) {
         throw new Error('User not logged in');
       }
-      const deletedAudioClip = await this.audioClipsService.deleteAudioClip(clipId, userData._id, videoId);
+      const deletedAudioClip = await this.audioClipsService.deleteAudioClip(clipId, userData._id, <string>videoId);
       res.status(200).json(deletedAudioClip);
     } catch (error) {
       logger.error(error);
@@ -104,8 +104,7 @@ export class AudioClipsController {
   public undoDeletedAudioClip = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userData = req.user as unknown as IUser;
-      const videoId = req.body.videoId;
-
+      const videoId = req.body.youtubeVideoId;
       if (!userData) {
         throw new Error('User not logged in');
       }
