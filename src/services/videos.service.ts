@@ -329,7 +329,7 @@ class VideosService {
         return [];
       }
 
-      const videos = await MongoVideosModel.aggregate([
+      return await MongoVideosModel.aggregate([
         {
           $lookup: {
             from: 'audio_descriptions',
@@ -389,8 +389,6 @@ class VideosService {
           },
         },
       ]).exec();
-
-      return videos;
     } catch (err) {
       console.log(err);
       throw new Error('Error fetching videos: ' + err);
