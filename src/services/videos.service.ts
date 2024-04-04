@@ -397,35 +397,12 @@ class VideosService {
     }
   }
 
-  public async getAllVideos(page?: string, query?: string) {
+  public async getAllVideos(page?: string) {
     try {
-      console.log('page', page);
-
       const pgNumber = Number(page);
       const searchPage = Number.isNaN(pgNumber) || pgNumber === 0 ? 50 : pgNumber * 50;
 
-      const matchQuery = query
-        ? {
-            $or: [
-              { 'language.name': { $regex: query, $options: 'i' } },
-              { youtube_id: { $regex: query, $options: 'i' } },
-              { category: { $regex: query, $options: 'i' } },
-              { title: { $regex: query, $options: 'i' } },
-              {
-                tags: {
-                  $elemMatch: { $regex: query, $options: 'i' },
-                },
-              },
-              {
-                custom_tags: {
-                  $elemMatch: { $regex: query, $options: 'i' },
-                },
-              },
-            ],
-          }
-        : {};
-
-      const videos = await MongoVideosModel.aggregate([
+      return await MongoVideosModel.aggregate([
         {
           $lookup: {
             from: 'audio_descriptions',
@@ -455,22 +432,31 @@ class VideosService {
         },
         {
           $match: {
-            ...matchQuery,
             'populated_audio_descriptions.status': 'published',
           },
         },
         {
-          $sort: { 'populated_audio_descriptions.updated_at': -1 },
-        },
-        {
-          $skip: searchPage - 50,
-        },
-        {
-          $limit: 50,
+          $group: {
+            _id: '$_id',
+            audio_descriptions: { $push: '$populated_audio_descriptions' },
+            category: { $first: '$category' },
+            category_id: { $first: '$category_id' },
+            created_at: { $first: '$created_at' },
+            custom_tags: { $first: '$custom_tags' },
+            description: { $first: '$description' },
+            duration: { $first: '$duration' },
+            tags: { $first: '$tags' },
+            title: { $first: '$title' },
+            updated_at: { $first: '$updated_at' },
+            views: { $first: '$views' },
+            youtube_id: { $first: '$youtube_id' },
+            youtube_status: { $first: '$youtube_status' },
+            __v: { $first: '$__v' },
+          },
         },
         {
           $project: {
-            audio_descriptions: '$populated_audio_descriptions',
+            audio_descriptions: 1,
             category: 1,
             category_id: 1,
             created_at: 1,
@@ -487,9 +473,18 @@ class VideosService {
             _id: 1,
           },
         },
-      ]).exec();
-
-      return videos;
+        {
+          $sort: { updated_at: -1 },
+        },
+        {
+          $skip: searchPage - 50,
+        },
+        {
+          $limit: 50,
+        },
+      ])
+        .allowDiskUse(true)
+        .exec();
     } catch (err) {
       throw new Error('Error fetching videos: ' + err);
     }
