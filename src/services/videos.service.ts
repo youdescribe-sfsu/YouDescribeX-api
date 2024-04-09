@@ -272,45 +272,49 @@ class VideosService {
       console.log(`page - ${page} , query - ${query}`);
 
       const pgNumber = Number(page);
-      const searchPage = Number.isNaN(pgNumber) || pgNumber === 0 ? 50 : pgNumber * 50;
-      console.log(`searchPage - ${searchPage}`);
+      const videosPerPage = 20;
+      const skipValue = (pgNumber - 1) * videosPerPage;
 
       let matchQuery: any = {};
       let similarUserIds: string[] = [];
 
-      if (query) {
-        matchQuery = {
-          $or: [
-            { 'language.name': { $regex: '\\b' + query + '\\b', $options: 'i' } },
-            { category: { $regex: '\\b' + query + '\\b', $options: 'i' } },
-            { title: { $regex: '\\b' + query + '\\b', $options: 'i' } },
-            {
-              tags: {
-                $elemMatch: { $regex: '\\b' + query + '\\b', $options: 'i' },
-              },
+      matchQuery = {
+        $or: [
+          { 'language.name': { $regex: '\\b' + query + '\\b', $options: 'i' } },
+          { category: { $regex: '\\b' + query + '\\b', $options: 'i' } },
+          { title: { $regex: '\\b' + query + '\\b', $options: 'i' } },
+          {
+            tags: {
+              $elemMatch: { $regex: '\\b' + query + '\\b', $options: 'i' },
             },
-            {
-              custom_tags: {
-                $elemMatch: { $regex: '\\b' + query + '\\b', $options: 'i' },
-              },
+          },
+          {
+            custom_tags: {
+              $elemMatch: { $regex: '\\b' + query + '\\b', $options: 'i' },
             },
-          ],
-        };
+          },
+        ],
+      };
 
-        const allUsers = await MongoUsersModel.find({ name: { $exists: true } }, { _id: 1, name: 1 });
-        const usernames = allUsers.map(user => user.name);
+      const allUsers = await MongoUsersModel.find({ name: { $exists: true } }, { _id: 1, name: 1 });
+      const usernames = allUsers.map(user => user.name);
+      const normalizedQuery = query.toLowerCase();
+      const matches = stringSimilarity.findBestMatch(
+        normalizedQuery,
+        usernames.map(name => name.toLowerCase()),
+      );
 
-        const matches = stringSimilarity.findBestMatch(query, usernames);
-
-        similarUserIds = Array.from(
-          new Set(
-            matches.ratings
-              .filter(({ rating }) => rating > 0.5)
-              .map(({ target }) => allUsers.filter(user => user.name === target).map(user => user._id))
-              .flat(),
-          ),
-        );
-      }
+      similarUserIds = Array.from(
+        new Set(
+          matches.ratings
+            .filter(({ rating }) => rating > 0.5)
+            .map(({ target }) => {
+              const normalizedTarget = target.toLowerCase();
+              return allUsers.filter(user => user.name.toLowerCase() === normalizedTarget).map(user => user._id);
+            })
+            .flat(),
+        ),
+      );
 
       const videoMatchQuery = {
         ...matchQuery,
@@ -329,7 +333,7 @@ class VideosService {
         return [];
       }
 
-      return await MongoVideosModel.aggregate([
+      const result = await MongoVideosModel.aggregate([
         {
           $lookup: {
             from: 'audio_descriptions',
@@ -364,31 +368,45 @@ class VideosService {
           $sort: { 'populated_audio_descriptions.updated_at': -1 },
         },
         {
-          $skip: searchPage - 50,
-        },
-        {
-          $limit: 50,
+          $facet: {
+            totalCount: [{ $count: 'count' }],
+            paginatedResults: [
+              { $skip: skipValue },
+              { $limit: videosPerPage },
+              {
+                $project: {
+                  audio_descriptions: '$populated_audio_descriptions',
+                  category: 1,
+                  category_id: 1,
+                  created_at: 1,
+                  custom_tags: 1,
+                  description: 1,
+                  duration: 1,
+                  tags: 1,
+                  title: 1,
+                  updated_at: 1,
+                  views: 1,
+                  youtube_id: 1,
+                  youtube_status: 1,
+                  __v: 1,
+                  _id: 1,
+                },
+              },
+            ],
+          },
         },
         {
           $project: {
-            audio_descriptions: '$populated_audio_descriptions',
-            category: 1,
-            category_id: 1,
-            created_at: 1,
-            custom_tags: 1,
-            description: 1,
-            duration: 1,
-            tags: 1,
-            title: 1,
-            updated_at: 1,
-            views: 1,
-            youtube_id: 1,
-            youtube_status: 1,
-            __v: 1,
-            _id: 1,
+            total: { $arrayElemAt: ['$totalCount.count', 0] },
+            videos: '$paginatedResults',
           },
         },
       ]).exec();
+
+      return {
+        total: result[0]?.total || 0,
+        videos: result[0]?.videos || [],
+      };
     } catch (err) {
       console.log(err);
       throw new Error('Error fetching videos: ' + err);
