@@ -1,7 +1,7 @@
 import { WishListRequest } from '../dtos/wishlist.dto';
 import { IWishList } from '../models/mongodb/Wishlist.mongo';
 import { HttpException } from '../exceptions/HttpException';
-import { MongoAICaptionRequestModel, MongoUsersModel, MongoUserVotesModel, MongoVideosModel, MongoWishListModel } from '../models/mongodb/init-models.mongo';
+import { MongoAICaptionRequestModel, MongoUserVotesModel, MongoWishListModel } from '../models/mongodb/init-models.mongo';
 import { IUser } from '../models/mongodb/User.mongo';
 import { formattedDate, getYouTubeVideoStatus } from '../utils/util';
 import axios from 'axios';
@@ -20,8 +20,25 @@ class WishListService {
 
     let sortOptions: any = { created_at: -1 }; // Default sort by created_at in descending order
     if (sort && sortField) {
-      sortOptions = {}; // Clear default sort options
-      sortOptions[sortField] = sort === 'asc' ? 1 : -1;
+      if (sortField === 'aiRequested') {
+        // Handle sorting for the "AI Descriptions" column
+        sortOptions = {
+          aiRequested: sort === 'asc' ? 1 : -1,
+          created_at: -1, // Secondary sort by created_at in descending order
+        };
+      } else if (sortField === 'category') {
+        // Handle case-insensitive sorting for the "Category" column
+        sortOptions = {
+          lowercaseCategory: sort === 'asc' ? 1 : -1,
+          created_at: -1, // Secondary sort by created_at in descending order
+        };
+      } else {
+        // Handle sorting for other columns
+        sortOptions = {
+          [sortField]: sort === 'asc' ? 1 : -1,
+          created_at: -1, // Secondary sort by created_at in descending order
+        };
+      }
     }
 
     // Apply pagination
@@ -34,125 +51,217 @@ class WishListService {
       categoryRegex = category.join('|');
     }
 
-    const wishListItems: Array<IWishListResponse> = await MongoWishListModel.aggregate().facet({
-      items: [
-        {
-          $match: {
-            $and: [
-              { status: 'queued' },
-              { youtube_status: 'available' },
-              { tags: { $regex: search, $options: 'i' } },
-              { category: { $regex: categoryRegex, $options: 'i' } },
-            ],
-          },
-        },
-        { $sort: sortOptions },
-        { $skip: skip },
-        { $limit: pageSize },
-        {
-          $lookup: {
-            from: 'AICaptionRequests',
-            localField: 'youtube_id',
-            foreignField: 'youtube_id',
-            as: 'aiCaptionRequests',
-          },
-        },
-        {
-          $addFields: {
-            aiRequested: {
-              $cond: {
-                if: { $gt: [{ $size: '$aiCaptionRequests' }, 0] },
-                then: {
-                  $cond: {
-                    if: { $eq: [{ $arrayElemAt: ['$aiCaptionRequests.status', 0] }, 'completed'] },
-                    then: true,
-                    else: false,
-                  },
-                },
-                else: false,
-              },
+    try {
+      const wishListItems: Array<IWishListResponse> = await MongoWishListModel.aggregate().facet({
+        items: [
+          {
+            $match: {
+              $and: [
+                { status: 'queued' },
+                { youtube_status: 'available' },
+                { tags: { $regex: search, $options: 'i' } },
+                { category: { $regex: categoryRegex, $options: 'i' } },
+              ],
             },
           },
-        },
-      ],
-      count: [
-        {
-          $match: {
-            $and: [
-              { status: 'queued' },
-              { youtube_status: 'available' },
-              { tags: { $regex: search, $options: 'i' } },
-              { category: { $regex: categoryRegex, $options: 'i' } },
-            ],
+          {
+            $lookup: {
+              from: 'AICaptionRequests',
+              localField: 'youtube_id',
+              foreignField: 'youtube_id',
+              as: 'aiCaptionRequests',
+            },
           },
-        },
-        { $count: 'count' },
-      ],
-    });
+          {
+            $addFields: {
+              aiRequested: {
+                $cond: {
+                  if: { $gt: [{ $size: '$aiCaptionRequests' }, 0] },
+                  then: {
+                    $cond: {
+                      if: { $eq: [{ $arrayElemAt: ['$aiCaptionRequests.status', 0] }, 'completed'] },
+                      then: true,
+                      else: false,
+                    },
+                  },
+                  else: false,
+                },
+              },
+              lowercaseCategory: { $toLower: '$category' }, // Add a new field with lowercase category
+            },
+          },
+          { $sort: sortOptions },
+          { $skip: skip },
+          { $limit: pageSize },
+        ],
+        count: [
+          {
+            $match: {
+              $and: [
+                { status: 'queued' },
+                { youtube_status: 'available' },
+                { tags: { $regex: search, $options: 'i' } },
+                { category: { $regex: categoryRegex, $options: 'i' } },
+              ],
+            },
+          },
+          { $count: 'count' },
+        ],
+      });
 
-    return {
-      totalItems: wishListItems[0].count[0].count,
-      page: pageNumber,
-      pageSize,
-      data: wishListItems[0].items,
-    };
+      if (wishListItems.length === 0 || !wishListItems[0].count || wishListItems[0].count.length === 0) {
+        return {
+          totalItems: 0,
+          page: pageNumber,
+          pageSize,
+          data: [],
+        };
+      }
+
+      return {
+        totalItems: wishListItems[0].count[0].count,
+        page: pageNumber,
+        pageSize,
+        data: wishListItems[0].items,
+      };
+    } catch (error) {
+      console.error('Error fetching wishlist items:', error);
+      throw new Error('Failed to fetch wishlist items');
+    }
   }
 
   public async getTopWishlist(user_id: string) {
-    const top3AIRequestedVideos = await MongoAICaptionRequestModel.aggregate([
-      { $addFields: { numCaptionRequests: { $size: '$caption_requests' } } },
-      { $match: { status: 'completed' } },
-      { $sort: { numCaptionRequests: -1 } },
-      { $limit: 3 },
-    ])
-      .project({ youtube_id: 1 })
-      .exec();
+    const [topWishlistVideos, topAIRequestedVideos] = await Promise.all([
+      MongoWishListModel.aggregate([
+        {
+          $match: {
+            status: 'queued',
+          },
+        },
+        {
+          $sort: {
+            votes: -1,
+          },
+        },
+        {
+          $limit: 3,
+        },
+        {
+          $lookup: {
+            from: 'videos',
+            localField: 'youtube_id',
+            foreignField: 'youtube_id',
+            as: 'video',
+          },
+        },
+        {
+          $unwind: '$video',
+        },
+        {
+          $lookup: {
+            from: 'audio_descriptions',
+            localField: 'video._id',
+            foreignField: 'video',
+            as: 'audioDescriptions',
+          },
+        },
+        {
+          $match: {
+            audioDescriptions: { $size: 0 },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            youtube_id: 1,
+            votes: 1,
+            aiRequested: { $literal: false },
+          },
+        },
+      ])
+        .exec()
+        .then(result => {
+          console.log('Top Wishlist Videos:', result);
+          return result;
+        }),
 
-    const top3AIRequestedyoutubeids = top3AIRequestedVideos.map(video => video.youtube_id);
-
-    const top3Videos = await MongoVideosModel.aggregate([
-      {
-        $match: {
-          youtube_id: { $in: top3AIRequestedyoutubeids },
+      MongoAICaptionRequestModel.aggregate([
+        {
+          $match: {
+            status: 'completed',
+          },
         },
-      },
-      {
-        $group: {
-          _id: '$youtube_id',
+        {
+          $group: {
+            _id: '$youtube_id',
+            votes: { $sum: { $size: '$caption_requests' } },
+          },
         },
-      },
-      {
-        $project: {
-          _id: 0,
-          youtube_id: '$_id',
+        {
+          $sort: {
+            votes: -1,
+          },
         },
-      },
+        {
+          $limit: 2,
+        },
+        {
+          $lookup: {
+            from: 'videos',
+            localField: '_id',
+            foreignField: 'youtube_id',
+            as: 'video',
+          },
+        },
+        {
+          $unwind: '$video',
+        },
+        {
+          $lookup: {
+            from: 'audio_descriptions',
+            localField: 'video._id',
+            foreignField: 'video',
+            as: 'audioDescriptions',
+          },
+        },
+        {
+          $match: {
+            audioDescriptions: { $size: 0 },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            youtube_id: '$_id',
+            votes: 1,
+            aiRequested: { $literal: true },
+          },
+        },
+      ])
+        .exec()
+        .then(result => {
+          console.log('Top AI Requested Videos:', result);
+          return result;
+        }),
     ]);
 
-    const top2Wishlist = await MongoWishListModel.find({
-      status: 'queued',
-      youtube_id: { $nin: top3AIRequestedyoutubeids },
-    })
-      .sort({ votes: -1 })
-      .limit(2)
-      .lean();
+    console.log('Top Wishlist Videos:', topWishlistVideos);
+    console.log('Top AI Requested Videos:', topAIRequestedVideos);
 
     const userVotes = (await MongoUserVotesModel.find({ user: user_id })).map(v => v.youtube_id);
 
-    const aiVideos = top3Videos.map(video => ({
-      youtube_id: video.youtube_id,
-      aiRequested: true,
-    }));
+    const combinedVideos = [...topWishlistVideos, ...topAIRequestedVideos];
 
-    const wishlistVideos = top2Wishlist.map(video => ({
-      ...video,
-      aiRequested: false,
-    }));
+    console.log('Combined Videos:', combinedVideos);
 
-    return [...aiVideos, ...wishlistVideos].map(video => ({
+    const result = combinedVideos.map(video => ({
       ...video,
       voted: userVotes.includes(video.youtube_id),
     }));
+
+    console.log('Final Result:', result);
+
+    return result;
   }
 
   public async getUserWishlist(user_id: string | undefined, pageNumber: string) {
