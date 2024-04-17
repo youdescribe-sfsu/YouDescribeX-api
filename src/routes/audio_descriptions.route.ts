@@ -15,13 +15,10 @@ class AudioDescriptionsRoute implements Routes {
     this.router.get(`${this.path}/get-user-ad/:videoId&:adId`, this.audioDescriptionsController.getUserAudioDescriptionData);
     this.router.post(`${this.path}/newaidescription`, this.audioDescriptionsController.newAiDescription);
     this.router.delete(`${this.path}/delete-user-ad-audios/:youtubeVideoId&:adId`, this.audioDescriptionsController.deleteUserADAudios);
-
-    // Route to publish a new audio description
     this.router.post(`${this.path}/publish-audio-description`, this.audioDescriptionsController.publishAudioDescription);
-
     this.router.get(`${this.path}/get-audio-description/:audioDescriptionId`, this.audioDescriptionsController.getAudioDescription);
-
     this.router.get(`${this.path}/get-my-descriptions`, this.audioDescriptionsController.getMyDescriptions);
+    this.router.get(`${this.path}/get-All-AI-descriptions`, this.audioDescriptionsController.getAllAIDescriptions);
   }
 }
 
