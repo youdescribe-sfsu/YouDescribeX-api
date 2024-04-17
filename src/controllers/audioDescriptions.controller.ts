@@ -111,5 +111,22 @@ class AudioDescripionsController {
       next(error);
     }
   };
+
+  public getAllAIDescriptions = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userData = req.user as unknown as IUser;
+      const pageNumber = req.query.page;
+
+      if (!userData) {
+        throw new Error('User not logged in');
+      }
+
+      const audioDescription = await this.audioDescriptionsService.getAllAIDescriptions(userData._id, <string>pageNumber);
+
+      res.status(200).json(audioDescription);
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 export default AudioDescripionsController;
