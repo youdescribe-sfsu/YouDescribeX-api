@@ -524,7 +524,7 @@ class AudioDescriptionsService {
     }
   }
 
-  public async getMyDraftDescriptions(user_id: string) {
+  public async getMyDraftDescriptions(user_id: string, pageNumber: string, paginate: boolean) {
     if (!user_id) {
       throw new HttpException(400, 'No data provided');
     }
@@ -535,6 +535,8 @@ class AudioDescriptionsService {
         | { $lookup: { from: string; localField: string; foreignField: string; as: string } }
         | { $unwind: string }
         | { $project: { [key: string]: any } }
+        | { $skip: number }
+        | { $limit: number }
       > = [
         { $match: { user: new ObjectId(user_id), status: 'draft' } },
         {
@@ -563,8 +565,22 @@ class AudioDescriptionsService {
         },
       ];
 
-      const results = await MongoAudio_Descriptions_Model.aggregate(pipeline);
-      const totalVideos = results.length;
+      let results;
+      let totalVideos;
+
+      if (paginate) {
+        const page = parseInt(pageNumber, 10) || 1;
+        const pageSize = 4; // Set the desired page size here
+        const skipCount = (page - 1) * pageSize;
+
+        pipeline.push({ $skip: skipCount }, { $limit: pageSize });
+
+        results = await MongoAudio_Descriptions_Model.aggregate(pipeline);
+        totalVideos = await MongoAudio_Descriptions_Model.countDocuments({ user: user_id, status: 'draft' });
+      } else {
+        results = await MongoAudio_Descriptions_Model.aggregate(pipeline);
+        totalVideos = results.length;
+      }
       return {
         result: results,
         totalVideos,
