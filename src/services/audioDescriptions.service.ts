@@ -524,6 +524,57 @@ class AudioDescriptionsService {
     }
   }
 
+  public async getMyDraftDescriptions(user_id: string) {
+    if (!user_id) {
+      throw new HttpException(400, 'No data provided');
+    }
+
+    try {
+      const pipeline: Array<
+        | { $match: { user: ObjectId; status: string } }
+        | { $lookup: { from: string; localField: string; foreignField: string; as: string } }
+        | { $unwind: string }
+        | { $project: { [key: string]: any } }
+      > = [
+        { $match: { user: new ObjectId(user_id), status: 'draft' } },
+        {
+          $lookup: {
+            from: 'videos',
+            localField: 'video',
+            foreignField: '_id',
+            as: 'videoData',
+          },
+        },
+        { $unwind: '$videoData' },
+        {
+          $project: {
+            video_id: '$videoData._id',
+            youtube_video_id: '$videoData.youtube_id',
+            video_name: '$videoData.title',
+            video_length: '$videoData.duration',
+            createdAt: '$videoData.created_at',
+            updatedAt: '$videoData.updated_at',
+            audio_description_id: '$_id',
+            status: 1,
+            overall_rating_votes_average: 1,
+            overall_rating_votes_counter: 1,
+            overall_rating_votes_sum: 1,
+          },
+        },
+      ];
+
+      const results = await MongoAudio_Descriptions_Model.aggregate(pipeline);
+      const totalVideos = results.length;
+      return {
+        result: results,
+        totalVideos,
+      };
+    } catch (error) {
+      logger.error('Error occurred:', error);
+      throw error;
+    }
+  }
+
   public async getAllAIDescriptions(user_id: string, pageNumber: string) {
     if (!user_id) {
       throw new HttpException(400, 'No data provided');
