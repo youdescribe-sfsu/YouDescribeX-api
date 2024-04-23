@@ -927,7 +927,7 @@ class UserService {
     };
   }
 
-  public async getAllAiDescriptionRequests(user_id: string, pageNumber: string, paginate: boolean) {
+  public async getUserAiDescriptionRequests(user_id: string, pageNumber: string, paginate: boolean) {
     if (!user_id) {
       throw new HttpException(400, 'No data provided');
     }
