@@ -591,12 +591,12 @@ class AudioDescriptionsService {
       const skipCount = (page - 1) * videosPerPage;
 
       const pipeline: Array<any> = [
-        { $match: { user: new ObjectId(user_id), status: 'published' } },
+        { $match: { caption_requests: new ObjectId(user_id), status: 'published' } },
         {
           $lookup: {
             from: 'videos',
-            localField: 'video',
-            foreignField: '_id',
+            localField: 'youtube_id',
+            foreignField: 'youtube_id',
             as: 'videoData',
           },
         },
