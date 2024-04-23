@@ -955,8 +955,8 @@ class UserService {
       const totalItemCount = await MongoAICaptionRequestModel.countDocuments({ caption_requests: userIdObject._id });
 
       return {
-        result: return_arr,
-        totalVideos: totalItemCount,
+        videos: return_arr,
+        total: totalItemCount,
       };
     } catch (error) {
       return error;
@@ -1079,7 +1079,7 @@ class UserService {
       };
     });
 
-    return { result: resultVideos, totalVideos: visitedVideosArray.length };
+    return { videos: resultVideos, total: visitedVideosArray.length };
   }
 }
 
