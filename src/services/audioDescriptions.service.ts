@@ -462,14 +462,7 @@ class AudioDescriptionsService {
     }
 
     try {
-      const pipeline: Array<
-        | { $match: { user: ObjectId; status: string } }
-        | { $lookup: { from: string; localField: string; foreignField: string; as: string } }
-        | { $unwind: string }
-        | { $project: { [key: string]: any } }
-        | { $skip: number }
-        | { $limit: number }
-      > = [
+      const pipeline: Array<any> = [
         { $match: { user: new ObjectId(user_id), status: 'published' } },
         {
           $lookup: {
@@ -524,20 +517,17 @@ class AudioDescriptionsService {
     }
   }
 
-  public async getMyDraftDescriptions(user_id: string, pageNumber: string, paginate: boolean) {
+  public async getMyDraftDescriptions(user_id: string, pageNumber: string) {
     if (!user_id) {
       throw new HttpException(400, 'No data provided');
     }
 
     try {
-      const pipeline: Array<
-        | { $match: { user: ObjectId; status: string } }
-        | { $lookup: { from: string; localField: string; foreignField: string; as: string } }
-        | { $unwind: string }
-        | { $project: { [key: string]: any } }
-        | { $skip: number }
-        | { $limit: number }
-      > = [
+      const page = parseInt(pageNumber, 10) || 1;
+      const videosPerPage = 20;
+      const skipCount = (page - 1) * videosPerPage;
+
+      const pipeline: Array<any> = [
         { $match: { user: new ObjectId(user_id), status: 'draft' } },
         {
           $lookup: {
@@ -563,27 +553,25 @@ class AudioDescriptionsService {
             overall_rating_votes_sum: 1,
           },
         },
+        {
+          $facet: {
+            totalCount: [{ $count: 'count' }],
+            paginatedResults: [{ $skip: skipCount }, { $limit: videosPerPage }],
+          },
+        },
+        {
+          $project: {
+            total: { $arrayElemAt: ['$totalCount.count', 0] },
+            videos: '$paginatedResults',
+          },
+        },
       ];
 
-      let results;
-      let totalVideos;
+      const result = await MongoAudio_Descriptions_Model.aggregate(pipeline).exec();
 
-      if (paginate) {
-        const page = parseInt(pageNumber, 10) || 1;
-        const pageSize = 4; // Set the desired page size here
-        const skipCount = (page - 1) * pageSize;
-
-        pipeline.push({ $skip: skipCount }, { $limit: pageSize });
-
-        results = await MongoAudio_Descriptions_Model.aggregate(pipeline);
-        totalVideos = await MongoAudio_Descriptions_Model.countDocuments({ user: user_id, status: 'draft' });
-      } else {
-        results = await MongoAudio_Descriptions_Model.aggregate(pipeline);
-        totalVideos = results.length;
-      }
       return {
-        result: results,
-        totalVideos,
+        total: result[0]?.total || 0,
+        videos: result[0]?.videos || [],
       };
     } catch (error) {
       logger.error('Error occurred:', error);
