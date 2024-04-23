@@ -263,7 +263,7 @@ class UsersController {
     }
   };
 
-  public getAllAiDescriptionRequests = async (req: Request, res: Response, next: NextFunction) => {
+  public getUserAiDescriptionRequests = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userData = req.user as unknown as IUser;
       const pageNumber = req.query.page;
@@ -275,7 +275,7 @@ class UsersController {
       if (!user) {
         throw new Error('User not found');
       }
-      const response = await this.userService.getAllAiDescriptionRequests(user._id, <string>pageNumber, paginate);
+      const response = await this.userService.getUserAiDescriptionRequests(user._id, <string>pageNumber, paginate);
 
       res.status(201).json(response);
     } catch (error) {
