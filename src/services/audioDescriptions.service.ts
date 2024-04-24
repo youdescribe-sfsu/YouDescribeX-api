@@ -587,36 +587,49 @@ class AudioDescriptionsService {
 
     try {
       const page = parseInt(pageNumber, 10) || 1;
-      const videosPerPage = 20;
-      const skipCount = (page - 1) * videosPerPage;
+      const perPage = 5;
+      const skipCount = (page - 1) * perPage;
 
-      const pipeline: Array<any> = [
-        { $match: { caption_requests: new ObjectId(user_id), status: 'published' } },
+      const pipeline: any[] = [
+        { $match: { status: 'completed' } },
         {
           $lookup: {
             from: 'videos',
             localField: 'youtube_id',
             foreignField: 'youtube_id',
-            as: 'videoData',
+            as: 'video',
           },
         },
-        { $unwind: '$videoData' },
+        { $unwind: '$video' },
+        {
+          $group: {
+            _id: '$_id',
+            status: { $first: '$status' },
+            audio_description_id: { $first: '$_id' },
+            video: { $first: '$video' },
+          },
+        },
         {
           $project: {
-            video_id: '$videoData._id',
-            youtube_video_id: '$videoData.youtube_id',
-            video_name: '$videoData.title',
-            video_length: '$videoData.duration',
-            createdAt: '$videoData.created_at',
-            updatedAt: '$videoData.updated_at',
-            ai_caption_id: '$_id',
+            _id: 1,
             status: 1,
+            audio_description_id: 1,
+            video_id: '$video._id',
+            youtube_video_id: '$video.youtube_id',
+            video_name: '$video.title',
+            video_length: '$video.duration',
+            createdAt: '$video.created_at',
+            updatedAt: '$video.updated_at',
+            overall_rating_votes_average: 1,
+            overall_rating_votes_counter: 1,
+            overall_rating_votes_sum: 1,
           },
         },
+        { $sort: { _id: -1 } },
         {
           $facet: {
             totalCount: [{ $count: 'count' }],
-            paginatedResults: [{ $skip: skipCount }, { $limit: videosPerPage }],
+            paginatedResults: [{ $skip: skipCount }, { $limit: perPage }],
           },
         },
         {
@@ -626,12 +639,11 @@ class AudioDescriptionsService {
           },
         },
       ];
-
       const result = await MongoAICaptionRequestModel.aggregate(pipeline).exec();
 
       return {
-        total: result[0]?.total || 0,
-        videos: result[0]?.videos || [],
+        result: result[0]?.videos || [],
+        totalVideos: result[0]?.total || 0,
       };
     } catch (error) {
       logger.error('Error occurred:', error);
