@@ -933,33 +933,69 @@ class UserService {
     }
 
     try {
-      const userIdObject = await MongoUsersModel.findById(user_id);
-      let aiAudioDescriptions;
-      if (paginate) {
-        const page = parseInt(pageNumber, 10);
-        const perPage = 4;
-        const skipCount = Math.max((page - 1) * perPage, 0);
+      const page = parseInt(pageNumber, 10) || 1;
+      const perPage = paginate ? 4 : 20;
+      const skipCount = Math.max((page - 1) * perPage, 0);
 
-        aiAudioDescriptions = await MongoAICaptionRequestModel.find({ caption_requests: userIdObject._id }).sort({ _id: -1 }).skip(skipCount).limit(perPage);
-      } else {
-        aiAudioDescriptions = await this.getAllAiDescriptionRequestsAllVideos(user_id);
-      }
+      const pipeline: any[] = [
+        { $match: { caption_requests: new ObjectId(user_id) } },
+        {
+          $lookup: {
+            from: 'videos',
+            localField: 'youtube_id',
+            foreignField: 'youtube_id',
+            as: 'video',
+          },
+        },
+        { $unwind: '$video' },
+        {
+          $group: {
+            _id: '$_id',
+            status: { $first: '$status' },
+            audio_description_id: { $first: '$_id' },
+            video: { $first: '$video' },
+          },
+        },
+        {
+          $project: {
+            _id: 1,
+            status: 1,
+            audio_description_id: 1,
+            video_id: '$video._id',
+            youtube_video_id: '$video.youtube_id',
+            video_name: '$video.title',
+            video_length: '$video.duration',
+            createdAt: '$video.created_at',
+            updatedAt: '$video.updated_at',
+            overall_rating_votes_average: 1,
+            overall_rating_votes_counter: 1,
+            overall_rating_votes_sum: 1,
+          },
+        },
+        { $sort: { _id: -1 } },
+        {
+          $facet: {
+            totalCount: [{ $count: 'count' }],
+            paginatedResults: [{ $skip: skipCount }, { $limit: perPage }],
+          },
+        },
+        {
+          $project: {
+            total: { $arrayElemAt: ['$totalCount.count', 0] },
+            videos: '$paginatedResults',
+          },
+        },
+      ];
 
-      const return_arr = [];
-      for (const element of aiAudioDescriptions) {
-        const videoIdStatus = await MongoVideosModel.findOne({ youtube_id: element.youtube_id });
-        const response = await this.processAiAudioDescription(user_id, element, videoIdStatus);
-        return_arr.push(response);
-      }
-
-      const totalItemCount = await MongoAICaptionRequestModel.countDocuments({ caption_requests: userIdObject._id });
+      const result = await MongoAICaptionRequestModel.aggregate(pipeline).exec();
 
       return {
-        videos: return_arr,
-        total: totalItemCount,
+        total: result[0]?.total || 0,
+        videos: result[0]?.videos || [],
       };
     } catch (error) {
-      return error;
+      console.error('Error retrieving user AI description requests:', error);
+      throw new HttpException(500, 'Internal server error');
     }
   }
 
