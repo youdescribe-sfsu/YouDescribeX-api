@@ -623,6 +623,7 @@ class AudioDescriptionsService {
             overall_rating_votes_average: 1,
             overall_rating_votes_counter: 1,
             overall_rating_votes_sum: 1,
+            aiRequested: { $literal: true },
           },
         },
         { $sort: { _id: -1 } },
