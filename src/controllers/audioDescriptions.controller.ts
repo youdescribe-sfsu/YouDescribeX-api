@@ -132,7 +132,7 @@ class AudioDescripionsController {
   public getAllAIDescriptions = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userData = req.user as unknown as IUser;
-      const pageNumber = req.query.page;
+      const pageNumber = req.query.pageNumber;
 
       if (!userData) {
         throw new Error('User not logged in');

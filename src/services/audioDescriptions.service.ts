@@ -589,7 +589,6 @@ class AudioDescriptionsService {
       const page = parseInt(pageNumber, 10) || 1;
       const perPage = 5;
       const skipCount = (page - 1) * perPage;
-
       const pipeline: any[] = [
         { $match: { status: 'completed' } },
         {
@@ -605,7 +604,6 @@ class AudioDescriptionsService {
           $group: {
             _id: '$_id',
             status: { $first: '$status' },
-            audio_description_id: { $first: '$_id' },
             video: { $first: '$video' },
           },
         },
@@ -613,35 +611,29 @@ class AudioDescriptionsService {
           $project: {
             _id: 1,
             status: 1,
-            audio_description_id: 1,
             video_id: '$video._id',
-            youtube_video_id: '$video.youtube_id',
+            youtube_id: '$video.youtube_id',
             video_name: '$video.title',
             video_length: '$video.duration',
             createdAt: '$video.created_at',
             updatedAt: '$video.updated_at',
-            overall_rating_votes_average: 1,
-            overall_rating_votes_counter: 1,
-            overall_rating_votes_sum: 1,
-            aiRequested: { $literal: true },
           },
         },
-        { $sort: { _id: -1 } },
+        { $sort: { createdAt: -1 } },
         {
           $facet: {
+            videos: [{ $skip: skipCount }, { $limit: perPage }],
             totalCount: [{ $count: 'count' }],
-            paginatedResults: [{ $skip: skipCount }, { $limit: perPage }],
           },
         },
         {
           $project: {
+            videos: '$videos',
             total: { $arrayElemAt: ['$totalCount.count', 0] },
-            videos: '$paginatedResults',
           },
         },
       ];
       const result = await MongoAICaptionRequestModel.aggregate(pipeline).exec();
-
       return {
         result: result[0]?.videos || [],
         totalVideos: result[0]?.total || 0,
