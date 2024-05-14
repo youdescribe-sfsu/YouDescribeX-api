@@ -268,9 +268,6 @@ class VideosService {
 
   public async getSearchVideos(page?: string, query?: string) {
     try {
-      console.log('INSIDE SEARCH VIDEOS');
-      console.log(`page - ${page} , query - ${query}`);
-
       const pgNumber = Number(page);
       const videosPerPage = 20;
       const skipValue = (pgNumber - 1) * videosPerPage;
@@ -471,6 +468,19 @@ class VideosService {
           },
         },
         {
+          $addFields: {
+            latest_audio_description_updated_at: {
+              $max: '$audio_descriptions.updated_at',
+            },
+          },
+        },
+        {
+          $sort: {
+            latest_audio_description_updated_at: -1,
+            updated_at: -1,
+          },
+        },
+        {
           $project: {
             audio_descriptions: 1,
             category: 1,
@@ -488,9 +498,6 @@ class VideosService {
             __v: 1,
             _id: 1,
           },
-        },
-        {
-          $sort: { updated_at: -1 },
         },
         {
           $skip: searchPage - 50,
