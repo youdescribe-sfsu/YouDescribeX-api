@@ -131,137 +131,40 @@ class WishListService {
   }
 
   public async getTopWishlist(user_id: string) {
-    const [topWishlistVideos, topAIRequestedVideos] = await Promise.all([
-      MongoWishListModel.aggregate([
-        {
-          $match: {
-            status: 'queued',
-          },
-        },
-        {
-          $sort: {
-            votes: -1,
-          },
-        },
-        {
-          $limit: 3,
-        },
-        {
-          $lookup: {
-            from: 'videos',
-            localField: 'youtube_id',
-            foreignField: 'youtube_id',
-            as: 'video',
-          },
-        },
-        {
-          $unwind: '$video',
-        },
-        {
-          $lookup: {
-            from: 'audio_descriptions',
-            localField: 'video._id',
-            foreignField: 'video',
-            as: 'audioDescriptions',
-          },
-        },
-        {
-          $match: {
-            audioDescriptions: { $size: 0 },
-          },
-        },
-        {
-          $project: {
-            _id: 0,
-            youtube_id: 1,
-            votes: 1,
-            aiRequested: { $literal: false },
-          },
-        },
-      ])
-        .exec()
-        .then(result => {
-          console.log('Top Wishlist Videos:', result);
-          return result;
-        }),
+    const userVotes = new Set((await MongoUserVotesModel.find({ user: user_id }).select('youtube_id').lean()).map(v => v.youtube_id));
 
-      MongoAICaptionRequestModel.aggregate([
-        {
-          $match: {
-            status: 'completed',
-          },
-        },
-        {
-          $group: {
-            _id: '$youtube_id',
-            votes: { $sum: { $size: '$caption_requests' } },
-          },
-        },
-        {
-          $sort: {
-            votes: -1,
-          },
-        },
-        {
-          $limit: 2,
-        },
-        {
-          $lookup: {
-            from: 'videos',
-            localField: '_id',
-            foreignField: 'youtube_id',
-            as: 'video',
-          },
-        },
-        {
-          $unwind: '$video',
-        },
-        {
-          $lookup: {
-            from: 'audio_descriptions',
-            localField: 'video._id',
-            foreignField: 'video',
-            as: 'audioDescriptions',
-          },
-        },
-        {
-          $match: {
-            audioDescriptions: { $size: 0 },
-          },
-        },
-        {
-          $project: {
-            _id: 0,
-            youtube_id: '$_id',
-            votes: 1,
-            aiRequested: { $literal: true },
-          },
-        },
-      ])
-        .exec()
-        .then(result => {
-          console.log('Top AI Requested Videos:', result);
-          return result;
-        }),
+    const top3AIRequestedVideos = await MongoAICaptionRequestModel.aggregate([
+      { $match: { status: 'pending', audio_descriptions: { $exists: false, $size: 0 } } },
+      { $addFields: { numCaptionRequests: { $size: '$caption_requests' } } },
+      { $sort: { numCaptionRequests: -1 } },
+      { $limit: 3 },
+      { $project: { youtube_id: 1 } },
     ]);
 
-    console.log('Top Wishlist Videos:', topWishlistVideos);
-    console.log('Top AI Requested Videos:', topAIRequestedVideos);
+    const top3AIRequestedYoutubeIds = top3AIRequestedVideos.map(video => video.youtube_id);
 
-    const userVotes = (await MongoUserVotesModel.find({ user: user_id })).map(v => v.youtube_id);
+    const top2Wishlist = await MongoWishListModel.find({
+      status: 'queued',
+      youtube_id: { $nin: top3AIRequestedYoutubeIds },
+      audio_descriptions: { $exists: false, $size: 0 },
+    })
+      .sort({ votes: -1 })
+      .limit(2)
+      .lean();
 
-    const combinedVideos = [...topWishlistVideos, ...topAIRequestedVideos];
-
-    console.log('Combined Videos:', combinedVideos);
-
-    const result = combinedVideos.map(video => ({
-      ...video,
-      voted: userVotes.includes(video.youtube_id),
+    const aiVideos = top3AIRequestedVideos.map(video => ({
+      youtube_id: video.youtube_id,
+      aiRequested: true,
+      voted: userVotes.has(video.youtube_id),
     }));
 
-    console.log('Final Result:', result);
+    const wishlistVideos = top2Wishlist.map(video => ({
+      ...video,
+      aiRequested: false,
+      voted: userVotes.has(video.youtube_id),
+    }));
 
-    return result;
+    return [...aiVideos, ...wishlistVideos];
   }
 
   public async getUserWishlist(user_id: string | undefined, pageNumber: string) {
@@ -328,35 +231,47 @@ class WishListService {
         return { status: 400, message: 'User has already voted for this video' };
       }
 
-      await MongoUserVotesModel.create({
+      const currentDate = formattedDate(new Date());
+
+      const newUserVote = await MongoUserVotesModel.create({
         user: user._id,
         youtube_id: youtube_id,
-        updated_at: formattedDate(new Date()),
-        created_at: formattedDate(new Date()),
+        updated_at: currentDate,
+        created_at: currentDate,
       });
 
       const wishListItem = await MongoWishListModel.findOne({ youtube_id: youtube_id });
 
       if (wishListItem) {
         wishListItem.votes = Number(wishListItem.votes) + 1;
-        wishListItem.updated_at = Number(formattedDate(new Date()));
+        wishListItem.updated_at = Number(currentDate);
 
         await wishListItem.save();
-        return { status: 400, message: 'The requested video is already in the wish list' };
+        return { status: 200, message: 'The requested video is already in the wish list' };
       }
 
       const newWishList = new MongoWishListModel({
         youtube_id: youtube_id,
         status: 'queued',
         votes: 1,
-        created_at: formattedDate(new Date()),
-        updated_at: formattedDate(new Date()),
+        created_at: currentDate,
+        updated_at: currentDate,
+        youtube_status: video.youtube_status,
+        duration: video.duration,
+        category_id: video.category_id,
+        category: video.category,
       });
 
-      const wishListItemSaved = await newWishList.save();
-
-      await this.updateWishListItem(wishListItemSaved);
-      return { status: 200, message: 'The requested video is added to the wish list' };
+      try {
+        const wishListItemSaved = await newWishList.save();
+        await this.updateWishListItem(wishListItemSaved);
+        return { status: 200, message: 'The requested video is added to the wish list' };
+      } catch (error) {
+        // Rollback user vote
+        await MongoUserVotesModel.deleteOne({ _id: newUserVote._id });
+        console.error('Error in saving wish list item, rolled back vote:', error);
+        return { status: 500, message: 'Internal Server Error' };
+      }
     } catch (error) {
       console.error('Error in addOneWishlistItem:', error);
       return { status: 500, message: 'Internal Server Error' };
