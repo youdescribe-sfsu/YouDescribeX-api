@@ -1,4 +1,9 @@
-import { AxiosResponse } from 'axios';
+import axios from 'axios';
+import { MongoUsersModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
+import { IVideo } from '../models/mongodb/Videos.mongo';
+import { getVideoDataByYoutubeId } from '../services/videos.util';
+import { GPU_URL } from '../config';
+import moment from 'moment';
 
 /**
  * @method isEmpty
@@ -40,3 +45,65 @@ export const convertISO8601ToSeconds = (input: string): number => {
   }
   return totalseconds;
 };
+
+export const getYouTubeVideoStatus = async (youtube_id: string): Promise<IVideo> => {
+  const videoIdStatus = await MongoVideosModel.findOne({ youtube_id });
+  if (videoIdStatus) {
+    return videoIdStatus;
+  } else {
+    const videoMeta = await getVideoDataByYoutubeId(youtube_id);
+    const newVid = new MongoVideosModel({
+      audio_descriptions: [],
+      category: videoMeta.category,
+      category_id: videoMeta.category_id,
+      youtube_id: youtube_id,
+      title: videoMeta.title,
+      duration: videoMeta.duration,
+      description: videoMeta.description,
+      tags: videoMeta.tags,
+      custom_tags: [],
+      views: 0,
+      youtube_status: 'ready',
+      created_at: nowUtc(),
+      updated_at: nowUtc(),
+    });
+    return await newVid.save();
+  }
+};
+
+export const checkGPUServerStatus = async (): Promise<boolean> => {
+  try {
+    if (GPU_URL === null) throw new Error('GPU_URL is not defined');
+    await axios.get(`${GPU_URL}/health_check`);
+    return true;
+  } catch (error) {
+    console.error('Error checking GPU server status:', error.code);
+    return false;
+  }
+};
+
+export const getEmailForUser = async (user_id: string): Promise<string> => {
+  const user = await MongoUsersModel.findById(user_id);
+
+  if (user === null) throw new Error('User not found');
+  return user.email;
+};
+
+export const formattedDate = (now: Date) =>
+  `${now.getUTCFullYear()}${padZero(now.getUTCMonth() + 1)}${padZero(now.getUTCDate())}` +
+  `${padZero(now.getUTCHours())}${padZero(now.getUTCMinutes())}${padZero(now.getUTCSeconds())}`;
+
+function padZero(value: number): string {
+  return value < 10 ? `0${value}` : `${value}`;
+}
+
+export const utcToLongInt = (timestampUtc: number): number => {
+  const date = new Date(timestampUtc);
+  const formattedDate =
+    `${date.getUTCFullYear()}${padZero(date.getUTCMonth() + 1)}${padZero(date.getUTCDate())}` +
+    `${padZero(date.getUTCHours())}${padZero(date.getUTCMinutes())}${padZero(date.getUTCSeconds())}`;
+
+  return parseInt(formattedDate);
+};
+
+export const nowUtc = () => moment().utc().format('YYYYMMDDHHmmss') as unknown as number;

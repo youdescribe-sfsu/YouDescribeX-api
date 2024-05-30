@@ -84,6 +84,7 @@ class VideosController {
         message: 'deleted',
       });
     } catch (error) {
+      // console.log(error);
       next(error);
     }
   };
@@ -95,6 +96,79 @@ class VideosController {
       res.status(200).json(videoByYoutubeID);
     } catch (error) {
       next(error);
+    }
+  };
+
+  public getVideoById = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const videoId: string = req.params.videoId;
+      const videoByYoutubeID = await this.videosService.getVideoById(videoId);
+      res.status(200).json(videoByYoutubeID);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public getAllVideos = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const page = req.query.page as string;
+      const videos = await this.videosService.getAllVideos(page);
+
+      // Create your response object
+      const ret = {
+        status: 200, // Set your desired status code
+        message: 'Videos fetched successfully',
+        result: videos,
+      };
+
+      // Send the response
+      res.status(ret.status).json(ret);
+    } catch (error) {
+      // Handle errors
+      const ret = {
+        status: 500, // Set an appropriate error status code
+        message: 'Error fetching videos',
+        error: error.message,
+      };
+      res.status(ret.status).json(ret);
+    }
+  };
+
+  public getYoutubeDataFromCache = async (req: Request, res: Response, next: NextFunction) => {
+    const youtubeIds = req.query.youtubeids as string;
+    const key = req.query.key as string;
+
+    try {
+      const result = await this.videosService.getYoutubeDataFromCache(youtubeIds, key);
+      res.status(result.status).json(result);
+    } catch (error) {
+      res.status(500).json({ status: 500, error: 'Internal Server Error' });
+    }
+  };
+
+  public searchVideos = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const page = req.query.page as string;
+      const searchQuery = req.query.q as string;
+      const videos = await this.videosService.getSearchVideos(page, searchQuery);
+
+      // Create your response object
+      const ret = {
+        status: 200, // Set your desired status code
+        message: 'Videos fetched successfully',
+        result: videos,
+      };
+
+      // Send the response
+      res.status(ret.status).json(ret);
+    } catch (error) {
+      // Handle errors
+      const ret = {
+        status: 500, // Set an appropriate error status code
+        message: 'Error fetching videos',
+        error: error.message,
+      };
+      res.status(ret.status).json(ret);
     }
   };
 }

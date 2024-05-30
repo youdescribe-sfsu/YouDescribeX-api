@@ -1,16 +1,18 @@
-import getMP3Duration from 'get-mp3-duration';
-import { Audio_Clips, Dialog_Timestamps, Videos } from '../models/postgres/init-models';
 import textToSpeech from '@google-cloud/text-to-speech';
 import fs from 'fs';
+import getMP3Duration from 'get-mp3-duration';
+import mime from 'mime-types';
+import { ClientSession } from 'mongoose';
 import multer from 'multer'; // to process form-data
 import { Op } from 'sequelize';
 import util from 'util';
 import { v4 as uuidv4 } from 'uuid';
 import { AUDIO_DIRECTORY, CURRENT_DATABASE } from '../config';
-import { logger } from '../utils/logger';
-import { MongoAudioClipsModel, MongoDialog_Timestamps_Model, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
-import mime from 'mime-types';
+import { MongoAudioClipsModel, MongoDialog_Timestamps_Model } from '../models/mongodb/init-models.mongo';
+import { Audio_Clips, Dialog_Timestamps, Videos } from '../models/postgres/init-models';
+import { logger } from '../utils/logger';
+import { getYouTubeVideoStatus } from '../utils/util';
 
 interface NudgeStartTimeIfZeroResult {
   data: [] | null;
@@ -182,14 +184,17 @@ export const analyzePlaybackType = async (
 ): Promise<AnalyzePlaybackTypeResponse> => {
   if (CURRENT_DATABASE == 'mongodb') {
     try {
+      console.log('currentClipStartTime', currentClipStartTime);
+      console.log('currentClipEndTime', currentClipEndTime);
+      console.log('videoId', videoId);
+      console.log('adId', adId);
+      console.log('clipId', clipId);
+
       const overlappingDialogs = await MongoDialog_Timestamps_Model.find({
         video: videoId,
-      })
-        .where('dialog_start_time')
-        .lte(currentClipEndTime)
-        .where('dialog_end_time')
-        .gte(currentClipStartTime)
-        .exec();
+        $and: [{ dialog_start_time: { $lte: currentClipEndTime } }, { dialog_end_time: { $gte: currentClipStartTime } }],
+      }).select('dialog_start_time dialog_end_time');
+      console.log('overlappingDialogs', overlappingDialogs.length);
       if (overlappingDialogs.length !== 0) {
         return {
           message: 'Success - extended!',
@@ -199,12 +204,13 @@ export const analyzePlaybackType = async (
 
       const overlappingClips = await MongoAudioClipsModel.find({
         audio_description: adId,
-      })
-        .where('clip_start_time')
-        .lte(currentClipEndTime)
-        .where('clip_end_time')
-        .gte(currentClipStartTime)
-        .exec();
+        $and: [
+          { clip_start_time: { $lte: currentClipEndTime } },
+          { clip_end_time: { $gte: currentClipStartTime } },
+          { clip_id: { $ne: clipId === null ? null : clipId } },
+        ],
+      });
+      console.log('overlappingClips', overlappingClips.length);
       if (overlappingClips.length === 0) {
         return {
           message: 'Success - inline!',
@@ -231,17 +237,21 @@ export const analyzePlaybackType = async (
           };
         }
       } else {
+        if (clipId === null) {
+          return {
+            message: 'Success - extended!',
+            data: 'extended',
+          };
+        }
+        const playbackType = (await MongoAudioClipsModel.findById(clipId)).toJSON()['playback_type'];
         return {
-          message: 'Success - extended!',
-          data: 'extended',
+          message: `Success - ${playbackType}!`,
+          data: playbackType,
         };
       }
-    } catch (err) {
-      logger.info(err);
-      return {
-        message: 'Unable to connect to DB - Analyze Playback Type!! Please try again',
-        data: null,
-      };
+    } catch (error) {
+      // Handle any errors here
+      console.error(error);
     }
   } else {
     try {
@@ -428,9 +438,7 @@ export const getOldAudioFilePath = async (clipId: string) => {
 
 export const getVideoFromYoutubeId = async youtubeVideoID => {
   if (CURRENT_DATABASE === 'mongodb') {
-    return MongoVideosModel.findOne({
-      youtube_id: youtubeVideoID,
-    })
+    return getYouTubeVideoStatus(youtubeVideoID)
       .then(video => {
         return { message: 'Success', data: video._id };
       })

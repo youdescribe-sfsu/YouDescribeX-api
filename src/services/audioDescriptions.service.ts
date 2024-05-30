@@ -1,3 +1,8 @@
+import { ObjectId } from 'mongodb';
+import { AUDIO_DIRECTORY, CURRENT_DATABASE } from '../config';
+import { NewAiDescriptionDto } from '../dtos/audioDescriptions.dto';
+import { HttpException } from '../exceptions/HttpException';
+import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
 import {
   MongoAudioClipsModel,
   MongoAudio_Descriptions_Model,
@@ -5,35 +10,43 @@ import {
   MongoNotesModel,
   MongoUsersModel,
   MongoVideosModel,
+  MongoAICaptionRequestModel,
 } from '../models/mongodb/init-models.mongo';
-import { AUDIO_DIRECTORY, CURRENT_DATABASE } from '../config';
-import { NewAiDescriptionDto } from '../dtos/audioDescriptions.dto';
-import { HttpException } from '../exceptions/HttpException';
 import {
   Audio_DescriptionsAttributes,
   PostGres_Audio_Clips,
   PostGres_Audio_Descriptions,
   PostGres_Dialog_Timestamps,
-  PostGres_Notes,
   PostGres_Users,
   PostGres_Videos,
 } from '../models/postgres/init-models';
 import { logger } from '../utils/logger';
-import { isEmpty } from '../utils/util';
-import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
-import { ObjectId } from 'mongodb';
+import { getYouTubeVideoStatus, isEmpty, nowUtc } from '../utils/util';
+import { isVideoAvailable } from './videos.util';
 
 const fs = require('fs');
 
 class AudioDescriptionsService {
-  public async getUserAudioDescriptionData(videoId: string, adId: string): Promise<IAudioDescription | Audio_DescriptionsAttributes> {
+  public async getUserAudioDescriptionData(
+    videoId: string,
+    userId: string,
+    audio_description_id: string,
+  ): Promise<{
+    Audio_Clips: any[];
+    createdAt: any;
+    ad_id: any;
+    is_published: boolean;
+    VideoVideoId: string;
+    UserUserId: any;
+    Notes: any;
+    updatedAt: any;
+  }> {
     if (isEmpty(videoId)) throw new HttpException(400, 'Video ID is empty');
-    if (isEmpty(adId)) throw new HttpException(400, 'Audio Description ID is empty');
-
+    if (!userId) throw new HttpException(400, 'User ID is empty');
+    if (isEmpty(audio_description_id)) throw new HttpException(400, 'Audio Description ID is empty');
     if (CURRENT_DATABASE == 'mongodb') {
       const audioDescriptions = await MongoAudio_Descriptions_Model.findOne({
-        video: videoId,
-        user: adId,
+        _id: audio_description_id,
       });
 
       if (!audioDescriptions) throw new HttpException(409, "Audio Description for this YouTube Video doesn't exist");
@@ -46,7 +59,6 @@ class AudioDescriptionsService {
           end_time: 'asc',
         })
         .exec();
-
       if (audio_clips.length !== audioClipArr.length) {
         logger.error(
           `Number of Audio Clips in Audio Description Collection (${audio_clips.length})does not match actual number of AUdio Clips (${audioClipArr.length}).`,
@@ -92,47 +104,54 @@ class AudioDescriptionsService {
         ad_id: audioDescriptions._id,
         createdAt: audioDescriptions.created_at,
         updatedAt: audioDescriptions.updated_at,
-        is_published: true,
+        is_published: audioDescriptions.status === 'published',
       };
 
       return newObj;
-    } else {
-      const audioDescriptions: Audio_DescriptionsAttributes = await PostGres_Audio_Descriptions.findOne({
-        where: {
-          VideoVideoId: videoId,
-          ad_id: adId,
-        },
-        // nesting Audio_Clips & Notes data too
-        include: [
-          {
-            model: PostGres_Audio_Clips,
-            separate: true, // this is nested data, so ordering works only with separate true
-            order: ['clip_start_time'],
-            as: 'Audio_Clips',
-          },
-          {
-            model: PostGres_Notes,
-            as: 'Notes',
-          },
-        ],
-      });
-      return audioDescriptions;
+      // } else {
+      //   const audioDescriptions: Audio_DescriptionsAttributes = await PostGres_Audio_Descriptions.findOne({
+      //     where: {
+      //       VideoVideoId: videoId,
+      //       UserUserId: userId,
+      //     },
+      //     // nesting Audio_Clips & Notes data too
+      //     include: [
+      //       {
+      //         model: PostGres_Audio_Clips,
+      //         separate: true, // this is nested data, so ordering works only with separate true
+      //         order: ['clip_start_time'],
+      //         as: 'Audio_Clips',
+      //       },
+      //       {
+      //         model: PostGres_Notes,
+      //         as: 'Notes',
+      //       },
+      //     ],
+      //   });
+      //   return audioDescriptions;
     }
   }
 
   public async newAiDescription(newAIDescription: NewAiDescriptionDto): Promise<IAudioDescription | Audio_DescriptionsAttributes> {
     const { dialogue_timestamps, audio_clips, aiUserId = 'db72cc2a-b054-4b00-9f85-851b45649be0', youtube_id, video_name, video_length } = newAIDescription;
-    if (isEmpty(dialogue_timestamps)) throw new HttpException(400, 'dialog is empty');
+    // if (isEmpty(dialogue_timestamps)) throw new HttpException(400, 'dialog is empty');
     if (isEmpty(audio_clips)) throw new HttpException(400, 'audio clips is empty');
     if (isEmpty(youtube_id)) throw new HttpException(400, 'youtube video id is empty');
     if (isEmpty(video_name)) throw new HttpException(400, 'video name is empty');
     if (isEmpty(video_length)) throw new HttpException(400, 'video length is empty');
 
+    const youtubeVideoData = await isVideoAvailable(youtube_id);
+
+    if (!youtubeVideoData) {
+      throw new HttpException(400, 'No youtubeVideoData provided');
+    }
+
     if (CURRENT_DATABASE == 'mongodb') {
+      // console.log('aiUserId', aiUserId);
       const aiUserObjectId = new ObjectId(aiUserId);
       const aiUser = await MongoUsersModel.findById(aiUserObjectId);
       if (!aiUser) throw new HttpException(404, "ai User doesn't exist");
-      let vid: any = await MongoVideosModel.findOne({ youtube_id: youtube_id });
+      let vid: any = await getYouTubeVideoStatus(youtube_id);
       const ad = new MongoAudio_Descriptions_Model();
       if (!ad) throw new HttpException(409, "Audio Descriptions couldn't be created");
       if (vid) {
@@ -161,7 +180,7 @@ class AudioDescriptionsService {
           custom_tags: [],
           views: 0,
           youtube_status: 'ready',
-          updated_at: new Date(),
+          updated_at: nowUtc(),
         });
         const newSavedVideo = await newVid.save();
         if (!newSavedVideo) throw new HttpException(409, "Video couldn't be created");
@@ -211,8 +230,9 @@ class AudioDescriptionsService {
         }),
       );
       if (!new_timestamp) throw new HttpException(409, "Dialog Timestamps couldn't be created");
-      console.log('new_timestamp', ad);
-      ad.save();
+      // console.log('new_timestamp', ad);
+      await ad.save();
+      await MongoAICaptionRequestModel.findOneAndUpdate({ youtube_id: youtube_id }, { status: 'completed' });
       return ad;
     } else {
       const aiUser = await PostGres_Users.findOne({
@@ -302,6 +322,326 @@ class AudioDescriptionsService {
     logger.info('User AD deleted successfully');
     return dataToSend;
     // }
+  }
+
+  public publishAudioDescription = async (
+    audioDescriptionId: string,
+    youtube_id: string,
+    user_id: string,
+    enrolled_in_collaborative_editing: boolean,
+  ): Promise<string> => {
+    try {
+      const videoIdStatus = await getYouTubeVideoStatus(youtube_id);
+
+      if (!videoIdStatus) {
+        throw new HttpException(400, 'No videoIdStatus provided');
+      }
+      const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
+        video: videoIdStatus._id,
+        _id: audioDescriptionId,
+      });
+      if (!checkIfAudioDescriptionExists) {
+        throw new HttpException(404, 'No audioDescriptionId Found');
+      }
+
+      const audioDescription = await MongoAudio_Descriptions_Model.findByIdAndUpdate(audioDescriptionId, {
+        status: 'published',
+        updated_at: nowUtc(),
+        collaborative_editing: enrolled_in_collaborative_editing,
+        user: user_id,
+      });
+      const result = await MongoVideosModel.findByIdAndUpdate(videoIdStatus._id, {
+        $push: { audio_descriptions: audioDescriptionId },
+      });
+
+      return audioDescription._id.toString();
+    } catch (error) {
+      logger.error(error);
+      throw error;
+    }
+  };
+
+  public getAudioDescription = async (
+    audioDescriptionId: string,
+    preview = false,
+  ): Promise<{
+    Audio_Clips: any[];
+    createdAt: any;
+    ad_id: any;
+    editing_allowed: any;
+    is_published: boolean;
+    VideoVideoId: any;
+    UserUserId: any;
+    youtube_id: any;
+    Notes: any;
+    updatedAt: any;
+  }> => {
+    const audioDescriptions = await MongoAudio_Descriptions_Model.findOne({
+      _id: audioDescriptionId,
+    });
+
+    if (!audioDescriptions) throw new HttpException(409, "Audio Description for this YouTube Video doesn't exist");
+
+    if (!preview && audioDescriptions.status !== 'published') throw new HttpException(409, 'Audio Description for this YouTube Video is not published');
+
+    const videoId = audioDescriptions.video;
+    const youtubeVideoData = await MongoVideosModel.findById({
+      _id: videoId,
+    });
+
+    if (!youtubeVideoData) {
+      throw new HttpException(400, 'No youtubeVideoData Found');
+    }
+
+    const audio_clips = audioDescriptions.audio_clips;
+    const audioClipArr = await MongoAudioClipsModel.find({
+      audio_description: audioDescriptions._id,
+    })
+      .sort({
+        start_time: 'asc',
+        end_time: 'asc',
+      })
+      .exec();
+
+    if (audio_clips.length !== audioClipArr.length) {
+      logger.error(
+        `Number of Audio Clips in Audio Description Collection (${audio_clips.length})does not match actual number of AUdio Clips (${audioClipArr.length}).`,
+      );
+      throw new HttpException(409, 'Something went wrong getting Audio Clips for Audio Description');
+    }
+    const transformedAudioClipArr = [];
+    for (let i = 0; i < audioClipArr.length; i++) {
+      const audioClip = audioClipArr[i];
+      const transformedAudioClip = {
+        clip_id: audioClip._id,
+        clip_title: audioClip.label,
+        description_type: audioClip.description_type,
+        description_text: audioClip.description_text || audioClip.transcript.map(obj => obj.sentence).join(' '),
+        playback_type: audioClip.playback_type,
+        clip_start_time: audioClip.start_time,
+        clip_end_time: audioClip.end_time,
+        clip_duration: audioClip.duration,
+        clip_audio_path: audioClip.file_name ? audioClip.file_path + '/' + audioClip.file_name : audioClip.file_path,
+        is_recorded: false,
+        createdAt: audioClip.created_at,
+        updatedAt: audioClip.updated_at,
+        AudioDescriptionAdId: audioClip,
+      };
+      transformedAudioClipArr.push(transformedAudioClip);
+    }
+
+    const notes = await MongoNotesModel.find({ audio_description: audioDescriptions._id });
+
+    const transformedNotes = notes.map(note => {
+      return {
+        notes_id: note._id,
+        notes_text: note.notes_text,
+        AudioDescriptionAdId: note.audio_description,
+      };
+    });
+
+    const newObj = {
+      Audio_Clips: transformedAudioClipArr,
+      Notes: transformedNotes,
+      UserUserId: audioDescriptions.user,
+      VideoVideoId: videoId,
+      ad_id: audioDescriptions._id,
+      createdAt: audioDescriptions.created_at,
+      updatedAt: audioDescriptions.updated_at,
+      is_published: audioDescriptions.status === 'published',
+      youtube_id: youtubeVideoData.youtube_id,
+      editing_allowed: audioDescriptions.collaborative_editing,
+    };
+
+    return newObj;
+  };
+
+  public async getMyDescriptions(user_id: string, pageNumber: string, paginate: boolean) {
+    if (!user_id) {
+      throw new HttpException(400, 'No data provided');
+    }
+
+    try {
+      const page = parseInt(pageNumber, 10) || 1;
+      const videosPerPage = paginate ? 4 : 20; // Set videos per page to 4 if paginate is true, otherwise 20
+      const skipCount = (page - 1) * videosPerPage;
+
+      const pipeline: Array<any> = [
+        { $match: { user: new ObjectId(user_id), status: 'published' } },
+        {
+          $lookup: {
+            from: 'videos',
+            localField: 'video',
+            foreignField: '_id',
+            as: 'videoData',
+          },
+        },
+        { $unwind: '$videoData' },
+        {
+          $project: {
+            video_id: '$videoData._id',
+            youtube_video_id: '$videoData.youtube_id',
+            video_name: '$videoData.title',
+            video_length: '$videoData.duration',
+            createdAt: '$videoData.created_at',
+            updatedAt: '$videoData.updated_at',
+            audio_description_id: '$_id',
+            status: 1,
+            overall_rating_votes_average: 1,
+            overall_rating_votes_counter: 1,
+            overall_rating_votes_sum: 1,
+          },
+        },
+        {
+          $facet: {
+            totalCount: [{ $count: 'count' }],
+            paginatedResults: [{ $skip: skipCount }, { $limit: videosPerPage }],
+          },
+        },
+        {
+          $project: {
+            total: { $arrayElemAt: ['$totalCount.count', 0] },
+            videos: '$paginatedResults',
+          },
+        },
+      ];
+
+      const result = await MongoAudio_Descriptions_Model.aggregate(pipeline).exec();
+
+      return {
+        total: result[0]?.total || 0,
+        videos: result[0]?.videos || [],
+      };
+    } catch (error) {
+      logger.error('Error occurred:', error);
+      throw error;
+    }
+  }
+
+  public async getMyDraftDescriptions(user_id: string, pageNumber: string) {
+    if (!user_id) {
+      throw new HttpException(400, 'No data provided');
+    }
+
+    try {
+      const page = parseInt(pageNumber, 10) || 1;
+      const videosPerPage = 20;
+      const skipCount = (page - 1) * videosPerPage;
+
+      const pipeline: Array<any> = [
+        { $match: { user: new ObjectId(user_id), status: 'draft' } },
+        {
+          $lookup: {
+            from: 'videos',
+            localField: 'video',
+            foreignField: '_id',
+            as: 'videoData',
+          },
+        },
+        { $unwind: '$videoData' },
+        {
+          $project: {
+            video_id: '$videoData._id',
+            youtube_video_id: '$videoData.youtube_id',
+            video_name: '$videoData.title',
+            video_length: '$videoData.duration',
+            createdAt: '$videoData.created_at',
+            updatedAt: '$videoData.updated_at',
+            audio_description_id: '$_id',
+            status: 1,
+            overall_rating_votes_average: 1,
+            overall_rating_votes_counter: 1,
+            overall_rating_votes_sum: 1,
+          },
+        },
+        {
+          $facet: {
+            totalCount: [{ $count: 'count' }],
+            paginatedResults: [{ $skip: skipCount }, { $limit: videosPerPage }],
+          },
+        },
+        {
+          $project: {
+            total: { $arrayElemAt: ['$totalCount.count', 0] },
+            videos: '$paginatedResults',
+          },
+        },
+      ];
+
+      const result = await MongoAudio_Descriptions_Model.aggregate(pipeline).exec();
+
+      return {
+        total: result[0]?.total || 0,
+        videos: result[0]?.videos || [],
+      };
+    } catch (error) {
+      logger.error('Error occurred:', error);
+      throw error;
+    }
+  }
+
+  public async getAllAIDescriptions(user_id: string, pageNumber: string) {
+    if (!user_id) {
+      throw new HttpException(400, 'No data provided');
+    }
+
+    try {
+      const page = parseInt(pageNumber, 10) || 1;
+      const perPage = 5;
+      const skipCount = (page - 1) * perPage;
+      const pipeline: any[] = [
+        { $match: { status: 'completed' } },
+        {
+          $lookup: {
+            from: 'videos',
+            localField: 'youtube_id',
+            foreignField: 'youtube_id',
+            as: 'video',
+          },
+        },
+        { $unwind: '$video' },
+        {
+          $group: {
+            _id: '$_id',
+            status: { $first: '$status' },
+            video: { $first: '$video' },
+          },
+        },
+        {
+          $project: {
+            _id: 1,
+            status: 1,
+            video_id: '$video._id',
+            youtube_id: '$video.youtube_id',
+            video_name: '$video.title',
+            video_length: '$video.duration',
+            createdAt: '$video.created_at',
+            updatedAt: '$video.updated_at',
+          },
+        },
+        { $sort: { createdAt: -1 } },
+        {
+          $facet: {
+            videos: [{ $skip: skipCount }, { $limit: perPage }],
+            totalCount: [{ $count: 'count' }],
+          },
+        },
+        {
+          $project: {
+            videos: '$videos',
+            total: { $arrayElemAt: ['$totalCount.count', 0] },
+          },
+        },
+      ];
+      const result = await MongoAICaptionRequestModel.aggregate(pipeline).exec();
+      return {
+        result: result[0]?.videos || [],
+        totalVideos: result[0]?.total || 0,
+      };
+    } catch (error) {
+      logger.error('Error occurred:', error);
+      throw error;
+    }
   }
 }
 

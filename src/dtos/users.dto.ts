@@ -1,4 +1,4 @@
-import { IsBoolean, IsEmail, IsString, IsNumber } from 'class-validator';
+import { IsBoolean, IsEmail, IsString, IsNumber, ValidateIf } from 'class-validator';
 
 export class CreateUserDto {
   @IsEmail()
@@ -14,8 +14,8 @@ export class CreateUserAudioDescriptionDto {
   // public userId: string;
   @IsString()
   public youtubeVideoId: string;
-  // @IsString()
-  // public aiUserId: string;
+  @IsString()
+  public aiUserId?: string;
 }
 
 export class NewUserDto {
@@ -39,4 +39,16 @@ export class NewUserDto {
   public admin_level: number;
   @IsString()
   public user_type: string;
+}
+
+export class AudioDescGenerationRequestDTO {
+  @IsString()
+  public userId: string;
+  @IsString()
+  public youtubeVideoId: string;
+  @IsString()
+  public aiUserId: string;
+  @IsString()
+  @ValidateIf(o => o.ydx_app_host === undefined)
+  public ydx_app_host: string | undefined;
 }
