@@ -4,9 +4,6 @@ variables:
   S3_BUCKET: youdescribexci
   S3_PATH: youdescribex-api
   CI_REGISTRY: docker.io
-  TAR_FILE_NAME: "youdescribex-api.tar"
-  TAR_FILE_FOLDER: ".docker"
-  TAR_FILE_PATH: "/"
   DOCKER_IMAGE_TAG: "${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_NAME}.${CI_PIPELINE_ID}"
 
 stages:
@@ -23,16 +20,15 @@ build-stage:
   services:
     - docker:20.10.16-dind
   tags:
-    - saas-linux-large-amd64
+    - backend
+    - dev
   before_script:
     - docker login -u "$DOCKER_REGISTRY_USER" -p "$DOCKER_REGISTRY_PASSWORD" $CI_REGISTRY
-
   rules:
     - if: '$CI_COMMIT_BRANCH == "dev"'
       when: always
-
   script:
-    - echo "Building YouDescribe Backend in staging"
+    - echo "Building YouDescribeX Backend in staging"
     - docker build --no-cache --build-arg APP_PORT=$PORT --build-arg GOOGLE_CRED_FILE=$GOOGLE_CRED_FILE --build-arg GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS --build-arg GPU_PIPELINE_PORT=$GPU_PIPELINE_PORT --build-arg CRYPTO_SEED=$CRYPTO_SEED -t "${DOCKER_IMAGE_TAG}" .
     - docker push "${DOCKER_IMAGE_TAG}"
     - echo "Build complete"
@@ -43,16 +39,15 @@ build-prod:
   services:
     - docker:20.10.16-dind
   tags:
-    - saas-linux-large-amd64
+    - backend
+    - prod
   before_script:
     - docker login -u "$DOCKER_REGISTRY_USER" -p "$DOCKER_REGISTRY_PASSWORD" $CI_REGISTRY
-
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: always
-
   script:
-    - echo "Building YouDescribe Backend in prod"
+    - echo "Building YouDescribeX Backend in prod"
     - docker build --build-arg APP_PORT=$PORT -t "${DOCKER_IMAGE_TAG}" .
     - docker push "${DOCKER_IMAGE_TAG}"
     - echo "Build completed"
@@ -61,52 +56,16 @@ deploy-stage:
   stage: deploy
   image: registry.gitlab.com/gitlab-org/cloud-deploy/aws-base:latest
   tags:
-    - saas-linux-small-amd64
-
+    - backend
+    - dev
   rules:
     - if: '$CI_COMMIT_BRANCH == "dev"'
       when: on_success
   script:
-    - echo "Stopping old YouDescribe Backend instance"
-    - echo "Stopping old $YOUR_VARIABLE_NAME Backend instance"
-    - echo "PORT $PORT"
-    - echo "NODE_ENV $NODE_ENV"
-    - echo "HOST $HOST"
-    - echo "LOG_DIR $LOG_DIR"
-    - echo "AUDIO_DIRECTORY $AUDIO_DIRECTORY"
-    - docker stop ${CI_PROJECT_NAME} || true
-    - echo "Deleting old YouDescribe Backend container"
-    - docker rm ${CI_PROJECT_NAME} || true
-    - echo GPU_HOST=$GPU_HOST
-    - echo GPU_PIPELINE_PORT=$GPU_PIPELINE_PORT
-    - echo CURRENT_YDX_HOST=$CURRENT_YDX_HOST
-
-    - echo "Starting up/Deploying newest YouDescribe Backend build"
-    # - docker compose down
-    # - docker compose up -d
-    - docker stop $(docker ps -a -q --filter="name=${CI_PROJECT_NAME}") || true
-    - sed -i "s|#DOCKER_IMAGE_TAG|${DOCKER_IMAGE_TAG}|g; s|#PORT|${PORT}|g; s|#GOOGLE_APPLICATION_CREDENTIALS|${GOOGLE_APPLICATION_CREDENTIALS}|g; s|#NODE_ENV|${NODE_ENV}|g; s|#HOST|${HOST}|g; s|#LOG_DIR|${LOG_DIR}|g; s|#AUDIO_DIRECTORY|${AUDIO_DIRECTORY}|g; s|#YOUTUBE_API_URL|${YOUTUBE_API_URL}|g; s|#YOUTUBE_API_KEY|${YOUTUBE_API_KEY}|g; s|#PASSPORT_REDIRECT_URL|${PASSPORT_REDIRECT_URL}|g; s|#PASSPORT_CALLBACK_URL|${PASSPORT_CALLBACK_URL}|g; s|#CRYPTO_SECRET|${CRYPTO_SECRET}|g; s|#CRYPTO_SEED|${CRYPTO_SEED//\"/}|g; s|#CURRENT_DATABASE|${CURRENT_DATABASE}|g; s|#POSTGRES_DB_NAME|${POSTGRES_DB_NAME}|g; s|#POSTGRES_DB_USER|${POSTGRES_DB_USER}|g; s|#POSTGRES_DB_PASSWORD|${POSTGRES_DB_PASSWORD}|g; s|#POSTGRES_DB_PORT|${POSTGRES_DB_PORT}|g; s|#POSTGRES_DB_HOST|${POSTGRES_DB_HOST}|g; s|#MONGO_DB_DATABASE|${MONGO_DB_DATABASE}|g; s|#MONGO_DB_HOST|${MONGO_DB_HOST}|g; s|#MONGO_DB_PORT|${MONGO_DB_PORT}|g; s|#MONGO_DB_USER|${MONGO_DB_USER}|g; s|#MONGO_DB_PASSWORD|${MONGO_DB_PASSWORD}|g; s|#GPU_HOST|${GPU_HOST}|g; s|#GPU_PIPELINE_PORT|${GPU_PIPELINE_PORT}|g; s|#CURRENT_YDX_HOST|${CURRENT_YDX_HOST}|g; s|#GMAIL_USER|${GMAIL_USER}|g; s|#GMAIL_PASSWORD|${GMAIL_PASSWORD}|g; s|#AI_USER_ID|${AI_USER_ID}|g;" docker_compose_service.yml
-    - cat docker_compose_service.yml  # Display the modified file for verification
-    - echo "Updating S3 bucket with the new Docker image"
-    - aws s3 cp docker_compose_service.yml "s3://${S3_BUCKET}/${S3_PATH}/docker_compose_service.yml"
-
-    - |
-      aws s3 cp s3://${S3_BUCKET}/youdescribe-docs/docker_compose_service.yml youdescribe-docs.yml
-      aws s3 cp s3://${S3_BUCKET}/youdescribex-app/docker_compose_service.yml youdescribex-app.yml
-      aws s3 cp s3://${S3_BUCKET}/youdescribex-api/docker_compose_service.yml youdescribex-api.yml
-
-      cat <<EOF > docker-compose_new.yml
-      version: '3'
-      
-      services:
-      $(awk '{printf "  %s\n", $0}' youdescribe-docs.yml)
-      $(awk '{printf "  %s\n", $0}' youdescribex-app.yml)
-      $(awk '{printf "  %s\n", $0}' youdescribex-api.yml)
-      EOF
-
-      aws s3 cp docker-compose_new.yml "s3://${S3_BUCKET}/docker-compose.yml"
-
-    - echo "Finished deploying YouDescribe Backend build to staging"
+    - echo "Deploying YouDescribeX Backend build to staging"
+    - docker compose down
+    - docker compose up -d
+    - echo "Deployment to staging completed"
 
 deploy-prod:
   stage: deploy
@@ -117,17 +76,7 @@ deploy-prod:
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: on_success
   script:
-    - echo "Stopping old YouDescribe Backend instance"
-    - echo "Stopping old $YOUR_VARIABLE_NAME Backend instance"
-    - echo "PORT $PORT"
-    - echo "NODE_ENV $NODE_ENV"
-    - echo "HOST $HOST"
-    - echo "LOG_DIR $LOG_DIR"
-    - echo "AUDIO_DIRECTORY $AUDIO_DIRECTORY"
-    - docker stop ${CI_PROJECT_NAME} || true
-    - echo "Deleting old YouDescribe Backend container"
-    - docker rmi ${CI_PROJECT_NAME} || true
-    - echo "Starting up/Deploying newest YouDescribe Backend build"
+    - echo "Deploying YouDescribeX Backend build to production"
     - docker compose down
     - docker compose up -d
-    - echo "Finished deploying YouDescribe Backend build to staging"
+    - echo "Deployment to production completed"
