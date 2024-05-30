@@ -1,12 +1,13 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { nowUtc } from '../../utils/util';
 
 interface IAudioDescriptionRating extends Document {
   audio_description: mongoose.Types.ObjectId;
   user: mongoose.Types.ObjectId;
   rating: number;
-  feedback: string;
-  created_at: Date;
-  updated_at: Date;
+  feedback: Array<string>;
+  created_at: number;
+  updated_at: number;
 }
 
 const AudioDescriptionRatingSchema = new Schema<IAudioDescriptionRating>(
@@ -23,18 +24,22 @@ const AudioDescriptionRatingSchema = new Schema<IAudioDescriptionRating>(
     },
     rating: {
       type: Number,
-      required: true,
+      required: false,
     },
-    feedback: {
-      type: String,
-    },
+    feedback: [
+      {
+        type: String,
+      },
+    ],
     created_at: {
-      type: Date,
-      default: Date.now,
+      type: Number,
+      required: true,
+      default: () => nowUtc(),
     },
     updated_at: {
-      type: Date,
-      default: Date.now,
+      type: Number,
+      required: true,
+      default: () => nowUtc(),
     },
   },
   { collection: 'audio_descriptions_ratings' },

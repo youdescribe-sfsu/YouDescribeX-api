@@ -1,10 +1,14 @@
 import { NextFunction, Request, Response } from 'express';
-import { CreateUserAudioDescriptionDto, CreateUserDto, NewUserDto } from '../dtos/users.dto';
+import { AudioDescGenerationRequestDTO, CreateUserAudioDescriptionDto, CreateUserDto, NewUserDto } from '../dtos/users.dto';
 import { IUsers } from '../interfaces/users.interface';
 import userService from '../services/users.service';
 import AudioClipsService from '../services/audioClips.service';
 import { logger } from '../utils/logger';
-import { HOST } from '../config';
+import { AI_USER_ID, HOST } from '../config';
+import { IUser } from '../models/mongodb/User.mongo';
+import { MongoUsersModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
+import sendEmail from '../utils/emailService';
+import { getYouTubeVideoStatus } from '../utils/util';
 
 class UsersController {
   public userService = new userService();
@@ -168,6 +172,192 @@ class UsersController {
       const returnData = await this.userService.createNewUser(newUserData);
 
       res.status(201).json(returnData);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public requestAiDescriptionsWithGpu = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userData = req.user as unknown as IUser;
+      const youtube_id = req.body.youtube_id;
+      const hostname = req.headers.origin;
+      const returnData = await this.userService.requestAiDescriptionsWithGpu(userData, youtube_id, hostname);
+      res.status(201).json(returnData);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public increaseRequestCount = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userData = req.user as unknown as IUser;
+      console.log(userData);
+      const youtube_id = req.body.youtube_id;
+      const returnData = await this.userService.increaseRequestCount(youtube_id, userData._id, AI_USER_ID);
+      res.status(201).json(returnData);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public generateAudioDescGpu = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const newUserAudioDescription: AudioDescGenerationRequestDTO = req.body;
+      const user = await MongoUsersModel.findById(newUserAudioDescription.userId);
+      const videoInfo = await getYouTubeVideoStatus(newUserAudioDescription.youtubeVideoId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+      const audioDescriptionId = await this.userService.generateAudioDescGpu(newUserAudioDescription, user._id);
+      await this.audioClipsService.processAllClipsInDB(audioDescriptionId.audioDescriptionId.toString());
+
+      logger.info(`Sending email to ${user.email}`);
+
+      if (newUserAudioDescription?.ydx_app_host) {
+        const YDX_APP_URL = `${newUserAudioDescription.ydx_app_host}/editor/${newUserAudioDescription.youtubeVideoId}/${audioDescriptionId.audioDescriptionId}`;
+        // Remove all whitespace from the URL
+        const replaced_url = YDX_APP_URL.replace(/\s/g, '');
+
+        logger.info(`URL :: ${YDX_APP_URL}`);
+
+        await sendEmail(
+          user.email,
+          `Requested Audio Description for ${videoInfo.title} ready`,
+          `Your Audio Description is now available! You're invited to view it by following this link: ${YDX_APP_URL}`,
+        );
+
+        logger.info(`Email sent to ${user.email}`);
+
+        res.status(201).json({
+          message: `Successfully created new user Audio Description`,
+          url: `${replaced_url}`,
+        });
+      } else {
+        // Return the URL to the user
+        res.status(201).json({
+          message: `Successfully created new user Audio Description`,
+          url: `${newUserAudioDescription.youtubeVideoId}/${audioDescriptionId}`,
+        });
+      }
+    } catch (error) {
+      logger.error(error);
+      // console.log(error);
+      next(error);
+    }
+  };
+
+  public aiDescriptionStatus = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userData = req.user as unknown as IUser;
+      const youtube_id = req.body.youtube_id;
+
+      if (!userData) {
+        throw new Error('User not found');
+      }
+      const response = await this.userService.aiDescriptionStatus(userData._id, youtube_id);
+
+      res.status(201).json(response);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public getUserAiDescriptionRequests = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userData = req.user as unknown as IUser;
+      const pageNumber = req.query.page;
+      const paginate = req.query.paginate !== 'false';
+      if (!userData) {
+        throw new Error('User not logged in');
+      }
+      const user = await MongoUsersModel.findById(userData._id);
+      if (!user) {
+        throw new Error('User not found');
+      }
+      const response = await this.userService.getUserAiDescriptionRequests(user._id, <string>pageNumber, paginate);
+
+      res.status(201).json(response);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public generateAiDescriptions = async (req: Request, res: Response, next: NextFunction) => {
+    const userData = req.user as unknown as IUser;
+    const newUserAudioDescription: {
+      youtube_id: string;
+    } = req.body;
+    try {
+      const user = await MongoUsersModel.findById(userData._id);
+      if (!user) {
+        throw new Error('User not found');
+      }
+      const audioDescriptionId = await this.userService.generateAudioDescGpu(
+        {
+          youtubeVideoId: newUserAudioDescription.youtube_id,
+          aiUserId: AI_USER_ID,
+        },
+        user._id,
+      );
+      await this.audioClipsService.processAllClipsInDB(audioDescriptionId.audioDescriptionId.toString());
+      res.status(201).json({
+        message: `Successfully created new user Audio Description`,
+        url: `${newUserAudioDescription.youtube_id}/${audioDescriptionId.audioDescriptionId.toString()}`,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public saveVisitedVideosHistory = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userData = req.user as unknown as IUser;
+      const youtubeId = req.body.youtube_id;
+      if (!userData) {
+        throw new Error('User not logged in');
+      }
+      const user = await MongoUsersModel.findById(userData._id);
+      if (!user) {
+        throw new Error('User not found');
+      }
+      const response = await this.userService.saveVisitedVideosHistory(user._id, youtubeId);
+
+      res.status(201).json(response);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public getVisitedVideosHistory = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userData = req.user as unknown as IUser;
+      const pageNumber = req.query.page;
+      const paginate = req.query.paginate !== 'false';
+      if (!userData) {
+        throw new Error('User not logged in');
+      }
+      const user = await MongoUsersModel.findById(userData._id);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      const response = await this.userService.getVisitedVideosHistory(user._id, <string>pageNumber, paginate);
+
+      res.status(201).json(response);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public processAllClipsInDBController = async (req: Request, res: Response, next: NextFunction) => {
+    const ad_id = req.params.ad_id;
+    if (!ad_id) {
+      throw new Error('No Audio Description ID provided');
+    }
+    try {
+      const response = await this.audioClipsService.processAllClipsInDB(ad_id);
+      return res.status(200).json(response);
     } catch (error) {
       next(error);
     }

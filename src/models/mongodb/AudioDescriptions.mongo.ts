@@ -1,20 +1,22 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import { IAudioClip } from './AudioClips.mongo';
+import { nowUtc } from '../../utils/util';
 
 interface IAudioDescription extends Document {
   admin_review: boolean;
   audio_clips: Array<IAudioClip['_id']>;
-  created_at: Date;
+  created_at: Number;
   language: string;
   legacy_notes: string;
   overall_rating_votes_average: number;
   overall_rating_votes_counter: number;
   overall_rating_votes_sum: number;
   status: string;
-  updated_at: Date;
+  updated_at: Number;
   user: string;
   video: string;
   views: number;
+  collaborative_editing: boolean;
 }
 
 const AudioDescriptionSchema: Schema = new Schema(
@@ -30,12 +32,14 @@ const AudioDescriptionSchema: Schema = new Schema(
       },
     ],
     created_at: {
-      type: Date,
-      default: Date.now,
+      type: Number,
+      required: true,
+      default: () => nowUtc(),
     },
     language: {
       type: String,
-      required: false,
+      required: true,
+      default: 'en',
     },
     legacy_notes: {
       type: String,
@@ -58,8 +62,9 @@ const AudioDescriptionSchema: Schema = new Schema(
       default: 'draft',
     },
     updated_at: {
-      type: Date,
-      default: Date.now,
+      type: Number,
+      required: true,
+      default: () => nowUtc(),
     },
     user: {
       type: Schema.Types.ObjectId,
@@ -74,6 +79,10 @@ const AudioDescriptionSchema: Schema = new Schema(
     views: {
       type: Number,
       default: 0,
+    },
+    collaborative_editing: {
+      type: Boolean,
+      default: false,
     },
   },
   { collection: 'audio_descriptions' },

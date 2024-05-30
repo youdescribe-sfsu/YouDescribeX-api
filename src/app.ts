@@ -15,8 +15,11 @@ import options from './swaggerOptions';
 import yaml from 'js-yaml';
 import fs from 'fs';
 import { initPassport } from './models/mongodb/init-models.mongo';
+import { checkAndNotify, gpuStatusCronJob } from './utils/cron.utils';
+import moment from 'moment';
 
 class App {
+  public static numOfVideosFromYoutube = 0;
   public app: Application;
   public env: string;
   public port: string | number;
@@ -28,13 +31,13 @@ class App {
     this.port = PORT || 3000;
     this.currentDatabase = CURRENT_DATABASE || 'mongo';
 
-    // this.connectToDatabase();
     this.testDatabase();
     this.initializeMiddlewares();
     this.initializeRoutes(routes);
     this.initializeErrorHandling();
     this.initializeSwagger();
     initPassport();
+    this.initializeCronJobs();
   }
 
   public listen() {
@@ -110,6 +113,32 @@ class App {
 
   private initializeErrorHandling() {
     this.app.use(errorMiddleware);
+  }
+
+  private initializeCronJobs() {
+    console.log('Initializing Cron Jobs');
+    logger.info('Initializing Cron Jobs');
+    this.resetNumOfVideos();
+    checkAndNotify();
+    gpuStatusCronJob.start();
+    this.setupVideoCountIntervals();
+  }
+
+  private setupVideoCountIntervals() {
+    setInterval(() => {
+      console.log('Number of videos fetched from YouTube API service: ' + App.numOfVideosFromYoutube);
+    }, 15 * 60 * 1000);
+
+    setInterval(() => {
+      const now = moment().format('H:mm:ss');
+      if (now === '12:00:00') {
+        this.resetNumOfVideos();
+      }
+    }, 1000);
+  }
+
+  private resetNumOfVideos() {
+    App.numOfVideosFromYoutube = 0;
   }
 }
 
