@@ -105,6 +105,7 @@ class AudioDescriptionsService {
         createdAt: audioDescriptions.created_at,
         updatedAt: audioDescriptions.updated_at,
         is_published: audioDescriptions.status === 'published',
+        is_collaborative_version: audioDescriptions.depth && audioDescriptions.depth > 1,
       };
 
       return newObj;

@@ -12,7 +12,7 @@ import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
 import { MongoAudioClipsModel, MongoDialog_Timestamps_Model } from '../models/mongodb/init-models.mongo';
 import { Audio_Clips, Dialog_Timestamps, Videos } from '../models/postgres/init-models';
 import { logger } from '../utils/logger';
-import { getYouTubeVideoStatus } from '../utils/util';
+import { getYouTubeVideoStatus, nowUtc } from '../utils/util';
 
 interface NudgeStartTimeIfZeroResult {
   data: [] | null;
@@ -717,3 +717,74 @@ const storage = multer.diskStorage({
   // } ,
 });
 export const upload = multer({ storage });
+
+const copyAudioClipFile = (oldPath: string, youtubeVideoId: string, fileName: string, adId: string) => {
+  // old path = oldPath + / + fileName
+  const oldAbsPath = `${AUDIO_DIRECTORY}${oldPath.replace('.', '')}/${fileName}`;
+  if (!fs.existsSync(oldAbsPath)) {
+    logger.error(oldAbsPath + `does not exist`);
+    return oldPath;
+  }
+  const newPath = `${AUDIO_DIRECTORY}/audio/${youtubeVideoId}/${adId}/${fileName}`;
+  try {
+    fs.copyFileSync(oldPath, newPath);
+    const serverPath = `./audio/${youtubeVideoId}/${adId}`;
+    return serverPath;
+  } catch (err) {
+    logger.error(err);
+    return oldPath;
+  }
+};
+
+export const deepCopyAudioClip = async (
+  audioDescriptionId: string,
+  deepCopiedAudioDescriptionId: string,
+  userIdTo: string,
+  videoId: string,
+): Promise<string[] | null> => {
+  const copiedClips = [];
+  if (CURRENT_DATABASE === 'mongodb') {
+    // get all audio clips for the audio description
+    const audioClips = await MongoAudioClipsModel.find({
+      audio_description: audioDescriptionId,
+    }).catch(err => {
+      logger.error(`Error getting audio clips for the audio description: ${err}`);
+      return null;
+    });
+    if (!audioClips) {
+      logger.error('No audio clips found for the audio description');
+      return null;
+    }
+    // deep copy the clips with different user id
+    for (let i = 0; i < audioClips.length; i++) {
+      const audioClip = audioClips[i];
+      // console.log('audioClip', audioClip);
+      const newPath = copyAudioClipFile(audioClip.file_path, videoId, audioClip.file_name, deepCopiedAudioDescriptionId);
+      const copiedClip = await MongoAudioClipsModel.create({
+        description_type: audioClip.description_type === null ? 'Visual' : audioClip.description_type,
+        description_text: audioClip.description_text,
+        playback_type: audioClip.playback_type,
+        start_time: audioClip.start_time,
+        end_time: audioClip.end_time,
+        duration: audioClip.duration,
+        file_path: newPath,
+        file_name: audioClip.file_name,
+        file_mime_type: audioClip.file_mime_type,
+        file_size_bytes: audioClip.file_size_bytes,
+        audio_description: deepCopiedAudioDescriptionId,
+        user: userIdTo,
+        video: audioClip.video,
+        created_at: nowUtc(),
+        updated_at: nowUtc(),
+        transcript: audioClip.transcript,
+        label: audioClip.label,
+      }).catch(err => {
+        logger.error(`Error creating a deep copy of the audio clip: ${err}`);
+        return null;
+      });
+      copiedClips.push(copiedClip);
+    }
+  }
+  // return the deep copied clip ids
+  return copiedClips.map(copiedClip => copiedClip._id);
+};

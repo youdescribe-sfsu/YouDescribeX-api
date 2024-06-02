@@ -12,7 +12,7 @@ import {
   MongoVideosModel,
 } from '../models/mongodb/init-models.mongo';
 import { logger } from '../utils/logger';
-import { getYouTubeVideoStatus, isEmpty, nowUtc } from '../utils/util';
+import { getYouTubeVideoStatus, isEmpty, nowUtc, calculateContributions } from '../utils/util';
 import { generateMp3forDescriptionText, nudgeStartTimeIfZero, processCurrentClip } from './audioClips.util';
 import { isVideoAvailable } from './videos.util';
 
@@ -402,4 +402,103 @@ export const generateAudioDescGpuWithSession = async (newUserAudioDescription: C
     audioDescriptionId: createNewAudioDescription._id,
     fromAI: true,
   };
+};
+
+export const deepCopyAudioDescriptionWithoutNewClips = async (audioDescriptionId: string, toUserId: string) => {
+  let newAudioDescription;
+  try {
+    const audioDescription = await MongoAudio_Descriptions_Model.findById(audioDescriptionId);
+
+    if (!audioDescription) {
+      logger.error('Audio Description not found');
+      return null;
+    }
+
+    newAudioDescription = new MongoAudio_Descriptions_Model({
+      admin_review: audioDescription.admin_review,
+      audio_clips: [],
+      created_at: nowUtc(),
+      language: audioDescription.language,
+      legacy_notes: '',
+      status: 'draft',
+      updated_at: nowUtc(),
+      video: audioDescription.video,
+      user: toUserId,
+      collaborative_editing: false,
+      contributions: audioDescription.contributions || new Map<string, number>([[audioDescription.user, 1]]),
+      prev_audio_description: audioDescriptionId,
+      depth: audioDescription.depth + 1,
+    });
+
+    await new MongoAudio_Descriptions_Model(newAudioDescription).save();
+  } catch (error) {
+    logger.error(error);
+    return null;
+  }
+  return newAudioDescription._id;
+};
+
+export const updateContributions = async (audioDescriptionId: string, userId: string) => {
+  const audioDescription = await MongoAudio_Descriptions_Model.findById(audioDescriptionId);
+  if (!audioDescription) {
+    logger.error('Audio Description not found');
+    return null;
+  }
+  const contributions = audioDescription.contributions;
+  if (!contributions) {
+    logger.error('Previous contributions not found');
+    return null;
+  }
+  const prevDescriptionText = await getConcatedAudioClips(audioDescription.prev_audio_description);
+  const newDescriptionText = await getConcatedAudioClips(audioDescriptionId);
+
+  await calculateContributions(contributions, prevDescriptionText, userId, newDescriptionText);
+
+  audioDescription.contributions = contributions;
+  await audioDescription.save();
+};
+
+const getConcatedAudioClips = async (audioDescriptionId: string) => {
+  const audioDescription = await MongoAudio_Descriptions_Model.findById(audioDescriptionId);
+
+  if (!audioDescription) {
+    logger.error('Audio Description not found');
+    return null;
+  }
+
+  const audioClips = await MongoAudioClipsModel.find({ audio_description: audioDescriptionId });
+
+  if (!audioClips) {
+    logger.error('Audio Clips not found');
+    return null;
+  }
+
+  let concatenatedAudio = '';
+  for (const audioClip of audioClips) {
+    if (audioClip.description_text) {
+      concatenatedAudio += audioClip.description_text;
+    } else {
+      concatenatedAudio += audioClip.transcript;
+      for (const transcript of audioClip.transcript) {
+        concatenatedAudio += transcript.sentence;
+      }
+    }
+  }
+  return concatenatedAudio;
+};
+
+export const updateAutoClips = async (audioDescriptionId: string, newClips: string[]) => {
+  try {
+    const audioDescription = await MongoAudio_Descriptions_Model.findById(audioDescriptionId);
+
+    if (!audioDescription) {
+      logger.error('Audio Description not found');
+      return null;
+    }
+    // write clipIds to audioDescription
+    audioDescription.audio_clips = newClips;
+    await audioDescription.save();
+  } catch (error) {
+    logger.error(error);
+  }
 };
