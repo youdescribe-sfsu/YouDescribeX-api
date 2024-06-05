@@ -1,15 +1,13 @@
 version: '3'
 services:
-  app:
+  backend:
+    container_name: youdescribe-backend
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: youdescribe-backend
     ports:
-      - ${PORT}:${PORT}
-      - ${GPU_PIPELINE_PORT}:${GPU_PIPELINE_PORT}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "${PORT}:${PORT}"
+      - "${GPU_PIPELINE_PORT}:${GPU_PIPELINE_PORT}"
     volumes:
       - /home/ubuntu/ydx_data/public:/app/public
       - /home/ubuntu/ydx_data/logs:/app/logs
@@ -37,41 +35,3 @@ services:
       - MONGO_DB_PORT=${MONGO_DB_PORT}
       - MONGO_DB_USER=${MONGO_DB_USER}
       - MONGO_DB_PASSWORD=${MONGO_DB_PASSWORD}
-
-  youdescribe-docs:
-    image: youdescribe/youdescribe-docs:master
-    restart: always
-    ports:
-      - "0.0.0.0:4321:4321"
-
-  youdescribex-app:
-    image: youdescribe/youdescribex-app:dev
-    restart: always
-    ports:
-      - "0.0.0.0:3001:3001"
-
-  youdescribex-api:
-    image: youdescribe/youdescribex-api:dev
-    restart: always
-    ports:
-      - ${PORT}:${PORT}
-      - ${GPU_PIPELINE_PORT}:${GPU_PIPELINE_PORT}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    volumes:
-      - /home/ubuntu/ydx_data/public:/app/public
-      - /home/ubuntu/ydx_data/logs:/app/logs
-
-  yacht:
-    container_name: yacht
-    restart: unless-stopped
-    ports:
-      - 4765:8000
-    volumes:
-      - yacht:/config
-      - /var/run/docker.sock:/var/run/docker.sock
-    image: selfhostedpro/yacht
-    privileged: true
-
-volumes:
-  yacht:
