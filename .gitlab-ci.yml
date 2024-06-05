@@ -12,8 +12,6 @@ services:
   - docker:19.03.12-dind
 
 before_script:
-  - echo "Starting job on runner: $CI_RUNNER_DESCRIPTION"
-  - echo "Running on branch: $CI_COMMIT_REF_NAME"
   - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
 
 build:
@@ -22,7 +20,6 @@ build:
     - echo "Building Docker image..."
     - docker build -t $IMAGE_NAME .
     - docker push $IMAGE_NAME
-    - echo "Docker image built and pushed: $IMAGE_NAME"
   tags:
     - backend
   only:
@@ -57,8 +54,6 @@ deploy_dev:
     - backend, dev
   only:
     - dev
-  after_script:
-    - echo "Deploy job completed for development environment."
 
 deploy_prod:
   stage: deploy
@@ -71,5 +66,3 @@ deploy_prod:
     - backend, prod
   only:
     - main
-  after_script:
-    - echo "Deploy job completed for production environment."
