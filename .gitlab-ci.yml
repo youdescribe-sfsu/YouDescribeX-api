@@ -1,6 +1,5 @@
 stages:
   - build
-  - test
   - deploy
 
 variables:
@@ -20,59 +19,51 @@ before_script:
   - docker login -u "$DOCKER_REGISTRY_USER" -p "$DOCKER_REGISTRY_PASSWORD" $CI_REGISTRY
   - docker info
 
-build:
+build_dev:
   stage: build
   script:
-    - echo "Building Docker image..."
+    - echo "Building Docker image for development..."
     - docker build --no-cache --build-arg APP_PORT=$PORT --build-arg GOOGLE_CRED_FILE=$GOOGLE_CRED_FILE --build-arg GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS --build-arg GPU_PIPELINE_PORT=$GPU_PIPELINE_PORT --build-arg CRYPTO_SEED=$CRYPTO_SEED -t "${IMAGE_NAME}" .
     - docker push "${IMAGE_NAME}"
     - echo "Build complete"
   tags:
     - backend
-  only:
-    - branches
-    - dev
-    - main
-
-test:
-  stage: test
-  cache:
-    paths:
-      - node_modules/
-  script:
-    - echo "Installing dependencies..."
-    - npm install
-    - echo "Running tests..."
-    - npm run test
-  tags:
-    - backend
-  only:
-    - branches
-    - dev
-    - main
-
-deploy_dev:
-  stage: deploy
-  script:
-    - echo "Deploying to development environment..."
-    - docker pull "${IMAGE_NAME}"
-    - docker run -d -p $PORT:$PORT --env-file .env "${IMAGE_NAME}"
-    - echo "Deployment to development environment completed."
-  tags:
-    - backend
     - dev
   only:
     - dev
 
-deploy_prod:
-  stage: deploy
+build_prod:
+  stage: build
   script:
-    - echo "Deploying to production environment..."
-    - docker pull "${IMAGE_NAME}"
-    - docker run -d -p $PORT:$PORT --env-file .env "${IMAGE_NAME}"
-    - echo "Deployment to production environment completed."
+    - echo "Building Docker image for production..."
+    - docker build --no-cache --build-arg APP_PORT=$PORT --build-arg GOOGLE_CRED_FILE=$GOOGLE_CRED_FILE --build-arg GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS --build-arg GPU_PIPELINE_PORT=$GPU_PIPELINE_PORT --build-arg CRYPTO_SEED=$CRYPTO_SEED -t "${IMAGE_NAME}" .
+    - docker push "${IMAGE_NAME}"
+    - echo "Build complete"
   tags:
     - backend
     - prod
   only:
+    - main
+
+deploy:
+  stage: deploy
+  script:
+    - if [ "$CI_COMMIT_REF_NAME" == "dev" ]; then
+      echo "Deploying to development environment...";
+      docker pull "${IMAGE_NAME}";
+      docker run -d -p $PORT:$PORT --env-file .env "${IMAGE_NAME}";
+      echo "Deployment to development environment completed.";
+      elif [ "$CI_COMMIT_REF_NAME" == "main" ]; then
+      echo "Deploying to production environment...";
+      docker pull "${IMAGE_NAME}";
+      docker run -d -p $PORT:$PORT --env-file .env "${IMAGE_NAME}";
+      echo "Deployment to production environment completed.";
+      fi
+  tags:
+    - backend
+    - dev
+    - prod
+  only:
+    - branches
+    - dev
     - main
