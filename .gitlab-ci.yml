@@ -12,13 +12,14 @@ services:
   - docker:19.03.12-dind
 
 before_script:
+  - echo "Logging into Docker..."
   - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
 
 build:
   stage: build
   script:
     - echo "Building Docker image..."
-    - docker build -t $IMAGE_NAME .
+    - docker build --cache-from $IMAGE_NAME --tag $IMAGE_NAME .
     - docker push $IMAGE_NAME
   tags:
     - backend
@@ -29,6 +30,9 @@ build:
 
 test:
   stage: test
+  cache:
+    paths:
+      - node_modules/
   script:
     - echo "Installing dependencies..."
     - npm install
@@ -51,7 +55,8 @@ deploy_dev:
     - docker run -d -p $PORT:$PORT --env-file .env $IMAGE_NAME
     - echo "Deployment to development environment completed."
   tags:
-    - backend, dev
+    - backend
+    - dev
   only:
     - dev
 
@@ -63,6 +68,7 @@ deploy_prod:
     - docker run -d -p $PORT:$PORT --env-file .env $IMAGE_NAME
     - echo "Deployment to production environment completed."
   tags:
-    - backend, prod
+    - backend
+    - prod
   only:
     - main
