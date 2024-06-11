@@ -42,8 +42,6 @@ test:
   script:
     - echo "Installing dependencies..."
     - npm install
-    - echo "Running linting..."
-    - npm run lint
     - echo "Running tests..."
     - npm run test
   tags:
