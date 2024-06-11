@@ -1,16 +1,15 @@
 stages:
   - build
-  - deploy_dev
-  - deploy_prod
+  - deploy
 
 variables:
-  IMAGE_NAME: "${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_NAME}.${CI_PIPELINE_ID}"
   CI_PROJECT_NAME: youdescribex-api
   DOCKER_REGISTRY: youdescribe
   CI_REGISTRY: docker.io
   TAR_FILE_NAME: "youdescribex-api.tar"
   TAR_FILE_FOLDER: ".docker"
   TAR_FILE_PATH: "/"
+  IMAGE_NAME: "${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_NAME}.${CI_PIPELINE_ID}"
 
 services:
   - docker:24.0.5-dind
@@ -47,7 +46,7 @@ build_prod:
     - main
 
 deploy_dev:
-  stage: deploy_dev
+  stage: deploy
   script:
     - echo "Deploying to development environment..."
     - docker pull "${IMAGE_NAME}"
@@ -60,7 +59,7 @@ deploy_dev:
     - dev
 
 deploy_prod:
-  stage: deploy_prod
+  stage: deploy
   script:
     - echo "Deploying to production environment..."
     - docker pull "${IMAGE_NAME}"
