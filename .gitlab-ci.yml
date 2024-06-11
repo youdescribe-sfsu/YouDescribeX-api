@@ -18,6 +18,7 @@ services:
 before_script:
   - echo "Logging into Docker..."
   - docker login -u "$DOCKER_REGISTRY_USER" -p "$DOCKER_REGISTRY_PASSWORD" $CI_REGISTRY
+  - docker info
 
 build:
   stage: build
