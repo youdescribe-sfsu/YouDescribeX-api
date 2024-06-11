@@ -4,7 +4,7 @@ stages:
   - deploy
 
 variables:
-  IMAGE_NAME: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
+  IMAGE_NAME: "${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_NAME}.${CI_PIPELINE_ID}"
   CI_PROJECT_NAME: youdescribex-api
   DOCKER_REGISTRY: youdescribe
   CI_REGISTRY: docker.io
@@ -24,8 +24,9 @@ build:
   stage: build
   script:
     - echo "Building Docker image..."
-    - docker build --cache-from $IMAGE_NAME --tag $IMAGE_NAME .
-    - docker push $IMAGE_NAME
+    - docker build --no-cache --build-arg APP_PORT=$PORT --build-arg GOOGLE_CRED_FILE=$GOOGLE_CRED_FILE --build-arg GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS --build-arg GPU_PIPELINE_PORT=$GPU_PIPELINE_PORT --build-arg CRYPTO_SEED=$CRYPTO_SEED -t "${IMAGE_NAME}" .
+    - docker push "${IMAGE_NAME}"
+    - echo "Build complete"
   tags:
     - backend
   only:
@@ -56,8 +57,8 @@ deploy_dev:
   stage: deploy
   script:
     - echo "Deploying to development environment..."
-    - docker pull $IMAGE_NAME
-    - docker run -d -p $PORT:$PORT --env-file .env $IMAGE_NAME
+    - docker pull "${IMAGE_NAME}"
+    - docker run -d -p $PORT:$PORT --env-file .env "${IMAGE_NAME}"
     - echo "Deployment to development environment completed."
   tags:
     - backend
@@ -69,8 +70,8 @@ deploy_prod:
   stage: deploy
   script:
     - echo "Deploying to production environment..."
-    - docker pull $IMAGE_NAME
-    - docker run -d -p $PORT:$PORT --env-file .env $IMAGE_NAME
+    - docker pull "${IMAGE_NAME}"
+    - docker run -d -p $PORT:$PORT --env-file .env "${IMAGE_NAME}"
     - echo "Deployment to production environment completed."
   tags:
     - backend
