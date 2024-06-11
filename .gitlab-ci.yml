@@ -5,8 +5,12 @@ stages:
 
 variables:
   IMAGE_NAME: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
-  DOCKER_HOST: tcp://docker:2375/
-  DOCKER_DRIVER: overlay2
+  CI_PROJECT_NAME: youdescribex-api
+  DOCKER_REGISTRY: youdescribe
+  CI_REGISTRY: docker.io
+  TAR_FILE_NAME: "youdescribex-api.tar"
+  TAR_FILE_FOLDER: ".docker"
+  TAR_FILE_PATH: "/"
 
 services:
   - docker:24.0.5-dind
