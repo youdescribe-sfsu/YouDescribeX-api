@@ -1,6 +1,7 @@
 stages:
   - build
-  - deploy
+  - deploy_dev
+  - deploy_prod
 
 variables:
   IMAGE_NAME: "${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_NAME}.${CI_PIPELINE_ID}"
@@ -45,25 +46,28 @@ build_prod:
   only:
     - main
 
-deploy:
-  stage: deploy
+deploy_dev:
+  stage: deploy_dev
   script:
-    - if [ "$CI_COMMIT_REF_NAME" == "dev" ]; then
-      echo "Deploying to development environment...";
-      docker pull "${IMAGE_NAME}";
-      docker run -d -p $PORT:$PORT --env-file .env "${IMAGE_NAME}";
-      echo "Deployment to development environment completed.";
-      elif [ "$CI_COMMIT_REF_NAME" == "main" ]; then
-      echo "Deploying to production environment...";
-      docker pull "${IMAGE_NAME}";
-      docker run -d -p $PORT:$PORT --env-file .env "${IMAGE_NAME}";
-      echo "Deployment to production environment completed.";
-      fi
+    - echo "Deploying to development environment..."
+    - docker pull "${IMAGE_NAME}"
+    - docker run -d -p $PORT:$PORT --env-file .env "${IMAGE_NAME}"
+    - echo "Deployment to development environment completed."
   tags:
     - backend
     - dev
+  only:
+    - dev
+
+deploy_prod:
+  stage: deploy_prod
+  script:
+    - echo "Deploying to production environment..."
+    - docker pull "${IMAGE_NAME}"
+    - docker run -d -p $PORT:$PORT --env-file .env "${IMAGE_NAME}"
+    - echo "Deployment to production environment completed."
+  tags:
+    - backend
     - prod
   only:
-    - branches
-    - dev
     - main
