@@ -29,8 +29,7 @@ deploy_dev:
     - docker pull $IMAGE_NAME
     - docker stop dev_app || true
     - docker rm dev_app || true
-    - docker run -d --name dev_app -p $DEV_PORT:$DEV_PORT \
-      -e MONGO_DB_URI=$DEV_MONGO_DB_URI \
+    - docker run -d --name dev_app -p $DEV_PORT:$PORT \
       -e NODE_ENV=development \
       -e GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS \
       -e HOST=$DEV_HOST \
@@ -71,8 +70,7 @@ deploy_prod:
     - docker pull $IMAGE_NAME
     - docker stop prod_app || true
     - docker rm prod_app || true
-    - docker run -d --name prod_app -p $PROD_PORT:$PROD_PORT \
-      -e MONGO_DB_URI=$PROD_MONGO_DB_URI \
+    - docker run -d --name prod_app -p $PROD_PORT:$PORT \
       -e NODE_ENV=production \
       -e GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS \
       -e HOST=$PROD_HOST \
