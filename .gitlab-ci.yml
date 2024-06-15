@@ -9,7 +9,7 @@ variables:
   TAR_FILE_NAME: "youdescribex-api.tar"
   TAR_FILE_FOLDER: ".docker"
   TAR_FILE_PATH: "/"
-  IMAGE_NAME: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
+  IMAGE_NAME: "${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_NAME}.${CI_PIPELINE_ID}"
 
 services:
   - docker:24.0.5-dind
@@ -17,13 +17,15 @@ services:
 before_script:
   - echo "Logging into Docker..."
   - docker login -u "$DOCKER_REGISTRY_USER" -p "$DOCKER_REGISTRY_PASSWORD" $CI_REGISTRY
+  - docker info
 
 build_dev:
   stage: build
   script:
     - echo "Building Docker image for development..."
-    - docker build -t $IMAGE_NAME .
+    - docker build --no-cache --build-arg APP_PORT=$PORT --build-arg GOOGLE_CRED_FILE=$GOOGLE_CRED_FILE --build-arg GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS --build-arg GPU_PIPELINE_PORT=$GPU_PIPELINE_PORT --build-arg CRYPTO_SEED=$CRYPTO_SEED -t $IMAGE_NAME .
     - docker push $IMAGE_NAME
+    - echo "Build complete"
   tags:
     - backend
     - dev
@@ -34,8 +36,9 @@ build_prod:
   stage: build
   script:
     - echo "Building Docker image for production..."
-    - docker build -t $IMAGE_NAME .
+    - docker build --no-cache --build-arg APP_PORT=$PORT --build-arg GOOGLE_CRED_FILE=$GOOGLE_CRED_FILE --build-arg GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS --build-arg GPU_PIPELINE_PORT=$GPU_PIPELINE_PORT --build-arg CRYPTO_SEED=$CRYPTO_SEED -t $IMAGE_NAME .
     - docker push $IMAGE_NAME
+    - echo "Build complete"
   tags:
     - backend
     - prod
