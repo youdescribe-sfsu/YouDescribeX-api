@@ -49,43 +49,9 @@ deploy_dev:
   stage: deploy
   script:
     - echo "Deploying to development environment..."
-    - docker pull $IMAGE_NAME
-    - docker stop dev_app || true
-    - docker rm dev_app || true
-    - docker run -d --name dev_app -p $DEV_PORT:$PORT \
-      -e GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS \
-      -e PORT=$PORT \
-      -e NODE_ENV=development \
-      -e HOST=$DEV_HOST \
-      -e LOG_DIR=$LOG_DIR \
-      -e AUDIO_DIRECTORY=$AUDIO_DIRECTORY \
-      -e YOUTUBE_API_URL=$YOUTUBE_API_URL \
-      -e YOUTUBE_API_KEY=$YOUTUBE_API_KEY \
-      -e PASSPORT_REDIRECT_URL=$PASSPORT_REDIRECT_URL \
-      -e PASSPORT_CALLBACK_URL=$PASSPORT_CALLBACK_URL \
-      -e CRYPTO_SECRET=$CRYPTO_SECRET \
-      -e CRYPTO_SEED=$CRYPTO_SEED \
-      -e CURRENT_DATABASE=$CURRENT_DATABASE \
-      -e POSTGRES_DB_NAME=$POSTGRES_DB_NAME \
-      -e POSTGRES_DB_USER=$POSTGRES_DB_USER \
-      -e POSTGRES_DB_PASSWORD=$POSTGRES_DB_PASSWORD \
-      -e POSTGRES_DB_PORT=$POSTGRES_DB_PORT \
-      -e POSTGRES_DB_HOST=$POSTGRES_DB_HOST \
-      -e MONGO_DB_DATABASE=$MONGO_DB_DATABASE \
-      -e MONGO_DB_HOST=$DEV_MONGO_DB_HOST \
-      -e MONGO_DB_PORT=$MONGO_DB_PORT \
-      -e MONGO_DB_USER=$MONGO_DB_USER \
-      -e MONGO_DB_PASSWORD=$MONGO_DB_PASSWORD \
-      -e GPU_HOST=$GPU_HOST \
-      -e GPU_PIPELINE_PORT=$GPU_PIPELINE_PORT \
-      -e CURRENT_YDX_HOST=$CURRENT_YDX_HOST \
-      -e GMAIL_USER=$GMAIL_USER \
-      -e GMAIL_PASSWORD=$GMAIL_PASSWORD \
-      -e AI_USER_ID=$AI_USER_ID \
-      -v /mnt/ebs/audio-descriptions-files:/app/public \
-      -v /home/ubuntu/ydx_data/public:/app/public \
-      -v /home/ubuntu/ydx_data/logs:/app/logs \
-      $IMAGE_NAME
+    - docker-compose -f docker-compose.yml pull
+    - docker-compose -f docker-compose.yml down
+    - docker-compose -f docker-compose.yml up -d
   tags:
     - backend
     - dev
@@ -96,43 +62,9 @@ deploy_prod:
   stage: deploy
   script:
     - echo "Deploying to production environment..."
-    - docker pull $IMAGE_NAME
-    - docker stop prod_app || true
-    - docker rm prod_app || true
-    - docker run -d --name prod_app -p $PROD_PORT:$PROD_PORT \
-      -e GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS \
-      -e PORT=$PORT \
-      -e NODE_ENV=production \
-      -e HOST=$PROD_HOST \
-      -e LOG_DIR=$LOG_DIR \
-      -e AUDIO_DIRECTORY=$AUDIO_DIRECTORY \
-      -e YOUTUBE_API_URL=$YOUTUBE_API_URL \
-      -e YOUTUBE_API_KEY=$YOUTUBE_API_KEY \
-      -e PASSPORT_REDIRECT_URL=$PASSPORT_REDIRECT_URL \
-      -e PASSPORT_CALLBACK_URL=$PASSPORT_CALLBACK_URL \
-      -e CRYPTO_SECRET=$CRYPTO_SECRET \
-      -e CRYPTO_SEED=$CRYPTO_SEED \
-      -e CURRENT_DATABASE=$CURRENT_DATABASE \
-      -e POSTGRES_DB_NAME=$POSTGRES_DB_NAME \
-      -e POSTGRES_DB_USER=$POSTGRES_DB_USER \
-      -e POSTGRES_DB_PASSWORD=$POSTGRES_DB_PASSWORD \
-      -e POSTGRES_DB_PORT=$POSTGRES_DB_PORT \
-      -e POSTGRES_DB_HOST=$POSTGRES_DB_HOST \
-      -e MONGO_DB_DATABASE=$MONGO_DB_DATABASE \
-      -e MONGO_DB_HOST=$PROD_MONGO_DB_HOST \
-      -e MONGO_DB_PORT=$MONGO_DB_PORT \
-      -e MONGO_DB_USER=$MONGO_DB_USER \
-      -e MONGO_DB_PASSWORD=$MONGO_DB_PASSWORD \
-      -e GPU_HOST=$GPU_HOST \
-      -e GPU_PIPELINE_PORT=$GPU_PIPELINE_PORT \
-      -e CURRENT_YDX_HOST=$CURRENT_YDX_HOST \
-      -e GMAIL_USER=$GMAIL_USER \
-      -e GMAIL_PASSWORD=$GMAIL_PASSWORD \
-      -e AI_USER_ID=$AI_USER_ID \
-      -v /mnt/ebs/audio-descriptions-files:/app/public \
-      -v /home/ubuntu/ydx_data/public:/app/public \
-      -v /home/ubuntu/ydx_data/logs:/app/logs \
-      $IMAGE_NAME
+    - docker-compose -f docker-compose.yml pull
+    - docker-compose -f docker-compose.yml down
+    - docker-compose -f docker-compose.yml up -d
   tags:
     - backend
     - prod

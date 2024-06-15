@@ -2,15 +2,21 @@ version: '3.8'
 services:
   backend:
     container_name: youdescribex-backend
+    image: "${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_NAME}.${CI_PIPELINE_ID}"
     build:
       context: .
       dockerfile: Dockerfile
+    restart: always
     ports:
       - "${PORT}:${PORT}"
       - "${GPU_PIPELINE_PORT}:${GPU_PIPELINE_PORT}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    network_mode: host
     volumes:
       - /home/ubuntu/ydx_data/public:/app/public
       - /home/ubuntu/ydx_data/logs:/app/logs
+      - /mnt/ebs/audio-descriptions-files:/app/public
     environment:
       - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
       - PORT=${PORT}
@@ -35,3 +41,9 @@ services:
       - MONGO_DB_PORT=${MONGO_DB_PORT}
       - MONGO_DB_USER=${MONGO_DB_USER}
       - MONGO_DB_PASSWORD=${MONGO_DB_PASSWORD}
+      - GPU_HOST=${GPU_HOST}
+      - GPU_PIPELINE_PORT=${GPU_PIPELINE_PORT}
+      - CURRENT_YDX_HOST=${CURRENT_YDX_HOST}
+      - GMAIL_USER=${GMAIL_USER}
+      - GMAIL_PASSWORD=${GMAIL_PASSWORD}
+      - AI_USER_ID=${AI_USER_ID}
