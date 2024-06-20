@@ -49,9 +49,9 @@ deploy_dev:
   stage: deploy
   script:
     - echo "Deploying to development environment..."
-    - docker-compose -f docker-compose.yml pull
-    - docker-compose -f docker-compose.yml down
-    - docker-compose -f docker-compose.yml up -d
+    - docker-compose -f docker-compose-dev.yml pull
+    - docker-compose -f docker-compose-dev.yml down
+    - docker-compose -f docker-compose-dev.yml up -d
   tags:
     - backend
     - dev
@@ -62,9 +62,9 @@ deploy_prod:
   stage: deploy
   script:
     - echo "Deploying to production environment..."
-    - docker-compose -f docker-compose.yml pull
-    - docker-compose -f docker-compose.yml down
-    - docker-compose -f docker-compose.yml up -d
+    - docker-compose -f docker-compose-prod.yml pull
+    - docker-compose -f docker-compose-prod.yml down
+    - docker-compose -f docker-compose-prod.yml up -d
   tags:
     - backend
     - prod
