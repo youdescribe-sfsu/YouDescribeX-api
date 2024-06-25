@@ -6,9 +6,6 @@ variables:
   CI_PROJECT_NAME: youdescribex-api
   DOCKER_REGISTRY: youdescribe
   CI_REGISTRY: docker.io
-  TAR_FILE_NAME: "youdescribex-api.tar"
-  TAR_FILE_FOLDER: ".docker"
-  TAR_FILE_PATH: "/"
   IMAGE_NAME: "${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_NAME}.${CI_PIPELINE_ID}"
 
 services:
@@ -16,42 +13,40 @@ services:
 
 before_script:
   - echo "Logging into Docker..."
-  - docker login -u "$DOCKER_REGISTRY_USER" -p "$DOCKER_REGISTRY_PASSWORD" $CI_REGISTRY
-  - docker info
+  - echo "$DOCKER_REGISTRY_PASSWORD" | docker login -u "$DOCKER_REGISTRY_USER" --password-stdin $CI_REGISTRY
 
-build_dev:
+build:
   stage: build
   script:
-    - echo "Building Docker image for development..."
-    - docker build --no-cache --build-arg APP_PORT=$PORT --build-arg GOOGLE_CRED_FILE=$GOOGLE_CRED_FILE --build-arg GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS --build-arg GPU_PIPELINE_PORT=$GPU_PIPELINE_PORT --build-arg CRYPTO_SEED=$CRYPTO_SEED -t $IMAGE_NAME .
+    - echo "Building Docker image..."
+    - docker build --no-cache
+      --build-arg GOOGLE_CRED_FILE=$GOOGLE_CRED_FILE
+      --build-arg GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS
+      -t $IMAGE_NAME .
     - docker push $IMAGE_NAME
     - echo "Build complete"
   tags:
     - backend
-    - dev
   only:
     - dev
-
-build_prod:
-  stage: build
-  script:
-    - echo "Building Docker image for production..."
-    - docker build --no-cache --build-arg APP_PORT=$PORT --build-arg GOOGLE_CRED_FILE=$GOOGLE_CRED_FILE --build-arg GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS --build-arg GPU_PIPELINE_PORT=$GPU_PIPELINE_PORT --build-arg CRYPTO_SEED=$CRYPTO_SEED -t $IMAGE_NAME .
-    - docker push $IMAGE_NAME
-    - echo "Build complete"
-  tags:
-    - backend
-    - prod
-  only:
     - main
 
-deploy_dev:
+.deploy_template: &deploy_template
   stage: deploy
   script:
-    - echo "Deploying to development environment..."
-    - docker-compose -f docker-compose-dev.yml pull
-    - docker-compose -f docker-compose-dev.yml down
-    - docker-compose -f docker-compose-dev.yml up -d
+    - echo "Deploying to $CI_ENVIRONMENT_NAME environment..."
+    - docker-compose -f docker-compose.yml pull
+    - docker-compose -f docker-compose.yml down
+    - docker-compose -f docker-compose.yml up -d
+
+deploy_dev:
+  <<: *deploy_template
+  environment:
+    name: dev
+  variables:
+    PASSPORT_REDIRECT_URL: $PASSPORT_REDIRECT_URL_DEV
+    PASSPORT_CALLBACK_URL: $PASSPORT_CALLBACK_URL_DEV
+    CURRENT_YDX_HOST: $YDX_HOST_DEV
   tags:
     - backend
     - dev
@@ -59,12 +54,13 @@ deploy_dev:
     - dev
 
 deploy_prod:
-  stage: deploy
-  script:
-    - echo "Deploying to production environment..."
-    - docker-compose -f docker-compose-prod.yml pull
-    - docker-compose -f docker-compose-prod.yml down
-    - docker-compose -f docker-compose-prod.yml up -d
+  <<: *deploy_template
+  environment:
+    name: prod
+  variables:
+    PASSPORT_REDIRECT_URL: $PASSPORT_REDIRECT_URL_PROD
+    PASSPORT_CALLBACK_URL: $PASSPORT_CALLBACK_URL_PROD
+    CURRENT_YDX_HOST: $YDX_HOST_PROD
   tags:
     - backend
     - prod

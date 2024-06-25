@@ -1,23 +1,20 @@
-# Use the official Node.js image
-FROM node:latest
+FROM node:18-alpine
 
-# Set the working directory
-WORKDIR /usr/src/app
+WORKDIR /app
 
-# Copy package.json and package-lock.json
 COPY package*.json ./
+RUN npm ci
 
-# Install dependencies
-RUN npm install
-
-# Copy the rest of the application code
 COPY . .
 
-# Build the application
+ARG GOOGLE_CRED_FILE
+ARG GOOGLE_APPLICATION_CREDENTIALS
+ENV GOOGLE_CRED_FILE=${GOOGLE_CRED_FILE}
+ENV GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
+
 RUN npm run build
+RUN npm prune --production
 
-# Expose the application port
-EXPOSE $PORT
+RUN echo "$GOOGLE_CRED_FILE" | base64 -d -i - > "$GOOGLE_APPLICATION_CREDENTIALS"
 
-# Start the application
-CMD ["npm", "start"]
+CMD ["node", "./dist/server.js"]
