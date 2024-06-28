@@ -1,10 +1,10 @@
 import { config } from 'dotenv';
 import fs from 'fs';
 
-console.log(`path: .env.${process.env.NODE_ENV || 'development'}.local`);
+console.log(`path: .env.${process.env.NODE_ENV || 'production'}.local`);
 console.log(process.env);
 
-config({ path: `.env.${process.env.NODE_ENV || 'production'}.local` });
+config({ path: `.env.${process.env.NODE_ENV || 'development'}.local` });
 
 export const CREDENTIALS = process.env.CREDENTIALS === 'true';
 export const { NODE_ENV, HOST, PORT, SECRET_KEY, LOG_FORMAT, LOG_DIR, ORIGIN } = process.env;
