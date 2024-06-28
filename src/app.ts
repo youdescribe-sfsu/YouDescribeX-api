@@ -63,6 +63,7 @@ class App {
       'https://test.youdescribe.org',
       'https://ydx.youdescribe.org',
       'https://ydx-dev.youdescribe.org',
+      'https://ydx-dev-api.youdescribe.org',
       'http://localhost:3000',
     ];
 
