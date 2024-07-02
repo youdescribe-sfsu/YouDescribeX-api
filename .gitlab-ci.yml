@@ -20,8 +20,22 @@ build:
   script:
     - echo "Building Docker image..."
     - docker build --no-cache
-      --build-arg GOOGLE_CRED_FILE=$GOOGLE_CRED_FILE
-      --build-arg GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS
+      --build-arg GOOGLE_CRED_FILE="$GOOGLE_CRED_FILE"
+      --build-arg GOOGLE_APPLICATION_CREDENTIALS="$GOOGLE_APPLICATION_CREDENTIALS"
+      --build-arg NODE_ENV="$NODE_ENV"
+      --build-arg YOUTUBE_API_URL="$YOUTUBE_API_URL"
+      --build-arg YOUTUBE_API_KEY="$YOUTUBE_API_KEY"
+      --build-arg CURRENT_DATABASE="$CURRENT_DATABASE"
+      --build-arg POSTGRES_DB_NAME="$POSTGRES_DB_NAME"
+      --build-arg POSTGRES_DB_USER="$POSTGRES_DB_USER"
+      --build-arg POSTGRES_DB_PASSWORD="$POSTGRES_DB_PASSWORD"
+      --build-arg POSTGRES_DB_PORT="$POSTGRES_DB_PORT"
+      --build-arg POSTGRES_DB_HOST="$POSTGRES_DB_HOST"
+      --build-arg MONGO_DB_DATABASE="$MONGO_DB_DATABASE"
+      --build-arg MONGO_DB_HOST="$MONGO_DB_HOST"
+      --build-arg MONGO_DB_PORT="$MONGO_DB_PORT"
+      --build-arg MONGO_DB_USER="$MONGO_DB_USER"
+      --build-arg MONGO_DB_PASSWORD="$MONGO_DB_PASSWORD"
       -t $IMAGE_NAME .
     - docker push $IMAGE_NAME
     - echo "Build complete"
