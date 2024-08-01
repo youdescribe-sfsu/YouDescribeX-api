@@ -213,121 +213,129 @@ class VideosService {
   }
 
   public async getVideoById(video_id: string) {
-    if (!video_id) throw new HttpException(400, 'video_id is empty');
-    const video = await MongoVideosModel.findOne({ youtube_id: video_id }).populate({
-      path: 'audio_descriptions',
-      populate: [
-        { path: 'audio_clips' },
-        { path: 'user' }, // Populate user data for each audio description
-      ],
-    });
-    if (!video) {
-      const newVideo = await getYouTubeVideoStatus(video_id);
-      return { result: newVideo };
+    console.log(`getVideoById called with video_id: ${video_id}`);
+
+    if (!video_id) {
+      console.error('video_id is empty');
+      throw new HttpException(400, 'video_id is empty');
     }
 
-    const newVideo = video.toJSON();
+    try {
+      console.log('Querying database for video');
+      const video = await MongoVideosModel.findOne({ youtube_id: video_id }).populate({
+        path: 'audio_descriptions',
+        populate: [{ path: 'audio_clips' }, { path: 'user' }],
+      });
 
-    const audioDescriptions = newVideo.audio_descriptions.slice();
-    newVideo.audio_descriptions = [];
+      console.log('Raw video data from database:', JSON.stringify(video, null, 2));
 
-    async function processAudioDescription(ad) {
-      const audioDescriptionRating = await MongoAudioDescriptionRatingModel.find({
-        audio_description_id: ad._id,
-      }).exec();
-
-      ad.feedbacks = {} as { [key: string]: number };
-
-      if (audioDescriptionRating && audioDescriptionRating.length > 0) {
-        audioDescriptionRating.forEach(adr => {
-          if (adr.feedback && adr.feedback.length > 0) {
-            adr.feedback.forEach(item => {
-              if (!ad.feedbacks.hasOwnProperty(item)) {
-                ad.feedbacks[item] = 0;
-              }
-              ad.feedbacks[item] += 1;
-            });
-          }
-        });
+      if (!video) {
+        console.log('Video not found, fetching from YouTube');
+        const newVideo = await getYouTubeVideoStatus(video_id);
+        console.log('YouTube video data:', JSON.stringify(newVideo, null, 2));
+        return { result: newVideo };
       }
 
-      return ad;
+      const newVideo = video.toJSON();
+      console.log('Video data after toJSON:', JSON.stringify(newVideo, null, 2));
+
+      const audioDescriptions = newVideo.audio_descriptions.slice();
+      newVideo.audio_descriptions = [];
+
+      async function processAudioDescription(ad) {
+        console.log('Processing audio description:', JSON.stringify(ad, null, 2));
+
+        const audioDescriptionRating = await MongoAudioDescriptionRatingModel.find({
+          audio_description_id: ad._id,
+        }).exec();
+
+        console.log('Audio description ratings:', JSON.stringify(audioDescriptionRating, null, 2));
+
+        ad.feedbacks = {} as { [key: string]: number };
+
+        if (audioDescriptionRating && audioDescriptionRating.length > 0) {
+          audioDescriptionRating.forEach(adr => {
+            if (adr.feedback && adr.feedback.length > 0) {
+              adr.feedback.forEach(item => {
+                if (!ad.feedbacks.hasOwnProperty(item)) {
+                  ad.feedbacks[item] = 0;
+                }
+                ad.feedbacks[item] += 1;
+              });
+            }
+          });
+        }
+
+        console.log('Processed audio description:', JSON.stringify(ad, null, 2));
+        return ad;
+      }
+
+      console.log('Processing audio descriptions');
+      const processedDescriptions = await Promise.all(audioDescriptions.map(processAudioDescription));
+      newVideo.audio_descriptions = processedDescriptions;
+
+      console.log('Final video data to be sent:', JSON.stringify(newVideo, null, 2));
+      return { result: newVideo };
+    } catch (error) {
+      console.error('Error in getVideoById:', error);
+      throw error;
     }
-
-    const audioDescriptionPromises = audioDescriptions.map(processAudioDescription);
-
-    newVideo.audio_descriptions = await Promise.all(audioDescriptionPromises);
-
-    return { result: newVideo };
-    // } else {
-    //   throw new HttpException(400, 'video not found');
-    // }
-
-    // return { result: video };
   }
 
-  public async getSearchVideos(page?: string, query?: string) {
+  public async getSearchVideos(page = '1', query = '') {
     try {
       const pgNumber = Number(page);
+      if (isNaN(pgNumber) || pgNumber < 1) {
+        throw new Error('Invalid page number');
+      }
+
       const videosPerPage = 20;
       const skipValue = (pgNumber - 1) * videosPerPage;
+      const normalizedQuery = query.toLowerCase();
+      const regexQuery = '\\b' + normalizedQuery + '\\b';
 
-      let matchQuery: any = {};
-      let similarUserIds: string[] = [];
-
-      matchQuery = {
+      const matchQuery: any = {
         $or: [
-          { 'language.name': { $regex: '\\b' + query + '\\b', $options: 'i' } },
-          { category: { $regex: '\\b' + query + '\\b', $options: 'i' } },
-          { title: { $regex: '\\b' + query + '\\b', $options: 'i' } },
+          { 'language.name': { $regex: regexQuery, $options: 'i' } },
+          { category: { $regex: regexQuery, $options: 'i' } },
+          { title: { $regex: regexQuery, $options: 'i' } },
           {
             tags: {
-              $elemMatch: { $regex: '\\b' + query + '\\b', $options: 'i' },
+              $elemMatch: { $regex: regexQuery, $options: 'i' },
             },
           },
           {
             custom_tags: {
-              $elemMatch: { $regex: '\\b' + query + '\\b', $options: 'i' },
+              $elemMatch: { $regex: regexQuery, $options: 'i' },
             },
           },
         ],
+        'populated_audio_descriptions.status': 'published',
       };
 
       const allUsers = await MongoUsersModel.find({ name: { $exists: true } }, { _id: 1, name: 1 });
-      const usernames = allUsers.map(user => user.name);
-      const normalizedQuery = query.toLowerCase();
-      const matches = stringSimilarity.findBestMatch(
-        normalizedQuery,
-        usernames.map(name => name.toLowerCase()),
-      );
+      const usernames = allUsers.map(user => user.name.toLowerCase());
 
-      similarUserIds = Array.from(
+      const matches = stringSimilarity.findBestMatch(normalizedQuery, usernames);
+
+      const similarUserIds = Array.from(
         new Set(
           matches.ratings
             .filter(({ rating }) => rating > 0.5)
             .map(({ target }) => {
               const normalizedTarget = target.toLowerCase();
-              return allUsers.filter(user => user.name.toLowerCase() === normalizedTarget).map(user => user._id);
+              return allUsers.filter(user => user.name.toLowerCase() === normalizedTarget).map(user => user._id.toString());
             })
             .flat(),
         ),
       );
 
-      const videoMatchQuery = {
-        ...matchQuery,
-        'populated_audio_descriptions.status': 'published',
-      };
-
       if (similarUserIds.length > 0) {
-        videoMatchQuery.$or.push({ 'populated_audio_descriptions.user._id': { $in: similarUserIds } });
+        matchQuery.$or.push({ 'populated_audio_descriptions.user._id': { $in: similarUserIds } });
       }
 
-      if (query && /^[a-zA-Z0-9-_]{11}$/.test(query)) {
-        videoMatchQuery.$or.push({ youtube_id: query });
-      }
-
-      if (Object.keys(videoMatchQuery).length === 0) {
-        return [];
+      if (/^[a-zA-Z0-9-_]{11}$/.test(query)) {
+        matchQuery.$or.push({ youtube_id: query });
       }
 
       const result = await MongoVideosModel.aggregate([
@@ -359,37 +367,34 @@ class VideosService {
           },
         },
         {
-          $match: videoMatchQuery,
+          $match: matchQuery,
         },
         {
           $sort: { 'populated_audio_descriptions.updated_at': -1 },
         },
         {
+          $group: {
+            _id: '$_id',
+            audio_descriptions: { $push: '$populated_audio_descriptions' },
+            category: { $first: '$category' },
+            category_id: { $first: '$category_id' },
+            created_at: { $first: '$created_at' },
+            custom_tags: { $first: '$custom_tags' },
+            description: { $first: '$description' },
+            duration: { $first: '$duration' },
+            tags: { $first: '$tags' },
+            title: { $first: '$title' },
+            updated_at: { $first: '$updated_at' },
+            views: { $first: '$views' },
+            youtube_id: { $first: '$youtube_id' },
+            youtube_status: { $first: '$youtube_status' },
+            __v: { $first: '$__v' },
+          },
+        },
+        {
           $facet: {
             totalCount: [{ $count: 'count' }],
-            paginatedResults: [
-              { $skip: skipValue },
-              { $limit: videosPerPage },
-              {
-                $project: {
-                  audio_descriptions: '$populated_audio_descriptions',
-                  category: 1,
-                  category_id: 1,
-                  created_at: 1,
-                  custom_tags: 1,
-                  description: 1,
-                  duration: 1,
-                  tags: 1,
-                  title: 1,
-                  updated_at: 1,
-                  views: 1,
-                  youtube_id: 1,
-                  youtube_status: 1,
-                  __v: 1,
-                  _id: 1,
-                },
-              },
-            ],
+            paginatedResults: [{ $skip: skipValue }, { $limit: videosPerPage }],
           },
         },
         {
@@ -405,8 +410,8 @@ class VideosService {
         videos: result[0]?.videos || [],
       };
     } catch (err) {
-      console.log(err);
-      throw new Error('Error fetching videos: ' + err);
+      console.error('Error fetching videos:', err);
+      throw new Error('Error fetching videos: ' + err.message);
     }
   }
 
