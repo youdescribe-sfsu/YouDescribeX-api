@@ -1,9 +1,10 @@
-version: '3'
-
 services:
   backend:
     container_name: youdescribex-backend
     image: "${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_NAME}.${CI_PIPELINE_ID}"
+    build:
+      context: .
+      dockerfile: Dockerfile
     restart: always
     ports:
       - "${PORT}:${PORT}"
@@ -25,8 +26,8 @@ services:
       - AUDIO_DIRECTORY=${AUDIO_DIRECTORY}
       - YOUTUBE_API_URL=${YOUTUBE_API_URL}
       - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
-      - PASSPORT_REDIRECT_URL=${PASSPORT_REDIRECT_URL}
-      - PASSPORT_CALLBACK_URL=${PASSPORT_CALLBACK_URL}
+      - PASSPORT_REDIRECT_URL=${PASSPORT_REDIRECT_URL_DEV}
+      - PASSPORT_CALLBACK_URL=${PASSPORT_CALLBACK_URL_DEV}
       - CRYPTO_SECRET=${CRYPTO_SECRET}
       - CRYPTO_SEED=${CRYPTO_SEED}
       - CURRENT_DATABASE=${CURRENT_DATABASE}
@@ -42,12 +43,7 @@ services:
       - MONGO_DB_PASSWORD=${MONGO_DB_PASSWORD}
       - GPU_HOST=${GPU_HOST}
       - GPU_PIPELINE_PORT=${GPU_PIPELINE_PORT}
-      - CURRENT_YDX_HOST=${CURRENT_YDX_HOST}
+      - CURRENT_YDX_HOST=${YDX_HOST_DEV}
       - GMAIL_USER=${GMAIL_USER}
       - GMAIL_PASSWORD=${GMAIL_PASSWORD}
       - AI_USER_ID=${AI_USER_ID}
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "200k"
-        max-file: "10"
