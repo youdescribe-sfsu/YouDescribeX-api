@@ -131,40 +131,30 @@ class WishListService {
   }
 
   public async getTopWishlist(user_id: string) {
-    const userVotes = new Set((await MongoUserVotesModel.find({ user: user_id }).select('youtube_id').lean()).map(v => v.youtube_id));
+    try {
+      // Get the user's votes
+      const userVotes = new Set((await MongoUserVotesModel.find({ user: user_id }).select('youtube_id').lean()).map(v => v.youtube_id));
 
-    const top3AIRequestedVideos = await MongoAICaptionRequestModel.aggregate([
-      { $match: { status: 'pending', audio_descriptions: { $exists: false, $size: 0 } } },
-      { $addFields: { numCaptionRequests: { $size: '$caption_requests' } } },
-      { $sort: { numCaptionRequests: -1 } },
-      { $limit: 3 },
-      { $project: { youtube_id: 1 } },
-    ]);
+      // Get top 5 wishlist items
+      const top5Wishlist = await MongoWishListModel.find({
+        status: 'queued',
+        youtube_status: 'available',
+      })
+        .sort({ votes: -1, created_at: -1 }) // Sort by votes (descending) and then by creation date if votes are equal
+        .limit(5)
+        .lean();
 
-    const top3AIRequestedYoutubeIds = top3AIRequestedVideos.map(video => video.youtube_id);
+      // Format results
+      const results = top5Wishlist.map(video => ({
+        ...video,
+        voted: userVotes.has(video.youtube_id),
+      }));
 
-    const top2Wishlist = await MongoWishListModel.find({
-      status: 'queued',
-      youtube_id: { $nin: top3AIRequestedYoutubeIds },
-      audio_descriptions: { $exists: false, $size: 0 },
-    })
-      .sort({ votes: -1 })
-      .limit(2)
-      .lean();
-
-    const aiVideos = top3AIRequestedVideos.map(video => ({
-      youtube_id: video.youtube_id,
-      aiRequested: true,
-      voted: userVotes.has(video.youtube_id),
-    }));
-
-    const wishlistVideos = top2Wishlist.map(video => ({
-      ...video,
-      aiRequested: false,
-      voted: userVotes.has(video.youtube_id),
-    }));
-
-    return [...aiVideos, ...wishlistVideos];
+      return results;
+    } catch (error) {
+      console.error('Error in getTopWishlist:', error);
+      throw new Error('Failed to retrieve top wishlist items');
+    }
   }
 
   public async getUserWishlist(user_id: string | undefined, pageNumber: string) {
