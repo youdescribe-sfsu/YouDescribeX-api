@@ -44,6 +44,11 @@ ENV MONGO_DB_PASSWORD=${MONGO_DB_PASSWORD}
 RUN npm run build
 RUN npm prune --production
 
-RUN echo "$GOOGLE_CRED_FILE" | base64 -d -i - > "$GOOGLE_APPLICATION_CREDENTIALS"
+RUN if [ -n "$GOOGLE_APPLICATION_CREDENTIALS" ] && [ -n "$GOOGLE_CRED_FILE" ]; then \
+        mkdir -p $(dirname "$GOOGLE_APPLICATION_CREDENTIALS") && \
+        echo "$GOOGLE_CRED_FILE" | base64 -d > "$GOOGLE_APPLICATION_CREDENTIALS"; \
+    else \
+        echo "Skipping Google credentials setup"; \
+    fi
 
 CMD ["node", "./dist/server.js"]
