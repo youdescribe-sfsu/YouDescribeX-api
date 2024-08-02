@@ -49,6 +49,6 @@ RUN if [ -n "$GOOGLE_APPLICATION_CREDENTIALS" ] && [ -n "$GOOGLE_CRED_FILE" ]; t
         echo "$GOOGLE_CRED_FILE" | base64 -d > "$GOOGLE_APPLICATION_CREDENTIALS"; \
     else \
         echo "Skipping Google credentials setup"; \
-    fi \
+    fi
 
 CMD ["node", "./dist/server.js"]
