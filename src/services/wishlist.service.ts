@@ -1,7 +1,13 @@
 import { WishListRequest } from '../dtos/wishlist.dto';
 import { IWishList } from '../models/mongodb/Wishlist.mongo';
 import { HttpException } from '../exceptions/HttpException';
-import { MongoAICaptionRequestModel, MongoUserVotesModel, MongoWishListModel } from '../models/mongodb/init-models.mongo';
+import {
+  MongoAICaptionRequestModel,
+  MongoUserVotesModel,
+  MongoWishListModel,
+  MongoVideosModel,
+  MongoAudio_Descriptions_Model,
+} from '../models/mongodb/init-models.mongo';
 import { IUser } from '../models/mongodb/User.mongo';
 import { formattedDate, getYouTubeVideoStatus } from '../utils/util';
 import axios from 'axios';
@@ -132,23 +138,70 @@ class WishListService {
 
   public async getTopWishlist(user_id: string) {
     try {
-      // Get the user's votes
       const userVotes = new Set((await MongoUserVotesModel.find({ user: user_id }).select('youtube_id').lean()).map(v => v.youtube_id));
 
-      // Get top 5 wishlist items
-      const top5Wishlist = await MongoWishListModel.find({
-        status: 'queued',
-        youtube_status: 'available',
-      })
-        .sort({ votes: -1, created_at: -1 }) // Sort by votes (descending) and then by creation date if votes are equal
-        .limit(5)
-        .lean();
+      const results = [];
+      let skip = 0;
+      const batchSize = 10;
 
-      // Format results
-      const results = top5Wishlist.map(video => ({
-        ...video,
-        voted: userVotes.has(video.youtube_id),
-      }));
+      while (results.length < 5) {
+        // Step 1: Get batch of wishlist items
+        const wishlistItems = await MongoWishListModel.find({
+          status: 'queued',
+          youtube_status: 'available',
+        })
+          .sort({ votes: -1, created_at: -1 })
+          .skip(skip)
+          .limit(batchSize)
+          .lean();
+
+        if (wishlistItems.length === 0) break; // No more items to process
+
+        // Step 2: Get corresponding video documents
+        const videoIds = wishlistItems.map(item => item.youtube_id);
+        const videos = await MongoVideosModel.find({ youtube_id: { $in: videoIds } })
+          .select('_id youtube_id')
+          .lean();
+
+        const videoMap = new Map(videos.map(v => [v.youtube_id, v._id]));
+
+        // Step 3: Check for existing descriptions
+        const videoObjectIds = videos.map(v => v._id);
+        const existingDescriptions = await MongoAudio_Descriptions_Model.find({
+          video: { $in: videoObjectIds },
+        })
+          .select('video status')
+          .lean();
+
+        const descriptionStatusMap = new Map(existingDescriptions.map(d => [d.video.toString(), d.status]));
+
+        const itemsToUpdate = [];
+
+        for (const item of wishlistItems) {
+          const videoObjectId = videoMap.get(item.youtube_id);
+          if (!videoObjectId) continue;
+
+          const descriptionStatus = descriptionStatusMap.get(videoObjectId.toString());
+
+          if (descriptionStatus === 'published') {
+            itemsToUpdate.push(item.youtube_id);
+          } else if (!descriptionStatus && results.length < 5) {
+            results.push({
+              ...item,
+              voted: userVotes.has(item.youtube_id),
+            });
+          }
+
+          if (results.length === 5) break;
+        }
+
+        // Update status for items that have published descriptions
+        if (itemsToUpdate.length > 0) {
+          await MongoWishListModel.updateMany({ youtube_id: { $in: itemsToUpdate } }, { $set: { status: 'dequeued' } });
+        }
+
+        skip += batchSize;
+      }
 
       return results;
     } catch (error) {
