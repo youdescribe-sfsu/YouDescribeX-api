@@ -266,6 +266,16 @@ class VideosService {
           });
         }
 
+        if (ad.contributions) {
+          const nameContributions = new Map<string, number>();
+          for (const [key, value] of Object.entries(ad.contributions)) {
+            const user = await MongoUsersModel.findOne({ _id: key });
+            const name = user.user_type !== 'AI' ? user.name : 'AI Description Draft';
+            nameContributions[name] = value;
+          }
+          ad.contributions = nameContributions;
+        }
+
         console.log('Processed audio description:', JSON.stringify(ad, null, 2));
         return ad;
       }
