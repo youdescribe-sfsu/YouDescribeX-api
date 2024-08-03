@@ -9,6 +9,8 @@ import { IUser } from '../models/mongodb/User.mongo';
 import { MongoUsersModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import sendEmail from '../utils/emailService';
 import { getYouTubeVideoStatus } from '../utils/util';
+import { deepCopyAudioClip } from '../services/audioClips.util';
+import { deepCopyAudioDescriptionWithoutNewClips, updateAutoClips, updateContributions } from '../services/audiodescriptions.util';
 
 class UsersController {
   public userService = new userService();
@@ -160,6 +162,40 @@ class UsersController {
       res.status(201).json({
         message: `Successfully created new user Audio Description`,
         url: `${newUserAudioDescription.youtubeVideoId}/${audioDescriptionId}`,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public createCollaborativeDescription = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = req.user as unknown as IUser;
+      if (!user) throw new Error('User not found');
+      const videoId: string = req.body.youtubeVideoId;
+      const audio_description_id = req.body.oldDescriberId;
+      // deep copy audio description
+      const deepCopiedAudioDescriptionId = await deepCopyAudioDescriptionWithoutNewClips(audio_description_id, user._id);
+      const deepCopiedClipIds = await deepCopyAudioClip(audio_description_id, deepCopiedAudioDescriptionId, user._id, videoId);
+      await updateAutoClips(deepCopiedAudioDescriptionId, deepCopiedClipIds);
+      // replace audio description clip id with deep copied clip id
+      res.status(201).json({
+        message: `Successfully deeply copied Audio Description`,
+        url: `${videoId}/${deepCopiedAudioDescriptionId}`,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public calculateContributions = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const audioDescriptionId: string = req.body.audioDescriptionId;
+      const user = req.user as unknown as IUser;
+      const userId = user._id.toString();
+      await updateContributions(audioDescriptionId, userId);
+      res.status(201).json({
+        message: 'Contributions calculated',
       });
     } catch (error) {
       next(error);
