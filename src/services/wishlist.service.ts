@@ -6,6 +6,8 @@ import { IUser } from '../models/mongodb/User.mongo';
 import { formattedDate, getYouTubeVideoStatus } from '../utils/util';
 import axios from 'axios';
 import * as conf from '../utils/youtube_utils';
+import { PipelineStage } from 'mongoose';
+import { Types } from 'mongoose';
 
 interface IWishListResponse {
   items: IWishList[];
@@ -132,25 +134,53 @@ class WishListService {
 
   public async getTopWishlist(user_id: string) {
     try {
-      // Get the user's votes
-      const userVotes = new Set((await MongoUserVotesModel.find({ user: user_id }).select('youtube_id').lean()).map(v => v.youtube_id));
+      const pipeline: PipelineStage[] = [
+        {
+          $match: {
+            status: 'queued',
+            youtube_status: 'available',
+          },
+        },
+        {
+          $sort: {
+            votes: -1,
+            created_at: -1,
+          },
+        },
+        {
+          $limit: 5,
+        },
+        {
+          $lookup: {
+            from: 'user_votes',
+            let: { youtube_id: '$youtube_id' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [{ $eq: ['$youtube_id', '$$youtube_id'] }, { $eq: ['$user', new Types.ObjectId(user_id)] }],
+                  },
+                },
+              },
+            ],
+            as: 'userVote',
+          },
+        },
+        {
+          $addFields: {
+            voted: { $gt: [{ $size: '$userVote' }, 0] },
+          },
+        },
+        {
+          $project: {
+            userVote: 0,
+          },
+        },
+      ];
 
-      // Get top 5 wishlist items
-      const top5Wishlist = await MongoWishListModel.find({
-        status: 'queued',
-        youtube_status: 'available',
-      })
-        .sort({ votes: -1, created_at: -1 }) // Sort by votes (descending) and then by creation date if votes are equal
-        .limit(5)
-        .lean();
+      const topWishlist = await MongoWishListModel.aggregate(pipeline);
 
-      // Format results
-      const results = top5Wishlist.map(video => ({
-        ...video,
-        voted: userVotes.has(video.youtube_id),
-      }));
-
-      return results;
+      return topWishlist;
     } catch (error) {
       console.error('Error in getTopWishlist:', error);
       throw new Error('Failed to retrieve top wishlist items');
