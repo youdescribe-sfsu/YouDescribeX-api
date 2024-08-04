@@ -7,6 +7,7 @@ import { formattedDate, getYouTubeVideoStatus } from '../utils/util';
 import axios from 'axios';
 import * as conf from '../utils/youtube_utils';
 import { PipelineStage } from 'mongoose';
+import { Types } from 'mongoose';
 
 interface IWishListResponse {
   items: IWishList[];
@@ -157,7 +158,7 @@ class WishListService {
               {
                 $match: {
                   $expr: {
-                    $and: [{ $eq: ['$youtube_id', '$$youtube_id'] }, { $eq: ['$user', { $toObjectId: user_id }] }],
+                    $and: [{ $eq: ['$youtube_id', '$$youtube_id'] }, { $eq: ['$user', new Types.ObjectId(user_id)] }],
                   },
                 },
               },
