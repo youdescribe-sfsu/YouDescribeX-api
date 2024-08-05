@@ -213,38 +213,28 @@ class VideosService {
   }
 
   public async getVideoById(video_id: string) {
-    console.log(`getVideoById called with video_id: ${video_id}`);
-
     if (!video_id) {
       console.error('video_id is empty');
       throw new HttpException(400, 'video_id is empty');
     }
 
     try {
-      console.log('Querying database for video');
       const video = await MongoVideosModel.findOne({ youtube_id: video_id }).populate({
         path: 'audio_descriptions',
         populate: [{ path: 'audio_clips' }, { path: 'user' }],
       });
 
-      console.log('Raw video data from database:', JSON.stringify(video, null, 2));
-
       if (!video) {
-        console.log('Video not found, fetching from YouTube');
         const newVideo = await getYouTubeVideoStatus(video_id);
-        console.log('YouTube video data:', JSON.stringify(newVideo, null, 2));
         return { result: newVideo };
       }
 
       const newVideo = video.toJSON();
-      console.log('Video data after toJSON:', JSON.stringify(newVideo, null, 2));
 
       const audioDescriptions = newVideo.audio_descriptions.slice();
       newVideo.audio_descriptions = [];
 
       async function processAudioDescription(ad) {
-        console.log('Processing audio description:', JSON.stringify(ad, null, 2));
-
         const audioDescriptionRating = await MongoAudioDescriptionRatingModel.find({
           audio_description_id: ad._id,
         }).exec();
@@ -266,15 +256,12 @@ class VideosService {
           });
         }
 
-        console.log('Processed audio description:', JSON.stringify(ad, null, 2));
         return ad;
       }
 
-      console.log('Processing audio descriptions');
       const processedDescriptions = await Promise.all(audioDescriptions.map(processAudioDescription));
       newVideo.audio_descriptions = processedDescriptions;
 
-      console.log('Final video data to be sent:', JSON.stringify(newVideo, null, 2));
       return { result: newVideo };
     } catch (error) {
       console.error('Error in getVideoById:', error);
