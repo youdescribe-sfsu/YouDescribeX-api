@@ -21,7 +21,7 @@ export const { GMAIL_USER, GMAIL_PASSWORD } = process.env;
 
 export const GPU_URL = GPU_HOST && GPU_PIPELINE_PORT ? `http://${GPU_HOST}:${GPU_PIPELINE_PORT}` : null;
 
-export const GPU_NOTIFY_EMAILS = ['vishalsharma1907@gmail.com'];
+export const GPU_NOTIFY_EMAILS = ['smirani1@mail.sfsu.edu'];
 
 // Generate Google credentials from GOOGLE_CRED_FILE which is encoded in base64
 // If GOOGLE_CRED_FILE is not provided, then print that in the console that text to speech will not work
