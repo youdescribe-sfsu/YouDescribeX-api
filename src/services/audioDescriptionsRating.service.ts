@@ -17,10 +17,11 @@ class AudioDescriptionRatingService {
         overall_rating_votes_sum: (audioDescription.overall_rating_votes_sum || 0) - previousRating + newRating,
         overall_rating_votes_counter:
           previousRating === 0 ? (audioDescription.overall_rating_votes_counter || 0) + 1 : audioDescription.overall_rating_votes_counter,
+        overall_rating_votes_average: 0,
         updated_at: nowUtc(),
       };
 
-      // updatedData.overall_rating_votes_average = Math.floor(updatedData.overall_rating_votes_sum / (updatedData.overall_rating_votes_counter || 1));
+      updatedData.overall_rating_votes_average = Math.floor(updatedData.overall_rating_votes_sum / (updatedData.overall_rating_votes_counter || 1));
 
       await MongoAudio_Descriptions_Model.updateOne({ _id: audioDescriptionId }, updatedData);
     } catch (error) {
