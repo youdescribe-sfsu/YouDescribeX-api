@@ -214,7 +214,6 @@ class VideosService {
 
   public async getVideoById(video_id: string) {
     if (!video_id) {
-      console.error('video_id is empty');
       throw new HttpException(400, 'video_id is empty');
     }
 
@@ -238,8 +237,6 @@ class VideosService {
         const audioDescriptionRating = await MongoAudioDescriptionRatingModel.find({
           audio_description_id: ad._id,
         }).exec();
-
-        console.log('Audio description ratings:', JSON.stringify(audioDescriptionRating, null, 2));
 
         ad.feedbacks = {} as { [key: string]: number };
 
