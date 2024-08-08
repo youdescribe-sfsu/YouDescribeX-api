@@ -36,22 +36,13 @@ export class UpdateClipAudioPathDto {
 }
 
 export class AddNewAudioClipDto {
-  @IsString()
-  public newACStartTime: string;
-  @IsString()
-  public newACTitle: string;
-  @IsString()
-  public newACType: string;
-  @IsString()
-  public newACDescriptionText: string;
-  @IsString()
-  public isRecorded: boolean;
-  @IsString()
-  public newACPlaybackType: string;
-  @IsString()
-  public newACDuration: string | null;
-  @IsString()
-  public userId: string;
-  @IsString()
-  public youtubeVideoId: string;
+  isRecorded: boolean;
+  newACDescriptionText: string;
+  newACPlaybackType: string;
+  newACStartTime: string;
+  newACTitle: string;
+  newACType: string;
+  newACDuration: string | null;
+  userId: string;
+  youtubeVideoId: string;
 }

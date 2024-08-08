@@ -551,7 +551,6 @@ class AudioClipsService {
     if (isEmpty(newACStartTime)) throw new HttpException(400, 'New Audio Clip Start Time is empty');
     if (isEmpty(newACTitle)) throw new HttpException(400, 'New Audio Clip Title is empty');
     if (isEmpty(newACType)) throw new HttpException(400, 'New Audio Clip Type is empty');
-    if (isEmpty(newACDescriptionText)) throw new HttpException(400, 'New Audio Clip Description Text is empty');
     if (isEmpty(newACPlaybackType)) throw new HttpException(400, 'New Audio Clip Playback Type is empty');
 
     let newClipAudioFilePath: string;
@@ -559,21 +558,20 @@ class AudioClipsService {
     let fileName: string;
     let file_size_bytes: number;
     let file_mime_type: string;
+
     if (file && isRecorded && newACDuration !== null) {
       const filePath = String(file.path);
-      logger.info(`File Path: ${filePath}`);
       newClipAudioFilePath = `.` + filePath.substring(filePath.indexOf('/audio/'));
       if (newClipAudioFilePath.includes('.mp3')) {
         newClipAudioFilePath = newClipAudioFilePath.split('/').slice(0, -1).join('/');
       }
-      logger.info(`newClipAudioFilePath Path: ${newClipAudioFilePath}`);
       newAudioDuration = newACDuration;
       fileName = String(file.filename);
-      logger.info(`File Name: ${fileName}`);
       file_size_bytes = file.size;
       file_mime_type = file.mimetype;
     } else {
       // User didn't record an audio clip, need to generate it using text-to-speech
+      if (isEmpty(newACDescriptionText)) throw new HttpException(400, 'New Audio Clip Description Text is empty');
       const generatedMP3Response = await generateMp3forDescriptionText(adId, youtubeVideoId, newACDescriptionText, newACType);
       if (generatedMP3Response.status === null) throw new HttpException(409, 'Unable to generate Text to Speech!! Please try again');
       newClipAudioFilePath = generatedMP3Response.filepath;
@@ -586,6 +584,7 @@ class AudioClipsService {
       file_size_bytes = generatedMP3Response.file_size_bytes;
       file_mime_type = generatedMP3Response.file_mime_type;
     }
+
     const newClipEndTime = Number((parseFloat(newACStartTime) + parseFloat(newAudioDuration)).toFixed(2));
     const getVideoIdStatus = await getVideoFromYoutubeId(youtubeVideoId);
     if (getVideoIdStatus.data === null) throw new HttpException(409, getVideoIdStatus.message);
