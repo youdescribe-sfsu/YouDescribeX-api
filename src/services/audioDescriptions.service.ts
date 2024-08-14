@@ -362,6 +362,37 @@ class AudioDescriptionsService {
     }
   };
 
+  public unpublishAudioDescription = async (audioDescriptionId: string, youtube_id: string, user_id: string): Promise<string> => {
+    try {
+      const videoIdStatus = await getYouTubeVideoStatus(youtube_id);
+
+      if (!videoIdStatus) {
+        throw new HttpException(400, 'No videoIdStatus provided');
+      }
+      const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
+        video: videoIdStatus._id,
+        _id: audioDescriptionId,
+      });
+      if (!checkIfAudioDescriptionExists) {
+        throw new HttpException(404, 'No audioDescriptionId Found');
+      }
+
+      const audioDescription = await MongoAudio_Descriptions_Model.findByIdAndUpdate(audioDescriptionId, {
+        status: 'draft',
+        updated_at: nowUtc(),
+        user: user_id,
+      });
+      const result = await MongoVideosModel.findByIdAndUpdate(videoIdStatus._id, {
+        $push: { audio_descriptions: audioDescriptionId },
+      });
+
+      return audioDescription._id.toString();
+    } catch (error) {
+      logger.error(error);
+      throw error;
+    }
+  };
+
   public getAudioDescription = async (
     audioDescriptionId: string,
     preview = false,

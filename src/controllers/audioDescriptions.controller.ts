@@ -82,6 +82,27 @@ class AudioDescripionsController {
     }
   };
 
+  public unpublishAudioDescription = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userData = req.user as unknown as IUser;
+      const {
+        audioDescriptionId,
+        youtube_id,
+      }: {
+        audioDescriptionId: string;
+        youtube_id: string;
+      } = req.body;
+      if (!userData) throw new Error('User not found');
+      if (!audioDescriptionId) throw new Error('Audio description id not found');
+      if (!youtube_id) throw new Error('Video id not found');
+      const publishedAudioDescription: string = await this.audioDescriptionsService.unpublishAudioDescription(audioDescriptionId, youtube_id, userData._id);
+
+      res.status(200).json({ link: `${youtube_id}/${publishedAudioDescription}` });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   public getAudioDescription = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const audioDescriptionId: string = req.params.audioDescriptionId;
