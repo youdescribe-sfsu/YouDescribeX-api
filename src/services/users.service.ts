@@ -611,8 +611,25 @@ class UserService {
 
       await sendEmail(
         userData.email,
-        `Requested Audio Description for ${youtubeVideoData.title} ready`,
-        `Your Audio Description is now available! You're invited to view it by following this link: ${replaced_url}`,
+        `🎉 Audio Description Ready !!! Your Audio Description for "${youtubeVideoData.title}" is Ready to Explore!`,
+        `
+      Dear ${userData.name},
+
+      Great news! Your requested audio description for "${youtubeVideoData.title}" is now available and waiting for you to experience.
+
+      We're excited for you to dive into this enhanced version of the video. Your audio description is ready to bring new dimensions to your viewing experience, offering rich details and nuanced narration.
+
+      Ready to explore? Simply click the link below to start your journey:
+
+      ${replaced_url}
+
+      Thank you for being part of the YouDescribe community. Your engagement helps make online content more accessible for everyone.
+
+      Enjoy your enhanced video experience!
+
+      Best regards,
+      The YouDescribe Team
+        `,
       );
 
       logger.info(`Email sent to ${userData.email}`);
