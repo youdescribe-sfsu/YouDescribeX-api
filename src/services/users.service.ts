@@ -612,7 +612,7 @@ class UserService {
       await sendEmail(
         userData.email,
         `🎉 Audio Description Ready !!! Your Audio Description for "${youtubeVideoData.title}" is Ready to Explore!`,
-        `
+        `,
       Dear ${userData.name},
 
       Great news! Your requested audio description for "${youtubeVideoData.title}" is now available and waiting for you to experience.
@@ -664,6 +664,32 @@ class UserService {
         // user_name: userData.name,
       });
       const counterIncrement = await this.increaseRequestCount(youtube_id, userData._id, AI_USER_ID);
+
+      await sendEmail(
+        userData.email,
+        `🎬 AI Description for "${youtubeVideoData.title}" is in the Works!`,
+        `
+      Dear ${userData.name},
+
+      Great news! We've received your request for an AI-generated audio description of "${youtubeVideoData.title}". Our advanced AI is now hard at work crafting a detailed and engaging description just for you.
+
+      Here's what's happening:
+      - Our AI is analyzing the video content
+      - It's identifying key visual elements and actions
+      - Soon, it will generate a comprehensive audio description
+
+      We'll notify you as soon as your AI-enhanced audio description is ready to explore. This may take some short time, but may vary depending on the video's length and complexity.
+
+      In the meantime, why not explore other audio-described videos on YouDescribe? There's always something new to discover!
+
+      Thank you for your patience and for being a valued member of the YouDescribe community. Your request helps us improve our AI and make more content accessible to everyone.
+
+      Stay tuned for your enhanced viewing experience!
+
+      Best regards,
+      The YouDescribe Team
+        `,
+      );
 
       if (!counterIncrement) {
         throw new HttpException(500, 'Error incrementing counter');
