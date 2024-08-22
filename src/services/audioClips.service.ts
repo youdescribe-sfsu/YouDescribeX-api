@@ -15,12 +15,14 @@ import {
   processCurrentClip,
 } from './audioClips.util';
 import { logger } from '../utils/logger';
-import { MongoAudioClipsModel, MongoAudio_Descriptions_Model, MongoVideosModel } from '../models/mongodb/init-models.mongo';
+import { MongoAudio_Descriptions_Model, MongoAudioClipsModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
 import { isVideoAvailable } from './videos.util';
-import { IAudioClips } from '../interfaces/audioClips.interface';
+import { Document } from 'mongoose';
 
-const userUndoStacks: { [userId: string]: { [videoId: string]: IAudioClips[] } } = {};
+type AudioClipDocument = IAudioClip & Document;
+
+const userUndoStacks: { [userId: string]: { [videoId: string]: AudioClipDocument[] } } = {};
 
 interface IProcessedClips {
   clip_id: any;
@@ -638,8 +640,7 @@ class AudioClipsService {
 
       if (!updatedAudioDescription) throw new HttpException(409, "Audio Description couldn't be updated");
       if (!newAudioClip) throw new HttpException(409, "Audio Description couldn't be created");
-      const playBackTypeMsg = newPlaybackType === newACPlaybackType ? '' : `Note: The playback type of the new clip is modified to ${newPlaybackType}`;
-      return playBackTypeMsg;
+      return newPlaybackType === newACPlaybackType ? '' : `Note: The playback type of the new clip is modified to ${newPlaybackType}`;
     } else {
       const newAudioClip = await PostGres_Audio_Clips.create({
         clip_title: newACTitle,
@@ -654,8 +655,7 @@ class AudioClipsService {
         AudioDescriptionAdId: adId,
       });
       if (!newAudioClip) throw new HttpException(409, "Audio Description couldn't be created");
-      const playBackTypeMsg = newPlaybackType === newACPlaybackType ? '' : `Note: The playback type of the new clip is modified to ${newPlaybackType}`;
-      return playBackTypeMsg;
+      return newPlaybackType === newACPlaybackType ? '' : `Note: The playback type of the new clip is modified to ${newPlaybackType}`;
     }
   }
 
@@ -672,9 +672,12 @@ class AudioClipsService {
     const oldAudioPath = oldAudioFilePathStatus.data;
 
     try {
-      let deletedAudioClip;
+      let deletedAudioClip: AudioClipDocument | null = null;
       if (CURRENT_DATABASE === 'mongodb') {
         deletedAudioClip = await MongoAudioClipsModel.findById(clipId);
+        if (!deletedAudioClip) {
+          throw new HttpException(404, 'Audio clip not found');
+        }
         console.log('deletedAudioClip (before deletion):', deletedAudioClip);
 
         // Get the user-specific undo stacks or create a new one
@@ -694,6 +697,10 @@ class AudioClipsService {
         deletedAudioClip = await MongoAudioClipsModel.findByIdAndDelete(clipId);
         console.log('deletedAudioClip (after deletion):', deletedAudioClip);
 
+        if (!deletedAudioClip) {
+          throw new HttpException(404, 'Audio clip not found after deletion attempt');
+        }
+
         // Delete Audio Clip from Audio Clip Array in Audio Description Object
         await MongoAudio_Descriptions_Model.findByIdAndUpdate(
           deletedAudioClip.audio_description,
@@ -705,7 +712,7 @@ class AudioClipsService {
           },
         ).catch(err => {
           logger.error(err);
-          throw new HttpException(409, "Audio clip couldn't be deleted.");
+          throw new HttpException(409, "Audio clip couldn't be deleted from Audio Description.");
         });
       }
 
@@ -715,15 +722,15 @@ class AudioClipsService {
 
       const deleteOldAudioFileStatus = await deleteOldAudioFile(oldAudioPath);
       if (!deleteOldAudioFileStatus) {
-        throw new HttpException(409, 'Problem deleting audio clip. Please try again.');
+        throw new HttpException(409, 'Problem deleting audio clip file. Please try again.');
       }
-      return deletedAudioClip;
+      return 1; // Indicate successful deletion
     } catch (error) {
       throw new HttpException(error.statusCode || 500, error.message);
     }
   }
 
-  public async undoDeletedAudioClip(userId: string, videoId: string): Promise<IAudioClips | null> {
+  public async undoDeletedAudioClip(userId: string, videoId: string): Promise<IAudioClip | null> {
     // Get the user-specific undo stacks
     const userStacks = userUndoStacks[userId];
     console.log('userStacks:', userUndoStacks);
@@ -745,11 +752,13 @@ class AudioClipsService {
       const restoredClip = undoStack.pop();
       console.log('restoredClip:', restoredClip);
 
-      if (CURRENT_DATABASE === 'mongodb') {
+      if (CURRENT_DATABASE === 'mongodb' && restoredClip) {
         console.log('INSIDE MONGODB');
         // Save the restored clip to the MongoDB data store
-        const clipToSave = { ...restoredClip };
-        delete clipToSave.clip_id;
+        const clipToSave = restoredClip.toObject();
+
+        // Remove the version key as it's managed by Mongoose
+        delete clipToSave.__v;
 
         const newClip = new MongoAudioClipsModel(clipToSave);
         await newClip.save();
@@ -757,7 +766,7 @@ class AudioClipsService {
 
         // Add the restored clip to the audio_clips array in the corresponding audio description
         await MongoAudio_Descriptions_Model.findByIdAndUpdate(
-          restoredClip.AudioDescriptionAdId,
+          restoredClip.audio_description,
           {
             $push: { audio_clips: newClip._id },
           },
@@ -767,11 +776,13 @@ class AudioClipsService {
         ).catch(err => {
           console.error('Error saving restored clip:', err);
           logger.error(err);
-          throw new HttpException(409, "Audio clip couldn't be restored.");
+          throw new HttpException(409, "Audio clip couldn't be restored to Audio Description.");
         });
+
+        return newClip;
       }
 
-      return restoredClip;
+      return restoredClip || null;
     } catch (error) {
       console.error('Error saving restored clip:', error);
       throw new HttpException(error.statusCode || 500, error.message);
