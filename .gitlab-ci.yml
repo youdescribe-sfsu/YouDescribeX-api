@@ -1,12 +1,15 @@
 stages:
   - build
   - deploy
+  - cleanup
 
 variables:
   CI_PROJECT_NAME: youdescribex-api
   DOCKER_REGISTRY: youdescribe
   CI_REGISTRY: docker.io
-  IMAGE_NAME: "${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_NAME}.${CI_PIPELINE_ID}"
+  IMAGE_NAME: "${DOCKER_REGISTRY}/${CI_PROJECT_NAME}"
+  LATEST_IMAGE: "${IMAGE_NAME}:latest"
+  VERSIONED_IMAGE: "${IMAGE_NAME}:${CI_COMMIT_REF_NAME}.${CI_PIPELINE_ID}"
 
 services:
   - docker:24.0.5-dind
@@ -36,8 +39,9 @@ build:
       --build-arg MONGO_DB_PORT="$MONGO_DB_PORT"
       --build-arg MONGO_DB_USER="$MONGO_DB_USER"
       --build-arg MONGO_DB_PASSWORD="$MONGO_DB_PASSWORD"
-      -t $IMAGE_NAME .
-    - docker push $IMAGE_NAME
+      -t $VERSIONED_IMAGE -t $LATEST_IMAGE .
+    - docker push $VERSIONED_IMAGE
+    - docker push $LATEST_IMAGE
     - echo "Build complete"
   tags:
     - backend
@@ -51,7 +55,7 @@ build:
     - echo "Deploying to $CI_ENVIRONMENT_NAME environment..."
     - docker-compose -f docker-compose.yml pull
     - docker-compose -f docker-compose.yml down
-    - docker-compose -f docker-compose.yml up -d
+    - docker-compose -f docker-compose.yml up -d --remove-orphans
 
 deploy_dev:
   <<: *deploy_template
@@ -79,4 +83,16 @@ deploy_prod:
     - backend
     - prod
   only:
+    - main
+
+cleanup:
+  stage: cleanup
+  script:
+    - echo "Cleaning up old images..."
+    - docker image prune -af --filter "until=24h"
+    - docker container prune -f
+  tags:
+    - backend
+  only:
+    - dev
     - main
