@@ -11,8 +11,8 @@ import {
   MongoUsersModel,
   MongoVideosModel,
 } from '../models/mongodb/init-models.mongo';
-import { logger } from '../utils/logger';
-import { getYouTubeVideoStatus, isEmpty, nowUtc, calculateContributions } from '../utils/util';
+import { logger } from './logger';
+import { getYouTubeVideoStatus, isEmpty, nowUtc, calculateContributions } from './util';
 import { generateMp3forDescriptionText, nudgeStartTimeIfZero, processCurrentClip } from './audioClips.util';
 import { isVideoAvailable } from './videos.util';
 

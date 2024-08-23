@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { upload } from '../services/audioClips.util';
+import { upload } from '../utils/audioClips.util';
 import { Routes } from '../interfaces/routes.interface';
 import { AudioClipsController } from '../controllers/audioClips.controller';
 

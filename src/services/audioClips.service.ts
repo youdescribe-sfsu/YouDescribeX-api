@@ -13,14 +13,12 @@ import {
   getVideoFromYoutubeId,
   nudgeStartTimeIfZero,
   processCurrentClip,
-} from './audioClips.util';
+} from '../utils/audioClips.util';
 import { logger } from '../utils/logger';
 import { MongoAudio_Descriptions_Model, MongoAudioClipsModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
-import { isVideoAvailable } from './videos.util';
+import { isVideoAvailable } from '../utils/videos.util';
 import { Document } from 'mongoose';
-import fs from 'fs';
-import util from 'util';
 
 type AudioClipDocument = IAudioClip & Document;
 
@@ -707,7 +705,7 @@ class AudioClipsService {
 
       // Delete the file
       const oldAudioPath = deletedClip.file_path;
-      const deleteOldAudioFileStatus = await this.deleteOldAudioFile(oldAudioPath);
+      const deleteOldAudioFileStatus = await deleteOldAudioFile(oldAudioPath);
       if (!deleteOldAudioFileStatus) {
         throw new HttpException(409, 'Problem deleting audio clip file. Please try again.');
       }
@@ -798,16 +796,16 @@ class AudioClipsService {
     }
   }
 
-  private async deleteOldAudioFile(filePath: string): Promise<boolean> {
-    try {
-      const unlinkFile = util.promisify(fs.unlink);
-      await unlinkFile(filePath);
-      return true;
-    } catch (error) {
-      console.error('Error deleting old audio file:', error);
-      return false;
-    }
-  }
+  // private async deleteOldAudioFile(filePath: string): Promise<boolean> {
+  //   try {
+  //     const unlinkFile = util.promisify(fs.unlink);
+  //     await unlinkFile(filePath);
+  //     return true;
+  //   } catch (error) {
+  //     console.error('Error deleting old audio file:', error);
+  //     return false;
+  //   }
+  // }
 }
 
 export default AudioClipsService;

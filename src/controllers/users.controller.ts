@@ -9,8 +9,8 @@ import { IUser } from '../models/mongodb/User.mongo';
 import { MongoUsersModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import sendEmail from '../utils/emailService';
 import { getYouTubeVideoStatus } from '../utils/util';
-import { deepCopyAudioClip } from '../services/audioClips.util';
-import { deepCopyAudioDescriptionWithoutNewClips, updateAutoClips, updateContributions } from '../services/audiodescriptions.util';
+import { deepCopyAudioClip } from '../utils/audioClips.util';
+import { deepCopyAudioDescriptionWithoutNewClips, updateAutoClips, updateContributions } from '../utils/audiodescriptions.util';
 
 class UsersController {
   public userService = new userService();

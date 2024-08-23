@@ -1,10 +1,10 @@
 import { HttpException } from '../exceptions/HttpException';
-import { convertISO8601ToSeconds, isEmpty } from '../utils/util';
+import { convertISO8601ToSeconds, isEmpty } from './util';
 import { CURRENT_DATABASE } from '../config';
 import { MongoWishListModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import { YOUTUBE_API_KEY, YOUTUBE_API_URL } from '../config';
 import axios from 'axios';
-import { logger } from '../utils/logger';
+import { logger } from './logger';
 
 interface GetVideoDataByYoutubeIdResponse {
   youtube_id: string;

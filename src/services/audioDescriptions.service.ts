@@ -22,7 +22,7 @@ import {
 } from '../models/postgres/init-models';
 import { logger } from '../utils/logger';
 import { getYouTubeVideoStatus, isEmpty, nowUtc } from '../utils/util';
-import { isVideoAvailable } from './videos.util';
+import { isVideoAvailable } from '../utils/videos.util';
 
 const fs = require('fs');
 

@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { MongoUsersModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import { IVideo } from '../models/mongodb/Videos.mongo';
-import { getVideoDataByYoutubeId } from '../services/videos.util';
+import { getVideoDataByYoutubeId } from './videos.util';
 import { GPU_URL } from '../config';
 import moment from 'moment';
 
