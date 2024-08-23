@@ -19,6 +19,8 @@ import { MongoAudio_Descriptions_Model, MongoAudioClipsModel, MongoVideosModel }
 import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
 import { isVideoAvailable } from './videos.util';
 import { Document } from 'mongoose';
+import fs from 'fs';
+import util from 'util';
 
 type AudioClipDocument = IAudioClip & Document;
 
@@ -664,68 +666,55 @@ class AudioClipsService {
       throw new HttpException(400, 'Clip ID is empty');
     }
 
-    const oldAudioFilePathStatus = await getOldAudioFilePath(clipId);
-    if (oldAudioFilePathStatus.data === null) {
-      throw new HttpException(409, oldAudioFilePathStatus.message);
-    }
-
-    const oldAudioPath = oldAudioFilePathStatus.data;
-
     try {
-      let deletedAudioClip: AudioClipDocument | null = null;
-      if (CURRENT_DATABASE === 'mongodb') {
-        deletedAudioClip = await MongoAudioClipsModel.findById(clipId);
-        if (!deletedAudioClip) {
-          throw new HttpException(404, 'Audio clip not found');
-        }
-        console.log('deletedAudioClip (before deletion):', deletedAudioClip);
+      // Find the audio clip
+      const audioClip = await MongoAudioClipsModel.findById(clipId);
+      if (!audioClip) {
+        throw new HttpException(404, 'Audio clip not found');
+      }
 
-        // Get the user-specific undo stacks or create a new one
-        const userStacks = userUndoStacks[userId] || {};
-        console.log('userStacks:', userStacks);
+      console.log('deletedAudioClip (before deletion):', audioClip);
 
-        // Get the undo stack for the current video or create a new one
-        const undoStack = userStacks[videoId] || [];
-        console.log('undoStack (before pushing):', undoStack);
+      // Get the user-specific undo stacks or create a new one
+      const userStacks = userUndoStacks[userId] || {};
+      console.log('userStacks:', userStacks);
 
-        // Push the clip to the undo stack
-        undoStack.push(deletedAudioClip);
-        userStacks[videoId] = undoStack;
-        userUndoStacks[userId] = userStacks;
-        console.log('undoStack (after pushing):', undoStack);
+      // Get the undo stack for the current video or create a new one
+      const undoStack = userStacks[videoId] || [];
+      console.log('undoStack (before pushing):', undoStack);
 
-        deletedAudioClip = await MongoAudioClipsModel.findByIdAndDelete(clipId);
-        console.log('deletedAudioClip (after deletion):', deletedAudioClip);
+      // Push the clip to the undo stack
+      undoStack.push(audioClip);
+      userStacks[videoId] = undoStack;
+      userUndoStacks[userId] = userStacks;
+      console.log('undoStack (after pushing):', undoStack);
 
-        if (!deletedAudioClip) {
-          throw new HttpException(404, 'Audio clip not found after deletion attempt');
-        }
+      // Delete from database
+      const deletedClip = await MongoAudioClipsModel.findByIdAndDelete(clipId);
+      console.log('deletedAudioClip (after deletion):', deletedClip);
 
-        // Delete Audio Clip from Audio Clip Array in Audio Description Object
-        await MongoAudio_Descriptions_Model.findByIdAndUpdate(
-          deletedAudioClip.audio_description,
-          {
-            $pull: { audio_clips: deletedAudioClip._id },
-          },
-          {
-            new: true,
-          },
-        ).catch(err => {
+      if (!deletedClip) {
+        throw new HttpException(404, 'Audio clip not found after deletion attempt');
+      }
+
+      // Remove reference from Audio Description
+      await MongoAudio_Descriptions_Model.findByIdAndUpdate(deletedClip.audio_description, { $pull: { audio_clips: deletedClip._id } }, { new: true }).catch(
+        err => {
           logger.error(err);
           throw new HttpException(409, "Audio clip couldn't be deleted from Audio Description.");
-        });
-      }
+        },
+      );
 
-      if (!deletedAudioClip) {
-        throw new HttpException(409, "Audio clip couldn't be deleted.");
-      }
-
-      const deleteOldAudioFileStatus = await deleteOldAudioFile(oldAudioPath);
+      // Delete the file
+      const oldAudioPath = deletedClip.file_path;
+      const deleteOldAudioFileStatus = await this.deleteOldAudioFile(oldAudioPath);
       if (!deleteOldAudioFileStatus) {
         throw new HttpException(409, 'Problem deleting audio clip file. Please try again.');
       }
+
       return 1; // Indicate successful deletion
     } catch (error) {
+      console.error('Error in deleteAudioClip:', error);
       throw new HttpException(error.statusCode || 500, error.message);
     }
   }
@@ -752,7 +741,7 @@ class AudioClipsService {
       const restoredClip = undoStack.pop();
       console.log('restoredClip:', restoredClip);
 
-      if (CURRENT_DATABASE === 'mongodb' && restoredClip) {
+      if (restoredClip) {
         console.log('INSIDE MONGODB');
         // Save the restored clip to the MongoDB data store
         const clipToSave = restoredClip.toObject();
@@ -779,13 +768,44 @@ class AudioClipsService {
           throw new HttpException(409, "Audio clip couldn't be restored to Audio Description.");
         });
 
+        // Regenerate the audio file
+        const regeneratedAudio = await generateMp3forDescriptionText(
+          newClip.audio_description.toString(),
+          newClip.video,
+          newClip.description_text,
+          newClip.description_type,
+        );
+
+        if (!regeneratedAudio.status) {
+          throw new HttpException(500, 'Failed to regenerate audio file');
+        }
+
+        // Update the restored clip with the new file information
+        await MongoAudioClipsModel.findByIdAndUpdate(newClip._id, {
+          file_path: regeneratedAudio.filepath,
+          file_name: regeneratedAudio.filename,
+          file_mime_type: regeneratedAudio.file_mime_type,
+          file_size_bytes: regeneratedAudio.file_size_bytes,
+        });
+
         return newClip;
       }
 
-      return restoredClip || null;
+      return null;
     } catch (error) {
       console.error('Error saving restored clip:', error);
       throw new HttpException(error.statusCode || 500, error.message);
+    }
+  }
+
+  private async deleteOldAudioFile(filePath: string): Promise<boolean> {
+    try {
+      const unlinkFile = util.promisify(fs.unlink);
+      await unlinkFile(filePath);
+      return true;
+    } catch (error) {
+      console.error('Error deleting old audio file:', error);
+      return false;
     }
   }
 }
