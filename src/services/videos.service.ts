@@ -20,7 +20,7 @@ import {
 } from '../models/mongodb/init-models.mongo';
 import { IVideo } from '../models/mongodb/Videos.mongo';
 import { logger } from '../utils/logger';
-import { getVideoDataByYoutubeId } from './videos.util';
+import { getVideoDataByYoutubeId } from '../utils/videos.util';
 import cache from 'memory-cache';
 import moment from 'moment';
 import axios from 'axios';

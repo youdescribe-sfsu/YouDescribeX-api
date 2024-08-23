@@ -11,8 +11,8 @@ import { AUDIO_DIRECTORY, CURRENT_DATABASE } from '../config';
 import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
 import { MongoAudioClipsModel, MongoDialog_Timestamps_Model } from '../models/mongodb/init-models.mongo';
 import { Audio_Clips, Dialog_Timestamps, Videos } from '../models/postgres/init-models';
-import { logger } from '../utils/logger';
-import { getYouTubeVideoStatus, nowUtc } from '../utils/util';
+import { logger } from './logger';
+import { getYouTubeVideoStatus, nowUtc } from './util';
 
 interface NudgeStartTimeIfZeroResult {
   data: [] | null;

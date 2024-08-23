@@ -13,7 +13,7 @@ import {
 } from '../models/mongodb/init-models.mongo';
 import { IUser } from '../models/mongodb/User.mongo';
 import { logger } from '../utils/logger';
-import { getVideoDataByYoutubeId, isVideoAvailable } from './videos.util';
+import { getVideoDataByYoutubeId, isVideoAvailable } from '../utils/videos.util';
 import moment from 'moment';
 import axios from 'axios';
 import mongoose from 'mongoose';
