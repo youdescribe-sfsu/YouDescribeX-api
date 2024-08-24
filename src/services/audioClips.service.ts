@@ -664,6 +664,13 @@ class AudioClipsService {
       throw new HttpException(400, 'Clip ID is empty');
     }
 
+    const oldAudioFilePathStatus = await getOldAudioFilePath(clipId);
+    if (oldAudioFilePathStatus.data === null) {
+      throw new HttpException(409, oldAudioFilePathStatus.message);
+    }
+
+    const oldAudioPath = oldAudioFilePathStatus.data;
+
     try {
       // Find the audio clip
       const audioClip = await MongoAudioClipsModel.findById(clipId);
@@ -704,7 +711,6 @@ class AudioClipsService {
       );
 
       // Delete the file
-      const oldAudioPath = deletedClip.file_path;
       const deleteOldAudioFileStatus = await deleteOldAudioFile(oldAudioPath);
       if (!deleteOldAudioFileStatus) {
         throw new HttpException(409, 'Problem deleting audio clip file. Please try again.');
@@ -795,17 +801,6 @@ class AudioClipsService {
       throw new HttpException(error.statusCode || 500, error.message);
     }
   }
-
-  // private async deleteOldAudioFile(filePath: string): Promise<boolean> {
-  //   try {
-  //     const unlinkFile = util.promisify(fs.unlink);
-  //     await unlinkFile(filePath);
-  //     return true;
-  //   } catch (error) {
-  //     console.error('Error deleting old audio file:', error);
-  //     return false;
-  //   }
-  // }
 }
 
 export default AudioClipsService;
