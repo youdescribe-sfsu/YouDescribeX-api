@@ -323,8 +323,6 @@ class AudioClipsService {
         false, // passing false, as this is a single clip process
       );
 
-      console.log('playbackTypeStatus', playbackTypeStatus);
-
       if (playbackTypeStatus.data === null) throw new HttpException(500, playbackTypeStatus.message);
       const playbackType = playbackTypeStatus.data;
       const updatedAudioClipStartTime = await MongoAudioClipsModel.updateMany(
@@ -678,25 +676,19 @@ class AudioClipsService {
         throw new HttpException(404, 'Audio clip not found');
       }
 
-      console.log('deletedAudioClip (before deletion):', audioClip);
-
       // Get the user-specific undo stacks or create a new one
       const userStacks = userUndoStacks[userId] || {};
-      console.log('userStacks:', userStacks);
 
       // Get the undo stack for the current video or create a new one
       const undoStack = userStacks[videoId] || [];
-      console.log('undoStack (before pushing):', undoStack);
 
       // Push the clip to the undo stack
       undoStack.push(audioClip);
       userStacks[videoId] = undoStack;
       userUndoStacks[userId] = userStacks;
-      console.log('undoStack (after pushing):', undoStack);
 
       // Delete from database
       const deletedClip = await MongoAudioClipsModel.findByIdAndDelete(clipId);
-      console.log('deletedAudioClip (after deletion):', deletedClip);
 
       if (!deletedClip) {
         throw new HttpException(404, 'Audio clip not found after deletion attempt');
@@ -723,10 +715,9 @@ class AudioClipsService {
     }
   }
 
-  public async undoDeletedAudioClip(userId: string, videoId: string): Promise<IAudioClip | null> {
+  public async undoDeletedAudioClip(userId: string, videoId: string): Promise<{ youtubeId: string }> {
     // Get the user-specific undo stacks
     const userStacks = userUndoStacks[userId];
-    console.log('userStacks:', userUndoStacks);
 
     if (!userStacks) {
       return null;
@@ -734,7 +725,6 @@ class AudioClipsService {
 
     // Get the undo stack for the current video
     const undoStack = userStacks[videoId];
-    console.log('undoStack:', undoStack);
 
     if (!undoStack || undoStack.length === 0) {
       return null;
@@ -743,10 +733,8 @@ class AudioClipsService {
     try {
       // Pop the most recently deleted clip from the undo stack
       const restoredClip = undoStack.pop();
-      console.log('restoredClip:', restoredClip);
 
       if (restoredClip) {
-        console.log('INSIDE MONGODB');
         // Save the restored clip to the MongoDB data store
         const clipToSave = restoredClip.toObject();
 
@@ -755,7 +743,6 @@ class AudioClipsService {
 
         const newClip = new MongoAudioClipsModel(clipToSave);
         await newClip.save();
-        console.log('newClip (after saving):', newClip);
 
         // Add the restored clip to the audio_clips array in the corresponding audio description
         await MongoAudio_Descriptions_Model.findByIdAndUpdate(
@@ -792,9 +779,11 @@ class AudioClipsService {
           file_size_bytes: regeneratedAudio.file_size_bytes,
         });
 
-        return newClip;
+        return {
+          ...newClip.toObject(),
+          youtubeId: videoId,
+        };
       }
-
       return null;
     } catch (error) {
       console.error('Error saving restored clip:', error);
