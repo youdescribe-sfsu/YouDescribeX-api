@@ -576,52 +576,138 @@ class UserService {
   }
 
   public async requestAiDescriptionsWithGpu(userData: IUser, youtube_id: string, ydx_app_host: string) {
-    if (!userData) {
-      throw new HttpException(400, 'No data provided');
-    }
-    if (!youtube_id) {
-      throw new HttpException(400, 'No youtube_id provided');
-    }
+    let youtubeVideoData: any = null;
 
-    const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
-
-    // console.log(`youtubeVideoData ::  ${JSON.stringify(youtubeVideoData)}`);
-    logger.info(`youtubeVideoData ::  ${JSON.stringify(youtubeVideoData)}`);
-
-    if (!youtubeVideoData) {
-      throw new HttpException(400, 'No youtubeVideoData provided');
-    }
-
-    const aiAudioDescriptions = await this.checkIfVideoHasAudioDescription(youtube_id, AI_USER_ID, userData._id);
-
-    if (aiAudioDescriptions) {
-      const counterIncrement = await this.increaseRequestCount(youtube_id, userData._id, AI_USER_ID);
-      if (!counterIncrement) {
-        throw new HttpException(500, 'Error incrementing counter');
+    try {
+      if (!userData) {
+        throw new HttpException(400, 'No data provided');
       }
-      await this.audioClipsService.processAllClipsInDB(aiAudioDescriptions.toString());
+      if (!youtube_id) {
+        throw new HttpException(400, 'No youtube_id provided');
+      }
 
-      logger.info(`Sending email to ${userData.email}`);
+      youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
 
-      const YDX_APP_URL = `${ydx_app_host}/editor/${youtube_id}/${aiAudioDescriptions}`;
-      // Remove all whitespace from the URL
-      const replaced_url = YDX_APP_URL.replace(/\s/g, '');
+      logger.info(`youtubeVideoData ::  ${JSON.stringify(youtubeVideoData)}`);
 
-      logger.info(`URL :: ${YDX_APP_URL}`);
+      if (!youtubeVideoData) {
+        throw new HttpException(400, 'No youtubeVideoData provided');
+      }
 
-      await sendEmail(
-        userData.email,
-        `🎉 Audio Description Ready !!! Your Audio Description for "${youtubeVideoData.title}" is Ready to Explore!`,
-        `,
+      const aiAudioDescriptions = await this.checkIfVideoHasAudioDescription(youtube_id, AI_USER_ID, userData._id);
+
+      if (aiAudioDescriptions) {
+        return await this.handleExistingAudioDescription(userData, youtube_id, ydx_app_host, youtubeVideoData, aiAudioDescriptions);
+      } else {
+        return await this.initiateNewAudioDescription(userData, youtube_id, ydx_app_host, youtubeVideoData);
+      }
+    } catch (error) {
+      logger.error(`Error in requestAiDescriptionsWithGpu: ${error.message}`);
+      await this.handleError(userData, youtube_id, youtubeVideoData?.title || 'Unknown Video');
+      throw error;
+    }
+  }
+
+  private async handleExistingAudioDescription(userData: IUser, youtube_id: string, ydx_app_host: string, youtubeVideoData: any, aiAudioDescriptions: any) {
+    const counterIncrement = await this.increaseRequestCount(youtube_id, userData._id, AI_USER_ID);
+    if (!counterIncrement) {
+      throw new HttpException(500, 'Error incrementing counter');
+    }
+    await this.audioClipsService.processAllClipsInDB(aiAudioDescriptions.toString());
+
+    logger.info(`Sending email to ${userData.email}`);
+
+    const YDX_APP_URL = `${ydx_app_host}/editor/${youtube_id}/${aiAudioDescriptions}`;
+    const replaced_url = YDX_APP_URL.replace(/\s/g, '');
+
+    logger.info(`URL :: ${YDX_APP_URL}`);
+
+    await sendEmail(
+      userData.email,
+      `🎉 Audio Description Ready !!! Your Audio Description for "${youtubeVideoData.title}" is Ready to Explore!`,
+      this.getExistingAudioDescriptionEmailBody(userData.name, youtubeVideoData.title, replaced_url),
+    );
+
+    logger.info(`Email sent to ${userData.email}`);
+    return {
+      message: 'Audio Description already exists.',
+    };
+  }
+
+  private async initiateNewAudioDescription(userData: IUser, youtube_id: string, ydx_app_host: string, youtubeVideoData: any) {
+    logger.info(`URL :: ${GPU_URL}/generate_ai_caption`);
+
+    if (!GPU_URL) throw new HttpException(500, 'GPU_URL is not defined');
+
+    const response = await axios.post(`${GPU_URL}/generate_ai_caption`, {
+      youtube_id: youtube_id,
+      user_id: userData._id,
+      ydx_app_host,
+      ydx_server: CURRENT_YDX_HOST,
+      AI_USER_ID: AI_USER_ID,
+    });
+
+    const counterIncrement = await this.increaseRequestCount(youtube_id, userData._id, AI_USER_ID);
+
+    if (!counterIncrement) {
+      throw new HttpException(500, 'Error incrementing counter');
+    }
+
+    await sendEmail(
+      userData.email,
+      `🎬 AI Description for "${youtubeVideoData.title}" is in the Works!`,
+      this.getNewAudioDescriptionEmailBody(userData.name, youtubeVideoData.title),
+    );
+
+    return response.data;
+  }
+
+  private async handleError(userData: IUser, youtube_id: string, videoTitle: string) {
+    await this.sendErrorNotificationEmail(userData, youtube_id, videoTitle);
+    await this.cleanupDatabaseEntry(youtube_id, AI_USER_ID);
+  }
+
+  private async sendErrorNotificationEmail(userData: IUser, youtube_id: string, videoTitle: string) {
+    const emailSubject = `Video Processing Error - We're Working on It!`;
+    const emailBody = `
       Dear ${userData.name},
 
-      Great news! Your requested audio description for "${youtubeVideoData.title}" is now available and waiting for you to experience.
+      We encountered an unexpected issue while processing your requested video "${videoTitle}" (YouTube ID: ${youtube_id}).
+
+      Rest assured, our team has been automatically notified and is actively working to resolve this issue. We appreciate your patience and understanding.
+
+      Once the issue is resolved, we'll restart the processing of your video and notify you when it's ready.
+
+      Thank you for being a valued member of the YouDescribe community.
+
+      Best regards,
+      The YouDescribe Team
+    `;
+
+    await sendEmail(userData.email, emailSubject, emailBody);
+    logger.info(`Error notification email sent to ${userData.email}`);
+  }
+
+  private async cleanupDatabaseEntry(youtube_id: string, AI_USER_ID: string) {
+    try {
+      await MongoAICaptionRequestModel.deleteOne({ youtube_id, AI_USER_ID });
+      logger.info(`Database entry cleaned up for YouTube ID: ${youtube_id}`);
+    } catch (dbError) {
+      logger.error(`Error cleaning up database entry: ${dbError.message}`);
+    }
+  }
+
+  private getExistingAudioDescriptionEmailBody(userName: string, videoTitle: string, url: string) {
+    return `
+      Dear ${userName},
+
+      Great news! Your requested audio description for "${videoTitle}" is now available and waiting for you to experience.
 
       We're excited for you to dive into this enhanced version of the video. Your audio description is ready to bring new dimensions to your viewing experience, offering rich details and nuanced narration.
 
       Ready to explore? Simply click the link below to start your journey:
 
-      ${replaced_url}
+      ${url}
 
       Thank you for being part of the YouDescribe community. Your engagement helps make online content more accessible for everyone.
 
@@ -629,49 +715,14 @@ class UserService {
 
       Best regards,
       The YouDescribe Team
-        `,
-      );
+    `;
+  }
 
-      logger.info(`Email sent to ${userData.email}`);
-      return {
-        message: 'Audio Description already exists.',
-      };
-    } else {
-      // console.log(`User Data ::  ${JSON.stringify(userData)}`);
-      // console.log(
-      //   `BODY DATA ::  ${JSON.stringify({
-      //     youtube_id: youtube_id,
-      //     user_id: userData._id,
-      //     ydx_app_host,
-      //     ydx_server: CURRENT_YDX_HOST,
-      //     AI_USER_ID: AI_USER_ID,
-      //   })}`,
-      // );
-      // console.log(`URL ::${GPU_URL}/generate_ai_caption`);
-      logger.info(`URL :: ${GPU_URL}/generate_ai_caption`);
+  private getNewAudioDescriptionEmailBody(userName: string, videoTitle: string) {
+    return `
+      Dear ${userName},
 
-      // Check if video has already been requested
-
-      if (!GPU_URL) throw new HttpException(500, 'GPU_URL is not defined');
-
-      const response = await axios.post(`${GPU_URL}/generate_ai_caption`, {
-        youtube_id: youtube_id,
-        user_id: userData._id,
-        ydx_app_host,
-        ydx_server: CURRENT_YDX_HOST,
-        AI_USER_ID: AI_USER_ID,
-        // user_email: userData.email,
-        // user_name: userData.name,
-      });
-      const counterIncrement = await this.increaseRequestCount(youtube_id, userData._id, AI_USER_ID);
-
-      await sendEmail(
-        userData.email,
-        `🎬 AI Description for "${youtubeVideoData.title}" is in the Works!`,
-        `
-      Dear ${userData.name},
-
-      Great news! We've received your request for an AI-generated audio description of "${youtubeVideoData.title}". Our advanced AI is now hard at work crafting a detailed and engaging description just for you.
+      Great news! We've received your request for an AI-generated audio description of "${videoTitle}". Our advanced AI is now hard at work crafting a detailed and engaging description just for you.
 
       Here's what's happening:
       - Our AI is analyzing the video content
@@ -688,15 +739,7 @@ class UserService {
 
       Best regards,
       The YouDescribe Team
-        `,
-      );
-
-      if (!counterIncrement) {
-        throw new HttpException(500, 'Error incrementing counter');
-      }
-
-      return response.data;
-    }
+    `;
   }
 
   private async checkIfAudioDescriptionExistsforUser(
