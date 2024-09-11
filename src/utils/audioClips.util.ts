@@ -708,6 +708,9 @@ const storage = multer.diskStorage({
   destination: function (req, _file, cb) {
     const audioDescriptionId = req.params.adId || req.body.audioDescriptionId;
     const dir = `${AUDIO_DIRECTORY}/audio/${req.body.youtubeVideoId}/${audioDescriptionId}`;
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
     // const dir = path.join(__dirname, '../../', `.${AUDIO_DIRECTORY}/${req.body.youtubeVideoId}/${req.body.userId}`);
     cb(null, dir);
   },
@@ -716,6 +719,7 @@ const storage = multer.diskStorage({
   //     next(err);
   // } ,
 });
+
 export const upload = multer({ storage });
 
 const copyAudioClipFile = (oldPath: string, youtubeVideoId: string, fileName: string, adId: string) => {
