@@ -954,6 +954,7 @@ class UserService {
       updated_at: nowUtc(),
       video: videoIdStatus._id,
       user: userIdObject._id,
+      collaborative_editing: true,
     });
 
     // console.log(`createNewAudioDescription :: ${JSON.stringify(createNewAudioDescription)}`);
