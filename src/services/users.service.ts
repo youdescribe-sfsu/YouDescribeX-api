@@ -652,15 +652,6 @@ class UserService {
 
   private getExistingAudioDescriptionEmailBody(userName: string, videoTitle: string, url: string) {
     return `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Audio Description Ready</title>
-      </head>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h1 style="color: #4a4a4a;">Audio Description Ready!</h1>
         <p>Dear ${userName},</p>
         <p>Great news! Your requested audio description for "${videoTitle}" is now available and waiting for you to experience.</p>
         <p>We're excited for you to dive into this enhanced version of the video. Your audio description is ready to bring new dimensions to your viewing experience, offering rich details and nuanced narration.</p>
@@ -669,22 +660,11 @@ class UserService {
         <p>Thank you for being part of the YouDescribe community. Your engagement helps make online content more accessible for everyone.</p>
         <p>Enjoy your enhanced video experience!</p>
         <p>Best regards,<br>The YouDescribe Team</p>
-      </body>
-      </html>
-    `;
+      `;
   }
 
   private getNewAudioDescriptionEmailBody(userName: string, videoTitle: string) {
     return `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>AI Description in Progress</title>
-      </head>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h1 style="color: #4a4a4a;">AI Description in Progress</h1>
         <p>Dear ${userName},</p>
         <p>Great news! We've received your request for an AI-generated audio description of "${videoTitle}". Our advanced AI is now hard at work crafting a detailed and engaging description just for you.</p>
         <h2 style="color: #4a4a4a;">Here's what's happening:</h2>
@@ -698,30 +678,17 @@ class UserService {
         <p>Thank you for your patience and for being a valued member of the YouDescribe community. Your request helps us improve our AI and make more content accessible to everyone.</p>
         <p>Stay tuned for your enhanced viewing experience!</p>
         <p>Best regards,<br>The YouDescribe Team</p>
-      </body>
-      </html>
     `;
   }
 
   private getErrorNotificationEmailBody(userName: string, videoTitle: string, youtube_id: string) {
     return `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Video Processing Error</title>
-      </head>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h1 style="color: #4a4a4a;">Video Processing Error - We're Working on It!</h1>
         <p>Dear ${userName},</p>
         <p>We encountered an unexpected issue while processing your requested video "${videoTitle}" (YouTube ID: ${youtube_id}).</p>
         <p>Rest assured, our team has been automatically notified and is actively working to resolve this issue. We appreciate your patience and understanding.</p>
         <p>Once the issue is resolved, we'll restart the processing of your video and notify you when it's ready.</p>
         <p>Thank you for being a valued member of the YouDescribe community.</p>
         <p>Best regards,<br>The YouDescribe Team</p>
-      </body>
-      </html>
     `;
   }
 
