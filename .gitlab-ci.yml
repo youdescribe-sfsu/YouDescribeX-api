@@ -40,7 +40,6 @@ build:
       --build-arg MONGO_DB_USER="$MONGO_DB_USER"
       --build-arg MONGO_DB_PASSWORD="$MONGO_DB_PASSWORD"
       -t $VERSIONED_IMAGE -t $LATEST_IMAGE .
-    - docker push $VERSIONED_IMAGE
     - docker push $LATEST_IMAGE
     - echo "Build complete"
   tags:
@@ -89,8 +88,9 @@ cleanup:
   stage: cleanup
   script:
     - echo "Cleaning up old images..."
-    - docker image prune -af --filter "until=24h"
+    - docker images --format "{{.ID}} {{.Repository}}" | grep "${DOCKER_REGISTRY}/${CI_PROJECT_NAME}" | sort -k2 | awk 'NR>1 {print $1}' | xargs -r docker rmi
     - docker container prune -f
+    - docker image prune -af
   tags:
     - backend
   only:
