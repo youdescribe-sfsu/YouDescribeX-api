@@ -12,6 +12,8 @@ async function sendEmail(email: string, subject: string, content: string, isHtml
       html: content, // Always send as HTML
     };
 
+    console.log('Email content:', content);
+
     const config = {
       method: 'post',
       maxBodyLength: Infinity,
