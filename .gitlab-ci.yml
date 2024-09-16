@@ -9,7 +9,6 @@ variables:
   CI_REGISTRY: docker.io
   IMAGE_NAME: "${DOCKER_REGISTRY}/${CI_PROJECT_NAME}"
   LATEST_IMAGE: "${IMAGE_NAME}:latest"
-  VERSIONED_IMAGE: "${IMAGE_NAME}:${CI_COMMIT_REF_NAME}.${CI_PIPELINE_ID}"
 
 services:
   - docker:24.0.5-dind
@@ -39,7 +38,7 @@ build:
       --build-arg MONGO_DB_PORT="$MONGO_DB_PORT"
       --build-arg MONGO_DB_USER="$MONGO_DB_USER"
       --build-arg MONGO_DB_PASSWORD="$MONGO_DB_PASSWORD"
-      -t $VERSIONED_IMAGE -t $LATEST_IMAGE .
+      -t $LATEST_IMAGE .
     - docker push $LATEST_IMAGE
     - echo "Build complete"
   tags:
