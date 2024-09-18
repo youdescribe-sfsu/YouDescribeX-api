@@ -22,6 +22,7 @@ import sendEmail from '../utils/emailService';
 import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
 import { VideoNotFoundError, AIProcessingError } from '../utils/customErrors';
 import moment from 'moment';
+import { PipelineFailureDto } from '../dtos/pipelineFailure.dto';
 
 class UserService {
   public audioClipsService = new AudioClipsService();
@@ -536,6 +537,79 @@ class UserService {
     }
   }
 
+  public async handlePipelineFailure(failureData: PipelineFailureDto): Promise<void> {
+    const { youtube_id, ai_user_id, error_message, ydx_app_host } = failureData;
+
+    // Clean up MongoDB entry
+    await this.cleanupMongoDbEntry(youtube_id, ai_user_id);
+
+    // Notify user about the failure
+    await this.notifyUserAboutFailure(youtube_id, ai_user_id, ydx_app_host);
+
+    // Log the failure
+    console.error(`Pipeline failed for video ${youtube_id}: ${error_message}`);
+  }
+
+  private async cleanupMongoDbEntry(youtube_id: string, ai_user_id: string) {
+    try {
+      // Remove entry from MongoAICaptionRequestModel
+      await MongoAICaptionRequestModel.deleteOne({ youtube_id, ai_user_id });
+
+      // Remove associated audio description
+      const video = await MongoVideosModel.findOne({ youtube_id });
+      if (video) {
+        const aiUser = await MongoUsersModel.findById(ai_user_id);
+        if (aiUser) {
+          const audioDescription = await MongoAudio_Descriptions_Model.findOne({
+            video: video._id,
+            user: aiUser._id,
+          });
+          if (audioDescription) {
+            // Remove audio clips associated with this audio description
+            await MongoAudioClipsModel.deleteMany({ audio_description: audioDescription._id });
+            // Remove the audio description itself
+            await MongoAudio_Descriptions_Model.deleteOne({ _id: audioDescription._id });
+            // Remove the audio description reference from the video
+            await MongoVideosModel.updateOne({ _id: video._id }, { $pull: { audio_descriptions: audioDescription._id } });
+          }
+        }
+      }
+
+      logger.info(`Cleaned up MongoDB entries for YouTube ID: ${youtube_id}, AI User ID: ${ai_user_id}`);
+    } catch (error) {
+      logger.error(`Error cleaning up MongoDB entries: ${error.message}`);
+    }
+  }
+
+  private async notifyUserAboutFailure(youtube_id: string, ai_user_id: string, ydx_app_host: string) {
+    try {
+      const captionRequest = await MongoAICaptionRequestModel.findOne({ youtube_id, ai_user_id });
+      if (captionRequest) {
+        for (const userId of captionRequest.caption_requests) {
+          const user = await MongoUsersModel.findById(userId);
+          if (user && user.email) {
+            const video = await MongoVideosModel.findOne({ youtube_id });
+            const videoTitle = video ? video.title : 'Unknown Video';
+            await sendEmail(user.email, `Video Processing Error - We're Working on It!`, this.getErrorNotificationEmailBody(user.name, videoTitle, youtube_id));
+          }
+        }
+      }
+    } catch (error) {
+      logger.error(`Error notifying users about failure: ${error.message}`);
+    }
+  }
+
+  private getErrorNotificationEmailBody(userName: string, videoTitle: string, youtube_id: string) {
+    return `
+      <p>Dear ${userName},</p>
+      <p>We encountered an unexpected issue while processing your requested video "${videoTitle}" (YouTube ID: ${youtube_id}).</p>
+      <p>Rest assured, our team has been automatically notified and is actively working to resolve this issue. We appreciate your patience and understanding.</p>
+      <p>Once the issue is resolved, we'll restart the processing of your video and notify you when it's ready.</p>
+      <p>Thank you for being a valued member of the YouDescribe community.</p>
+      <p>Best regards,<br>The YouDescribe Team</p>
+    `;
+  }
+
   public async requestAiDescriptionsWithGpu(userData: IUser, youtube_id: string, ydx_app_host: string) {
     const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
 
@@ -677,17 +751,6 @@ class UserService {
         <p>In the meantime, why not explore other audio-described videos on YouDescribe? There's always something new to discover!</p>
         <p>Thank you for your patience and for being a valued member of the YouDescribe community. Your request helps us improve our AI and make more content accessible to everyone.</p>
         <p>Stay tuned for your enhanced viewing experience!</p>
-        <p>Best regards,<br>The YouDescribe Team</p>
-    `;
-  }
-
-  private getErrorNotificationEmailBody(userName: string, videoTitle: string, youtube_id: string) {
-    return `
-        <p>Dear ${userName},</p>
-        <p>We encountered an unexpected issue while processing your requested video "${videoTitle}" (YouTube ID: ${youtube_id}).</p>
-        <p>Rest assured, our team has been automatically notified and is actively working to resolve this issue. We appreciate your patience and understanding.</p>
-        <p>Once the issue is resolved, we'll restart the processing of your video and notify you when it's ready.</p>
-        <p>Thank you for being a valued member of the YouDescribe community.</p>
         <p>Best regards,<br>The YouDescribe Team</p>
     `;
   }
