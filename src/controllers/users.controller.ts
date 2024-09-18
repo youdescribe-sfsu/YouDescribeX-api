@@ -11,6 +11,7 @@ import sendEmail from '../utils/emailService';
 import { getYouTubeVideoStatus } from '../utils/util';
 import { deepCopyAudioClip } from '../utils/audioClips.util';
 import { deepCopyAudioDescriptionWithoutNewClips, updateAutoClips, updateContributions } from '../utils/audiodescriptions.util';
+import { PipelineFailureDto } from '../dtos/pipelineFailure.dto';
 
 class UsersController {
   public userService = new userService();
@@ -394,6 +395,16 @@ class UsersController {
     try {
       const response = await this.audioClipsService.processAllClipsInDB(ad_id);
       return res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public handlePipelineFailure = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const failureData: PipelineFailureDto = req.body;
+      await this.userService.handlePipelineFailure(failureData);
+      res.status(200).json({ message: 'Pipeline failure handled successfully' });
     } catch (error) {
       next(error);
     }

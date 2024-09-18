@@ -29,6 +29,7 @@ class UsersRoute implements Routes {
     this.router.get(`${this.path}/get-user-Ai-DescriptionRequests`, this.usersController.getUserAiDescriptionRequests);
     this.router.post(`${this.path}/save-Visited-Videos-History`, this.usersController.saveVisitedVideosHistory);
     this.router.get(`${this.path}/get-Visited-Videos-History`, this.usersController.getVisitedVideosHistory);
+    this.router.post(`${this.path}/pipeline-failure`, this.usersController.handlePipelineFailure);
   }
 }
 
