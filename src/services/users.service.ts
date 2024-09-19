@@ -540,62 +540,111 @@ class UserService {
   public async handlePipelineFailure(failureData: PipelineFailureDto): Promise<void> {
     const { youtube_id, ai_user_id, error_message, ydx_app_host } = failureData;
 
+    console.log(`Handling pipeline failure for YouTube ID: ${youtube_id}, AI User ID: ${ai_user_id}`);
+
     // Clean up MongoDB entry
+    console.log('Starting MongoDB cleanup...');
     await this.cleanupMongoDbEntry(youtube_id, ai_user_id);
 
     // Notify user about the failure
+    console.log('Starting user notification process...');
     await this.notifyUserAboutFailure(youtube_id, ai_user_id, ydx_app_host);
 
     // Log the failure
     console.error(`Pipeline failed for video ${youtube_id}: ${error_message}`);
+
+    console.log('Pipeline failure handling completed.');
   }
 
   private async cleanupMongoDbEntry(youtube_id: string, ai_user_id: string) {
+    console.log(`Starting cleanup for YouTube ID: ${youtube_id}, AI User ID: ${ai_user_id}`);
+
     try {
       // Remove entry from MongoAICaptionRequestModel
-      await MongoAICaptionRequestModel.deleteOne({ youtube_id, ai_user_id });
+      console.log('Removing entry from MongoAICaptionRequestModel...');
+      const deleteResult = await MongoAICaptionRequestModel.deleteOne({ youtube_id, ai_user_id });
+      console.log(`Deleted ${deleteResult.deletedCount} entries from MongoAICaptionRequestModel`);
 
       // Remove associated audio description
       const video = await MongoVideosModel.findOne({ youtube_id });
       if (video) {
+        console.log(`Found video for YouTube ID: ${youtube_id}`);
+
         const aiUser = await MongoUsersModel.findById(ai_user_id);
         if (aiUser) {
+          console.log(`Found AI user for ID: ${ai_user_id}`);
+
           const audioDescription = await MongoAudio_Descriptions_Model.findOne({
             video: video._id,
             user: aiUser._id,
           });
+
           if (audioDescription) {
+            console.log(`Found audio description for video ${youtube_id}`);
+
             // Remove audio clips associated with this audio description
-            await MongoAudioClipsModel.deleteMany({ audio_description: audioDescription._id });
+            console.log('Removing associated audio clips...');
+            const deleteClipsResult = await MongoAudioClipsModel.deleteMany({ audio_description: audioDescription._id });
+            console.log(`Deleted ${deleteClipsResult.deletedCount} audio clips`);
+
             // Remove the audio description itself
-            await MongoAudio_Descriptions_Model.deleteOne({ _id: audioDescription._id });
+            console.log('Removing audio description...');
+            const deleteDescResult = await MongoAudio_Descriptions_Model.deleteOne({ _id: audioDescription._id });
+            console.log(`Deleted ${deleteDescResult.deletedCount} audio descriptions`);
+
             // Remove the audio description reference from the video
-            await MongoVideosModel.updateOne({ _id: video._id }, { $pull: { audio_descriptions: audioDescription._id } });
+            console.log('Updating video document...');
+            const updateResult = await MongoVideosModel.updateOne({ _id: video._id }, { $pull: { audio_descriptions: audioDescription._id } });
+            console.log(`Updated ${updateResult.modifiedCount} video documents`);
+          } else {
+            console.log('No audio description found for this video and AI user');
           }
+        } else {
+          console.log(`AI user not found for ID: ${ai_user_id}`);
         }
+      } else {
+        console.log(`Video not found for YouTube ID: ${youtube_id}`);
       }
 
-      logger.info(`Cleaned up MongoDB entries for YouTube ID: ${youtube_id}, AI User ID: ${ai_user_id}`);
+      console.log('MongoDB cleanup completed successfully');
     } catch (error) {
-      logger.error(`Error cleaning up MongoDB entries: ${error.message}`);
+      console.error(`Error cleaning up MongoDB entries: ${error.message}`);
+      console.error(error.stack);
     }
   }
 
   private async notifyUserAboutFailure(youtube_id: string, ai_user_id: string, ydx_app_host: string) {
+    console.log(`Starting user notification process for YouTube ID: ${youtube_id}`);
+
     try {
       const captionRequest = await MongoAICaptionRequestModel.findOne({ youtube_id, ai_user_id });
       if (captionRequest) {
+        console.log(`Found caption request for YouTube ID: ${youtube_id}`);
+
+        const video = await MongoVideosModel.findOne({ youtube_id });
+        const videoTitle = video ? video.title : 'Unknown Video';
+        console.log(`Video title: ${videoTitle}`);
+
         for (const userId of captionRequest.caption_requests) {
           const user = await MongoUsersModel.findById(userId);
           if (user && user.email) {
-            const video = await MongoVideosModel.findOne({ youtube_id });
-            const videoTitle = video ? video.title : 'Unknown Video';
+            console.log(`Sending notification email to user: ${user.email}`);
+
             await sendEmail(user.email, `Video Processing Error - We're Working on It!`, this.getErrorNotificationEmailBody(user.name, videoTitle, youtube_id));
+
+            console.log(`Notification email sent to user: ${user.email}`);
+          } else {
+            console.log(`User not found or email not available for user ID: ${userId}`);
           }
         }
+      } else {
+        console.log(`No caption request found for YouTube ID: ${youtube_id}`);
       }
+
+      console.log('User notification process completed');
     } catch (error) {
-      logger.error(`Error notifying users about failure: ${error.message}`);
+      console.error(`Error notifying users about failure: ${error.message}`);
+      console.error(error.stack);
     }
   }
 

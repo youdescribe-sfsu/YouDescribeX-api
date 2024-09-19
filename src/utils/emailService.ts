@@ -9,7 +9,7 @@ async function sendEmail(email: string, subject: string, content: string) {
       from: GMAIL_USER, // Sender's email address
       to: email, // Recipient's email address
       subject: subject, // Email subject
-      html: content, // Always send as HTML
+      text: content, // Always send as HTML
     };
 
     console.log('Email content:', content);
