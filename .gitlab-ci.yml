@@ -17,7 +17,7 @@ before_script:
   - echo "Logging into Docker..."
   - echo "$DOCKER_REGISTRY_PASSWORD" | docker login -u "$DOCKER_REGISTRY_USER" --password-stdin $CI_REGISTRY
 
-build:
+.build_template: &build_template
   stage: build
   script:
     - echo "Building Docker image..."
@@ -41,10 +41,21 @@ build:
       -t $LATEST_IMAGE .
     - docker push $LATEST_IMAGE
     - echo "Build complete"
+
+build_dev:
+  <<: *build_template
   tags:
     - backend
+    - dev
   only:
     - dev
+
+build_prod:
+  <<: *build_template
+  tags:
+    - backend
+    - prod
+  only:
     - main
 
 .deploy_template: &deploy_template
@@ -92,6 +103,6 @@ cleanup:
     - docker image prune -af
   tags:
     - backend
-  only:
-    - dev
-    - main
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main"
+      when: always
