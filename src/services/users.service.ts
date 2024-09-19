@@ -542,10 +542,6 @@ class UserService {
 
     console.log(`Handling pipeline failure for YouTube ID: ${youtube_id}, AI User ID: ${ai_user_id}`);
 
-    // Clean up MongoDB entry
-    console.log('Starting MongoDB cleanup...');
-    await this.cleanupMongoDbEntry(youtube_id, ai_user_id);
-
     // Notify user about the failure
     console.log('Starting user notification process...');
     await this.notifyUserAboutFailure(youtube_id, ai_user_id, ydx_app_host);
@@ -637,6 +633,9 @@ class UserService {
             console.log(`User not found or email not available for user ID: ${userId}`);
           }
         }
+        // Clean up MongoDB entry
+        console.log('Starting MongoDB cleanup...');
+        await this.cleanupMongoDbEntry(youtube_id, ai_user_id);
       } else {
         console.log(`No caption request found for YouTube ID: ${youtube_id}`);
       }
