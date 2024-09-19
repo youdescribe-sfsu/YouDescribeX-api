@@ -2,7 +2,7 @@ import axios from 'axios';
 import { GMAIL_USER } from '../config';
 import { logger } from './logger';
 
-async function sendEmail(email: string, subject: string, content: string, isHtml = true) {
+async function sendEmail(email: string, subject: string, content: string) {
   try {
     // Configure the email details
     const mailOptions = {

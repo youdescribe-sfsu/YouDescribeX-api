@@ -601,13 +601,19 @@ class UserService {
 
   private getErrorNotificationEmailBody(userName: string, videoTitle: string, youtube_id: string) {
     return `
-      <p>Dear ${userName},</p>
-      <p>We encountered an unexpected issue while processing your requested video "${videoTitle}" (YouTube ID: ${youtube_id}).</p>
-      <p>Rest assured, our team has been automatically notified and is actively working to resolve this issue. We appreciate your patience and understanding.</p>
-      <p>Once the issue is resolved, we'll restart the processing of your video and notify you when it's ready.</p>
-      <p>Thank you for being a valued member of the YouDescribe community.</p>
-      <p>Best regards,<br>The YouDescribe Team</p>
-    `;
+      Dear ${userName},
+      
+      We encountered an unexpected issue while processing your requested video "${videoTitle}" (YouTube ID: ${youtube_id}).
+      
+      Rest assured, our team has been automatically notified and is actively working to resolve this issue. We appreciate your patience and understanding.
+      
+      Once the issue is resolved, we'll restart the processing of your video and notify you when it's ready.
+      
+      Thank you for being a valued member of the YouDescribe community.
+      
+      Best regards,
+      The YouDescribe Team
+  `;
   }
 
   public async requestAiDescriptionsWithGpu(userData: IUser, youtube_id: string, ydx_app_host: string) {
@@ -726,33 +732,48 @@ class UserService {
 
   private getExistingAudioDescriptionEmailBody(userName: string, videoTitle: string, url: string) {
     return `
-        <p>Dear ${userName},</p>
-        <p>Great news! Your requested audio description for "${videoTitle}" is now available and waiting for you to experience.</p>
-        <p>We're excited for you to dive into this enhanced version of the video. Your audio description is ready to bring new dimensions to your viewing experience, offering rich details and nuanced narration.</p>
-        <p>Ready to explore? Simply click the link below to start your journey:</p>
-        <p><a href="${url}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-align: center; text-decoration: none; display: inline-block; border-radius: 5px;">Explore Your Audio Description</a></p>
-        <p>Thank you for being part of the YouDescribe community. Your engagement helps make online content more accessible for everyone.</p>
-        <p>Enjoy your enhanced video experience!</p>
-        <p>Best regards,<br>The YouDescribe Team</p>
-      `;
+      Dear ${userName},
+      
+      Great news! Your requested audio description for "${videoTitle}" is now available and waiting for you to experience.
+      
+      We're excited for you to dive into this enhanced version of the video. Your audio description is ready to bring new dimensions to your viewing experience, offering rich details and nuanced narration.
+      
+      Ready to explore? Simply click or copy and paste the link below to start your journey:
+      
+      ${url}
+      
+      Thank you for being part of the YouDescribe community. Your engagement helps make online content more accessible for everyone.
+      
+      Enjoy your enhanced video experience!
+      
+      Best regards,
+      The YouDescribe Team
+        `;
   }
 
   private getNewAudioDescriptionEmailBody(userName: string, videoTitle: string) {
     return `
-        <p>Dear ${userName},</p>
-        <p>Great news! We've received your request for an AI-generated audio description of "${videoTitle}". Our advanced AI is now hard at work crafting a detailed and engaging description just for you.</p>
-        <h2 style="color: #4a4a4a;">Here's what's happening:</h2>
-        <ul>
-          <li>Our AI is analyzing the video content</li>
-          <li>It's identifying key visual elements and actions</li>
-          <li>Soon, it will generate a comprehensive audio description</li>
-        </ul>
-        <p>We'll notify you as soon as your AI-enhanced audio description is ready to explore. This may take some time, depending on the video's length and complexity.</p>
-        <p>In the meantime, why not explore other audio-described videos on YouDescribe? There's always something new to discover!</p>
-        <p>Thank you for your patience and for being a valued member of the YouDescribe community. Your request helps us improve our AI and make more content accessible to everyone.</p>
-        <p>Stay tuned for your enhanced viewing experience!</p>
-        <p>Best regards,<br>The YouDescribe Team</p>
-    `;
+      Dear ${userName},
+      
+      Great news! We've received your request for an AI-generated audio description of "${videoTitle}". Our advanced AI is now hard at work crafting a detailed and engaging description just for you.
+      
+      Here's what's happening:
+      
+      - Our AI is analyzing the video content
+      - It's identifying key visual elements and actions
+      - Soon, it will generate a comprehensive audio description
+      
+      We'll notify you as soon as your AI-enhanced audio description is ready to explore. This may take some time, depending on the video's length and complexity.
+      
+      In the meantime, why not explore other audio-described videos on YouDescribe? There's always something new to discover!
+      
+      Thank you for your patience and for being a valued member of the YouDescribe community. Your request helps us improve our AI and make more content accessible to everyone.
+      
+      Stay tuned for your enhanced viewing experience!
+      
+      Best regards,
+      The YouDescribe Team
+        `;
   }
 
   private async checkIfVideoHasAudioDescription(youtubeVideoId: string, aiUserId: string, userId: string): Promise<boolean | mongoose.Types.ObjectId> {
