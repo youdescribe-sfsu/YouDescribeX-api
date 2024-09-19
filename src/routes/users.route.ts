@@ -4,7 +4,7 @@ import { Routes } from '../interfaces/routes.interface';
 import { withTransaction } from '../middlewares/transaction.middleware';
 
 class UsersRoute implements Routes {
-  public path = '/create-user-links';
+  public path = '/users';
   public router = Router();
   public usersController = new UsersController();
 
