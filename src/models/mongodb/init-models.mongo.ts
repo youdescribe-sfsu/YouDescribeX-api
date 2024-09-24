@@ -99,7 +99,7 @@ export const initPassport = () => {
           .digest('hex');
 
         try {
-          const newUser = await axios.post(`http://localhost:${PORT}/api/create-user-links/create-user`, {
+          const newUser = await axios.post(`http://localhost:${PORT}/api/users/create-user`, {
             email: payload.email,
             name: payload.name,
             given_name: payload.given_name,
