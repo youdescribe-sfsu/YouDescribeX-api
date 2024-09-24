@@ -18,7 +18,7 @@ class UsersController {
   public audioClipsService = new AudioClipsService();
   /**
    * @swagger
-   * /create-user-links/get-all-users:
+   * /users/get-all-users:
    *   get:
    *     summary: Returns a list of all users
    *     tags: [Users]
@@ -51,7 +51,7 @@ class UsersController {
 
   /**
    * @swagger
-   * /create-user-links/{email}:
+   * /users/{email}:
    *   get:
    *     summary: Get user by email
    *     tags: [Users]
@@ -89,7 +89,7 @@ class UsersController {
 
   /**
    * @swagger
-   * /create-user-links/add-new-user:
+   * /users/add-new-user:
    *   post:
    *     summary: Create a new user.
    *     tags: [Users]
@@ -125,7 +125,7 @@ class UsersController {
 
   /**
    * @swagger
-   * /create-user-links/create-new-user-ad:
+   * /users/create-new-user-ad:
    *   post:
    *     summary: Creates a new user audio description and returns a URL to generate audio files for the description
    *     tags: [Users]
