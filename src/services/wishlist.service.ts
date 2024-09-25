@@ -219,6 +219,7 @@ class WishListService {
       const wishListEntries = await MongoWishListModel.find({
         youtube_id: { $in: youtubeIds },
       })
+        .sort({ updated_at: -1 })
         .skip(skipCount)
         .limit(perPage);
 
