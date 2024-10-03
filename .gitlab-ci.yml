@@ -14,6 +14,10 @@ services:
   - docker:24.0.5-dind
 
 before_script:
+  - echo "Installing Docker Compose..."
+  - sudo curl -L "https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+  - sudo chmod +x /usr/local/bin/docker-compose
+  - docker-compose --version
   - echo "Logging into Docker..."
   - echo "$DOCKER_REGISTRY_PASSWORD" | docker login -u "$DOCKER_REGISTRY_USER" --password-stdin $CI_REGISTRY
 
@@ -60,11 +64,15 @@ build_prod:
 
 .deploy_template: &deploy_template
   stage: deploy
+  retry: 2
   script:
     - echo "Deploying to $CI_ENVIRONMENT_NAME environment..."
-    - docker-compose -f docker-compose.yml pull
-    - docker-compose -f docker-compose.yml down
-    - docker-compose -f docker-compose.yml up -d --remove-orphans
+    - docker-compose --version
+    - docker-compose -f docker-compose.yml config
+    - docker-compose -f docker-compose.yml pull || { echo "Failed to pull images"; exit 1; }
+    - docker-compose -f docker-compose.yml down || { echo "Failed to stop existing containers"; exit 1; }
+    - docker-compose -f docker-compose.yml up -d --remove-orphans || { echo "Failed to start containers"; exit 1; }
+    - docker-compose -f docker-compose.yml ps
 
 deploy_dev:
   <<: *deploy_template
@@ -79,6 +87,8 @@ deploy_dev:
     - dev
   only:
     - dev
+  dependencies:
+    - build_dev
 
 deploy_prod:
   <<: *deploy_template
@@ -93,6 +103,8 @@ deploy_prod:
     - prod
   only:
     - main
+  dependencies:
+    - build_prod
 
 cleanup:
   stage: cleanup
