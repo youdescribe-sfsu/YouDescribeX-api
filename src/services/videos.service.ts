@@ -262,7 +262,6 @@ class VideosService {
           }
           ad.contributions = nameContributions;
         }
-
         return ad;
       }
 
