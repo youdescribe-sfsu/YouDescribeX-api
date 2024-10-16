@@ -4,6 +4,20 @@ import { nowUtc } from '../utils/util';
 import { Types } from 'mongoose';
 
 class AudioDescriptionRatingService {
+  public async getUserRating(userId: string, audioDescriptionId: string): Promise<number | null> {
+    try {
+      const rating = await MongoAudioDescriptionRatingModel.findOne({
+        audio_description: new Types.ObjectId(audioDescriptionId),
+        user: new Types.ObjectId(userId),
+      });
+
+      return rating ? rating.rating : null;
+    } catch (error) {
+      console.error(`Error fetching user rating for user ${userId} on audio description ${audioDescriptionId}:`, error);
+      throw error;
+    }
+  }
+
   private async updateOverallRating(audioDescriptionId: string, previousRating: number, newRating: number) {
     try {
       const audioDescription = await MongoAudio_Descriptions_Model.findById(audioDescriptionId);

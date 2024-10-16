@@ -13,6 +13,7 @@ class AudioDescriptionRatingRoute implements Routes {
 
   private initializeRoutes() {
     this.router.post(`${this.path}/addOne/:audioDescriptionId`, this.audioDescriptionsRatingController.addOne);
+    this.router.get(`${this.path}/user/:audioDescriptionId`, this.audioDescriptionsRatingController.getUserRating);
   }
 }
 

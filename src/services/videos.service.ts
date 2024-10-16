@@ -20,7 +20,7 @@ import {
 } from '../models/mongodb/init-models.mongo';
 import { IVideo } from '../models/mongodb/Videos.mongo';
 import { logger } from '../utils/logger';
-import { getVideoDataByYoutubeId } from './videos.util';
+import { getVideoDataByYoutubeId } from '../utils/videos.util';
 import cache from 'memory-cache';
 import moment from 'moment';
 import axios from 'axios';
@@ -253,6 +253,15 @@ class VideosService {
           });
         }
 
+        if (ad.contributions) {
+          const nameContributions = new Map<string, number>();
+          for (const [key, value] of Object.entries(ad.contributions)) {
+            const user = await MongoUsersModel.findOne({ _id: key });
+            const name = user.user_type !== 'AI' ? user.name : 'AI Description Draft';
+            nameContributions[name] = value;
+          }
+          ad.contributions = nameContributions;
+        }
         return ad;
       }
 

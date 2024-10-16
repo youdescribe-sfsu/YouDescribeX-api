@@ -1,21 +1,27 @@
 stages:
   - build
   - deploy
+  - cleanup
 
 variables:
   CI_PROJECT_NAME: youdescribex-api
   DOCKER_REGISTRY: youdescribe
   CI_REGISTRY: docker.io
-  IMAGE_NAME: "${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_NAME}.${CI_PIPELINE_ID}"
+  IMAGE_NAME: "${DOCKER_REGISTRY}/${CI_PROJECT_NAME}"
+  LATEST_IMAGE: "${IMAGE_NAME}:latest"
 
 services:
   - docker:24.0.5-dind
 
 before_script:
+  - echo "Installing Docker Compose..."
+  - sudo curl -L "https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+  - sudo chmod +x /usr/local/bin/docker-compose
+  - docker-compose --version
   - echo "Logging into Docker..."
   - echo "$DOCKER_REGISTRY_PASSWORD" | docker login -u "$DOCKER_REGISTRY_USER" --password-stdin $CI_REGISTRY
 
-build:
+.build_template: &build_template
   stage: build
   script:
     - echo "Building Docker image..."
@@ -36,22 +42,37 @@ build:
       --build-arg MONGO_DB_PORT="$MONGO_DB_PORT"
       --build-arg MONGO_DB_USER="$MONGO_DB_USER"
       --build-arg MONGO_DB_PASSWORD="$MONGO_DB_PASSWORD"
-      -t $IMAGE_NAME .
-    - docker push $IMAGE_NAME
+      -t $LATEST_IMAGE .
+    - docker push $LATEST_IMAGE
     - echo "Build complete"
+
+build_dev:
+  <<: *build_template
   tags:
     - backend
+    - dev
   only:
     - dev
+
+build_prod:
+  <<: *build_template
+  tags:
+    - backend
+    - prod
+  only:
     - main
 
 .deploy_template: &deploy_template
   stage: deploy
+  retry: 2
   script:
     - echo "Deploying to $CI_ENVIRONMENT_NAME environment..."
-    - docker-compose -f docker-compose.yml pull
-    - docker-compose -f docker-compose.yml down
-    - docker-compose -f docker-compose.yml up -d
+    - docker-compose --version
+    - docker-compose -f docker-compose.yml config
+    - docker-compose -f docker-compose.yml pull || { echo "Failed to pull images"; exit 1; }
+    - docker-compose -f docker-compose.yml down || { echo "Failed to stop existing containers"; exit 1; }
+    - docker-compose -f docker-compose.yml up -d --remove-orphans || { echo "Failed to start containers"; exit 1; }
+    - docker-compose -f docker-compose.yml ps
 
 deploy_dev:
   <<: *deploy_template
@@ -66,6 +87,8 @@ deploy_dev:
     - dev
   only:
     - dev
+  dependencies:
+    - build_dev
 
 deploy_prod:
   <<: *deploy_template
@@ -80,3 +103,18 @@ deploy_prod:
     - prod
   only:
     - main
+  dependencies:
+    - build_prod
+
+cleanup:
+  stage: cleanup
+  script:
+    - echo "Cleaning up old images..."
+    - docker images --format "{{.ID}} {{.Repository}}" | grep "${DOCKER_REGISTRY}/${CI_PROJECT_NAME}" | sort -k2 | awk 'NR>1 {print $1}' | xargs -r docker rmi
+    - docker container prune -f
+    - docker image prune -af
+  tags:
+    - backend
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main"
+      when: always

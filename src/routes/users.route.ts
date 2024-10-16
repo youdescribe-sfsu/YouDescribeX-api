@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import UsersController from '../controllers/users.controller';
 import { Routes } from '../interfaces/routes.interface';
+import { withTransaction } from '../middlewares/transaction.middleware';
 
 class UsersRoute implements Routes {
-  public path = '/create-user-links';
+  public path = '/users';
   public router = Router();
   public usersController = new UsersController();
 
@@ -16,6 +17,8 @@ class UsersRoute implements Routes {
     this.router.get(`${this.path}/user-email`, this.usersController.getUserByEmail);
     this.router.post(`${this.path}/add-new-user`, this.usersController.createUser);
     this.router.post(`${this.path}/create-new-user-ad`, this.usersController.createNewUserAudioDescription);
+    this.router.post(`${this.path}/create-collaborative-ad`, withTransaction(this.usersController.createCollaborativeDescription));
+    this.router.post(`${this.path}/calculate-contributions`, this.usersController.calculateContributions);
     this.router.post(`${this.path}/create-user`, this.usersController.createNewUser);
     this.router.post(`${this.path}/request-ai-descriptions-with-gpu`, this.usersController.requestAiDescriptionsWithGpu);
     this.router.get(`${this.path}/processAllClipsInDB/:ad_id`, this.usersController.processAllClipsInDBController);
@@ -26,6 +29,7 @@ class UsersRoute implements Routes {
     this.router.get(`${this.path}/get-user-Ai-DescriptionRequests`, this.usersController.getUserAiDescriptionRequests);
     this.router.post(`${this.path}/save-Visited-Videos-History`, this.usersController.saveVisitedVideosHistory);
     this.router.get(`${this.path}/get-Visited-Videos-History`, this.usersController.getVisitedVideosHistory);
+    this.router.post(`${this.path}/pipeline-failure`, this.usersController.handlePipelineFailure);
   }
 }
 
