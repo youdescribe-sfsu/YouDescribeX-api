@@ -9,13 +9,16 @@ import { IUser } from '../models/mongodb/User.mongo';
 import { MongoUsersModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import sendEmail from '../utils/emailService';
 import { getYouTubeVideoStatus } from '../utils/util';
+import { deepCopyAudioClip } from '../utils/audioClips.util';
+import { deepCopyAudioDescriptionWithoutNewClips, updateAutoClips, updateContributions } from '../utils/audiodescriptions.util';
+import { PipelineFailureDto } from '../dtos/pipelineFailure.dto';
 
 class UsersController {
   public userService = new userService();
   public audioClipsService = new AudioClipsService();
   /**
    * @swagger
-   * /create-user-links/get-all-users:
+   * /users/get-all-users:
    *   get:
    *     summary: Returns a list of all users
    *     tags: [Users]
@@ -48,7 +51,7 @@ class UsersController {
 
   /**
    * @swagger
-   * /create-user-links/{email}:
+   * /users/{email}:
    *   get:
    *     summary: Get user by email
    *     tags: [Users]
@@ -86,7 +89,7 @@ class UsersController {
 
   /**
    * @swagger
-   * /create-user-links/add-new-user:
+   * /users/add-new-user:
    *   post:
    *     summary: Create a new user.
    *     tags: [Users]
@@ -122,7 +125,7 @@ class UsersController {
 
   /**
    * @swagger
-   * /create-user-links/create-new-user-ad:
+   * /users/create-new-user-ad:
    *   post:
    *     summary: Creates a new user audio description and returns a URL to generate audio files for the description
    *     tags: [Users]
@@ -160,6 +163,40 @@ class UsersController {
       res.status(201).json({
         message: `Successfully created new user Audio Description`,
         url: `${newUserAudioDescription.youtubeVideoId}/${audioDescriptionId}`,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public createCollaborativeDescription = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = req.user as unknown as IUser;
+      if (!user) throw new Error('User not found');
+      const videoId: string = req.body.youtubeVideoId;
+      const audio_description_id = req.body.oldDescriberId;
+      // deep copy audio description
+      const deepCopiedAudioDescriptionId = await deepCopyAudioDescriptionWithoutNewClips(audio_description_id, user._id);
+      const deepCopiedClipIds = await deepCopyAudioClip(audio_description_id, deepCopiedAudioDescriptionId, user._id, videoId);
+      await updateAutoClips(deepCopiedAudioDescriptionId, deepCopiedClipIds);
+      // replace audio description clip id with deep copied clip id
+      res.status(201).json({
+        message: `Successfully deeply copied Audio Description`,
+        url: `${videoId}/${deepCopiedAudioDescriptionId}`,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public calculateContributions = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const audioDescriptionId: string = req.body.audioDescriptionId;
+      const user = req.user as unknown as IUser;
+      const userId = user._id.toString();
+      await updateContributions(audioDescriptionId, userId);
+      res.status(201).json({
+        message: 'Contributions calculated',
       });
     } catch (error) {
       next(error);
@@ -358,6 +395,16 @@ class UsersController {
     try {
       const response = await this.audioClipsService.processAllClipsInDB(ad_id);
       return res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public handlePipelineFailure = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const failureData: PipelineFailureDto = req.body;
+      await this.userService.handlePipelineFailure(failureData);
+      res.status(200).json({ message: 'Pipeline failure handled successfully' });
     } catch (error) {
       next(error);
     }

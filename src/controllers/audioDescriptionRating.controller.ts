@@ -18,6 +18,19 @@ class AudioDescriptionRatingController {
       next(error);
     }
   };
+
+  public getUserRating = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.query.userId as string;
+      const audioDescriptionId = req.params.audioDescriptionId;
+
+      const userRating = await this.audioDescriptionRatingService.getUserRating(userId, audioDescriptionId);
+
+      res.status(200).json({ result: userRating });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export default AudioDescriptionRatingController;

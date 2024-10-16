@@ -3,7 +3,7 @@ version: '3'
 services:
   backend:
     container_name: youdescribex-backend
-    image: "${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_NAME}.${CI_PIPELINE_ID}"
+    image: "${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:latest"
     restart: always
     ports:
       - "${PORT}:${PORT}"

@@ -5,7 +5,7 @@ import { PostGres_Timings, Timings } from '../models/postgres/init-models';
 import { isEmpty } from '../utils/util';
 import { MongoTimingsModel } from '../models/mongodb/init-models.mongo';
 import { TimingsDocument } from '../models/mongodb/Timings.mongo';
-import { getVideoDataByYoutubeId, isVideoAvailable } from './videos.util';
+import { getVideoDataByYoutubeId, isVideoAvailable } from '../utils/videos.util';
 class TimingsService {
   public async addTotalTime(timingBody: AddTotalTimeDto): Promise<Timings | TimingsDocument> {
     const { participant_id, time, video_id } = timingBody;

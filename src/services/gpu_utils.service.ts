@@ -2,7 +2,7 @@ import { logger } from '../utils/logger';
 import sendEmail from '../utils/emailService';
 import { getEmailForUser } from '../utils/util';
 import { MongoAICaptionRequestModel } from '../models/mongodb/init-models.mongo';
-import { getVideoDataByYoutubeId } from './videos.util';
+import { getVideoDataByYoutubeId } from '../utils/videos.util';
 
 class GpuUtilsService {
   public async notify(email: string, subject: string, text: string) {

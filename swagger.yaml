@@ -229,7 +229,7 @@ paths:
           description: Bad request
         '500':
           description: Internal server error
-  /create-user-links/get-all-users:
+  /users/get-all-users:
     get:
       summary: Returns a list of all users
       tags:
@@ -250,7 +250,7 @@ paths:
                   message:
                     type: string
                     description: Success message
-  /create-user-links/{email}:
+  /users/{email}:
     get:
       summary: Get user by email
       tags:
@@ -274,7 +274,7 @@ paths:
           description: User not found
         '500':
           description: Internal server error
-  /create-user-links/add-new-user:
+  /users/add-new-user:
     post:
       summary: Create a new user.
       tags:
@@ -294,7 +294,7 @@ paths:
                 $ref: '#/components/schemas/Users'
         '400':
           description: Invalid user data.
-  /create-user-links/create-new-user-ad:
+  /users/create-new-user-ad:
     post:
       summary: >-
         Creates a new user audio description and returns a URL to generate audio

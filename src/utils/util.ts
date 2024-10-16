@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { MongoUsersModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import { IVideo } from '../models/mongodb/Videos.mongo';
-import { getVideoDataByYoutubeId } from '../services/videos.util';
+import { getVideoDataByYoutubeId } from './videos.util';
 import { GPU_URL } from '../config';
 import moment from 'moment';
 
@@ -107,3 +107,46 @@ export const utcToLongInt = (timestampUtc: number): number => {
 };
 
 export const nowUtc = () => moment().utc().format('YYYYMMDDHHmmss') as unknown as number;
+
+export const calculateContributions = (contributions: Map<string, number>, origin: string, userId: string, revision: string) => {
+  const edittingDistance = calculateEdittingDistance(origin, revision);
+  const oldLength = origin.length;
+  const newContribution = edittingDistance / (oldLength + edittingDistance);
+  const oldContributionSum = 1 - newContribution;
+
+  let userFound = false;
+  contributions.forEach((value: number, key: string) => {
+    contributions.set(key, value * oldContributionSum);
+    if (key === userId) {
+      userFound = true;
+    }
+  });
+
+  if (userFound) {
+    contributions.set(userId, contributions.get(userId) + newContribution);
+  } else {
+    contributions.set(userId, newContribution);
+  }
+};
+
+export const calculateEdittingDistance = (origin: string, revision: string): number => {
+  const m = origin.length;
+  const n = revision.length;
+  const dp = new Array(m + 1).fill(0).map(() => new Array(n + 1).fill(0));
+
+  for (let i = 0; i <= m; i++) {
+    for (let j = 0; j <= n; j++) {
+      if (i === 0) {
+        dp[i][j] = j;
+      } else if (j === 0) {
+        dp[i][j] = i;
+      } else if (origin[i - 1] === revision[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = 1 + Math.min(dp[i - 1][j - 1], dp[i][j - 1], dp[i - 1][j]);
+      }
+    }
+  }
+
+  return dp[m][n];
+};
