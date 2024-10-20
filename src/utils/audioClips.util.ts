@@ -190,10 +190,12 @@ export const analyzePlaybackType = async (
       console.log('adId', adId);
       console.log('clipId', clipId);
 
+      // Query to find overlapping dialogs
       const overlappingDialogs = await MongoDialog_Timestamps_Model.find({
         video: videoId,
         $and: [{ dialog_start_time: { $lte: currentClipEndTime } }, { dialog_end_time: { $gte: currentClipStartTime } }],
       }).select('dialog_start_time dialog_end_time');
+
       console.log('overlappingDialogs', overlappingDialogs.length);
       if (overlappingDialogs.length !== 0) {
         return {
@@ -202,14 +204,12 @@ export const analyzePlaybackType = async (
         };
       }
 
+      // Query to find overlapping audio clips
       const overlappingClips = await MongoAudioClipsModel.find({
         audio_description: adId,
-        $and: [
-          { clip_start_time: { $lte: currentClipEndTime } },
-          { clip_end_time: { $gte: currentClipStartTime } },
-          { clip_id: { $ne: clipId === null ? null : clipId } },
-        ],
+        $and: [{ start_time: { $lte: currentClipEndTime } }, { end_time: { $gte: currentClipStartTime } }, { _id: { $ne: clipId === null ? null : clipId } }],
       });
+
       console.log('overlappingClips', overlappingClips.length);
       if (overlappingClips.length === 0) {
         return {
@@ -217,6 +217,7 @@ export const analyzePlaybackType = async (
           data: 'inline',
         };
       }
+
       if (processingAllClips) {
         let countOfClipsAfter = 0;
         overlappingClips.forEach(clip => {
@@ -243,17 +244,30 @@ export const analyzePlaybackType = async (
             data: 'extended',
           };
         }
-        const playbackType = (await MongoAudioClipsModel.findById(clipId)).toJSON()['playback_type'];
+
+        const existingClip = await MongoAudioClipsModel.findById(clipId);
+        if (!existingClip) {
+          return {
+            message: 'Clip not found',
+            data: null,
+          };
+        }
+
+        const playbackType = existingClip.playback_type;
         return {
           message: `Success - ${playbackType}!`,
           data: playbackType,
         };
       }
     } catch (error) {
-      // Handle any errors here
       console.error(error);
+      return {
+        message: 'Unable to connect to DB - Analyze Playback Type!! Please try again',
+        data: null,
+      };
     }
   } else {
+    // Existing code for other databases (e.g., PostgreSQL)
     try {
       const overlappingDialogs = await Dialog_Timestamps.findAll({
         where: {
@@ -273,6 +287,7 @@ export const analyzePlaybackType = async (
         },
         attributes: ['dialog_start_time', 'dialog_end_time'],
       });
+
       if (overlappingDialogs.length !== 0) {
         return {
           message: 'Success - extended!',
