@@ -664,6 +664,25 @@ class UserService {
   `;
   }
 
+  private async processAiDescriptionRequest(userData: IUser, youtube_id: string, ydx_app_host: string, youtubeVideoData: any) {
+    try {
+      const aiAudioDescriptions = await this.checkIfVideoHasAudioDescription(youtube_id, AI_USER_ID, userData._id);
+
+      if (aiAudioDescriptions) {
+        await this.handleExistingAudioDescription(userData, youtube_id, ydx_app_host, youtubeVideoData, aiAudioDescriptions);
+      } else {
+        await this.initiateNewAudioDescription(userData, youtube_id, ydx_app_host, youtubeVideoData);
+      }
+    } catch (error) {
+      logger.error(`Error in processAiDescriptionRequest: ${error.message}`, {
+        userId: userData._id,
+        youtubeId: youtube_id,
+        error: error,
+      });
+      // Optionally, handle the error, such as sending a notification to the user or admin
+    }
+  }
+
   public async requestAiDescriptionsWithGpu(userData: IUser, youtube_id: string, ydx_app_host: string) {
     const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
 
@@ -676,21 +695,21 @@ class UserService {
 
       logger.info(`Video data retrieved for ${youtube_id}`, { videoTitle: youtubeVideoData.title });
 
-      const aiAudioDescriptions = await this.checkIfVideoHasAudioDescription(youtube_id, AI_USER_ID, userData._id);
+      // Return immediate response
+      const response = {
+        message: 'Your request has been received and is being processed.',
+      };
 
-      if (aiAudioDescriptions) {
-        return await this.handleExistingAudioDescription(userData, youtube_id, ydx_app_host, youtubeVideoData, aiAudioDescriptions);
-      } else {
-        return await this.initiateNewAudioDescription(userData, youtube_id, ydx_app_host, youtubeVideoData);
-      }
+      // Proceed with processing in the background
+      this.processAiDescriptionRequest(userData, youtube_id, ydx_app_host, youtubeVideoData);
+
+      return response;
     } catch (error) {
       logger.error(`Error in requestAiDescriptionsWithGpu: ${error.message}`, {
         userId: userData._id,
         youtubeId: youtube_id,
         error: error,
       });
-
-      await this.handleError(userData, youtube_id, youtubeVideoData?.title || 'Unknown Video');
 
       if (error instanceof VideoNotFoundError) {
         throw new HttpException(404, error.message);
