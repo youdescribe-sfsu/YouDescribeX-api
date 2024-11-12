@@ -24,8 +24,6 @@ type RelevanceScoreResult = IWishList & {
 };
 
 const getRelevanceScores = async (items: IWishList[], keyword: string): Promise<RelevanceScoreResult[]> => {
-  console.log('Items:', items.length);
-
   const scoredItems: RelevanceScoreResult[] = [];
 
   for (let i = 0; i < items.length; i += BATCH_SIZE) {
@@ -59,14 +57,22 @@ const getRelevanceScores = async (items: IWishList[], keyword: string): Promise<
         max_tokens: 4000,
       });
       const responseContent = response.choices[0].message.content;
-      const parsedResponse: RelevanceScoreResult[] = JSON.parse(responseContent);
-      scoredItems.push(...parsedResponse);
+      const parsedResponse: { youtube_id: string; relevance_score: number }[] = JSON.parse(responseContent);
+
+      const relevanceMap = new Map(parsedResponse.map(item => [item.youtube_id, item.relevance_score]));
+
+      // Merge the relevance scores back to the original items
+      const batchWithScores: RelevanceScoreResult[] = batch.map(item => ({
+        ...item,
+        relevance_score: relevanceMap.get(item.youtube_id) || 1,
+      }));
+
+      scoredItems.push(...batchWithScores);
     } catch (err) {
       console.error('Error:', err);
     }
   }
 
-  // Sort the merged scoredItems array based on relevance_score
   const sortedItems: RelevanceScoreResult[] = scoredItems.sort((a, b) => b.relevance_score - a.relevance_score);
   return sortedItems;
 };
