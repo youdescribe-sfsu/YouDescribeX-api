@@ -14,9 +14,7 @@ services:
   - docker:24.0.5-dind
 
 before_script:
-  - echo "Installing Docker Compose..."
-  - sudo curl -L "https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-  - sudo chmod +x /usr/local/bin/docker-compose
+  - echo "Using pre-installed Docker Compose..."
   - docker-compose --version
   - echo "Logging into Docker..."
   - echo "$DOCKER_REGISTRY_PASSWORD" | docker login -u "$DOCKER_REGISTRY_USER" --password-stdin $CI_REGISTRY

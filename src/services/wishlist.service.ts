@@ -8,6 +8,9 @@ import axios from 'axios';
 import * as conf from '../utils/youtube_utils';
 import { PipelineStage } from 'mongoose';
 import { Types } from 'mongoose';
+import getRelevanceScores from '../utils/openAPI.util';
+import { LRUCache } from 'lru-cache';
+import KeywordVideosModel from '../models/mongodb/KeywordVideos.mongo';
 
 interface IWishListResponse {
   items: IWishList[];
@@ -17,6 +20,27 @@ interface IWishListResponse {
 }
 
 class WishListService {
+  private cache: LRUCache<string, any>;
+
+  constructor() {
+    this.cache = new LRUCache<string, any>({
+      maxSize: 300,
+      sizeCalculation: () => {
+        return 1;
+      },
+      dispose: (value, key) => {
+        try {
+          KeywordVideosModel.create({
+            keyword: key,
+            data: JSON.stringify(value),
+          });
+        } catch (error) {
+          console.error('Error storing removed item:', error);
+        }
+      },
+    });
+  }
+
   public async getAllWishlist(filterBody: WishListRequest): Promise<any> {
     const { sort, category = [], page, limit, sortField, search = '' } = filterBody;
 
@@ -53,79 +77,158 @@ class WishListService {
       categoryRegex = category.join('|');
     }
 
+    let wishListItems: Array<IWishListResponse> = [];
     try {
-      const wishListItems: Array<IWishListResponse> = await MongoWishListModel.aggregate().facet({
-        items: [
-          {
-            $match: {
-              $and: [
-                { status: 'queued' },
-                { youtube_status: 'available' },
-                { tags: { $regex: search, $options: 'i' } },
-                { category: { $regex: categoryRegex, $options: 'i' } },
-              ],
-            },
-          },
-          {
-            $lookup: {
-              from: 'AICaptionRequests',
-              localField: 'youtube_id',
-              foreignField: 'youtube_id',
-              as: 'aiCaptionRequests',
-            },
-          },
-          {
-            $addFields: {
-              aiRequested: {
-                $cond: {
-                  if: { $gt: [{ $size: '$aiCaptionRequests' }, 0] },
-                  then: {
-                    $cond: {
-                      if: { $eq: [{ $arrayElemAt: ['$aiCaptionRequests.status', 0] }, 'completed'] },
-                      then: true,
-                      else: false,
-                    },
-                  },
-                  else: false,
-                },
+      if (search === '') {
+        wishListItems = await MongoWishListModel.aggregate().facet({
+          items: [
+            {
+              $match: {
+                $and: [
+                  { status: 'queued' },
+                  { youtube_status: 'available' },
+                  { tags: { $regex: search, $options: 'i' } },
+                  { category: { $regex: categoryRegex, $options: 'i' } },
+                ],
               },
-              lowercaseCategory: { $toLower: '$category' }, // Add a new field with lowercase category
             },
-          },
-          { $sort: sortOptions },
-          { $skip: skip },
-          { $limit: pageSize },
-        ],
-        count: [
-          {
-            $match: {
-              $and: [
-                { status: 'queued' },
-                { youtube_status: 'available' },
-                { tags: { $regex: search, $options: 'i' } },
-                { category: { $regex: categoryRegex, $options: 'i' } },
-              ],
+            {
+              $lookup: {
+                from: 'AICaptionRequests',
+                localField: 'youtube_id',
+                foreignField: 'youtube_id',
+                as: 'aiCaptionRequests',
+              },
             },
-          },
-          { $count: 'count' },
-        ],
-      });
+            {
+              $addFields: {
+                aiRequested: {
+                  $cond: {
+                    if: { $gt: [{ $size: '$aiCaptionRequests' }, 0] },
+                    then: {
+                      $cond: {
+                        if: { $eq: [{ $arrayElemAt: ['$aiCaptionRequests.status', 0] }, 'completed'] },
+                        then: true,
+                        else: false,
+                      },
+                    },
+                    else: false,
+                  },
+                },
+                lowercaseCategory: { $toLower: '$category' }, // Add a new field with lowercase category
+              },
+            },
+            { $sort: sortOptions },
+            { $skip: skip },
+            { $limit: pageSize },
+          ],
+          count: [
+            {
+              $match: {
+                $and: [
+                  { status: 'queued' },
+                  { youtube_status: 'available' },
+                  { tags: { $regex: search, $options: 'i' } },
+                  { category: { $regex: categoryRegex, $options: 'i' } },
+                ],
+              },
+            },
+            { $count: 'count' },
+          ],
+        });
 
-      if (wishListItems.length === 0 || !wishListItems[0].count || wishListItems[0].count.length === 0) {
+        if (wishListItems.length === 0 || !wishListItems[0].count || wishListItems[0].count.length === 0) {
+          return {
+            totalItems: 0,
+            page: pageNumber,
+            pageSize,
+            data: [],
+          };
+        }
+
         return {
-          totalItems: 0,
+          totalItems: wishListItems[0].count[0].count,
           page: pageNumber,
           pageSize,
-          data: [],
+          data: wishListItems[0].items,
+        };
+      } else {
+        const cacheKey = `scoredItems-${search}`;
+        let cacheData = this.cache.get(cacheKey);
+        const startIndex = (pageNumber - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+
+        if (!cacheData) {
+          const keywordVideos = await KeywordVideosModel.findOne({ keyword: cacheKey });
+          if (!keywordVideos) {
+            wishListItems = await MongoWishListModel.aggregate().facet({
+              items: [
+                {
+                  $match: {
+                    $and: [
+                      { status: 'queued' },
+                      { youtube_status: 'available' },
+                      { tags: { $regex: search, $options: 'i' } },
+                      { category: { $regex: categoryRegex, $options: 'i' } },
+                    ],
+                  },
+                },
+                {
+                  $lookup: {
+                    from: 'AICaptionRequests',
+                    localField: 'youtube_id',
+                    foreignField: 'youtube_id',
+                    as: 'aiCaptionRequests',
+                  },
+                },
+                {
+                  $addFields: {
+                    aiRequested: {
+                      $cond: {
+                        if: { $gt: [{ $size: '$aiCaptionRequests' }, 0] },
+                        then: {
+                          $cond: {
+                            if: { $eq: [{ $arrayElemAt: ['$aiCaptionRequests.status', 0] }, 'completed'] },
+                            then: true,
+                            else: false,
+                          },
+                        },
+                        else: false,
+                      },
+                    },
+                    lowercaseCategory: { $toLower: '$category' },
+                  },
+                },
+                { $sort: sortOptions },
+              ],
+              count: [
+                {
+                  $match: {
+                    $and: [
+                      { status: 'queued' },
+                      { youtube_status: 'available' },
+                      { tags: { $regex: search, $options: 'i' } },
+                      { category: { $regex: categoryRegex, $options: 'i' } },
+                    ],
+                  },
+                },
+                { $count: 'count' },
+              ],
+            });
+            cacheData = await getRelevanceScores(wishListItems[0].items, search);
+          } else {
+            cacheData = JSON.parse(keywordVideos.data);
+          }
+          this.cache.set(cacheKey, cacheData);
+        }
+
+        return {
+          totalItems: cacheData.length,
+          page: pageNumber,
+          pageSize,
+          data: cacheData.slice(startIndex, endIndex),
         };
       }
-
-      return {
-        totalItems: wishListItems[0].count[0].count,
-        page: pageNumber,
-        pageSize,
-        data: wishListItems[0].items,
-      };
     } catch (error) {
       console.error('Error fetching wishlist items:', error);
       throw new Error('Failed to fetch wishlist items');
