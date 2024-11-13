@@ -73,6 +73,11 @@ class App {
     this.app.use(passport.session());
     logger.info(`AUDIO_DIRECTORY: ${AUDIO_DIRECTORY}`);
     this.app.use('/api/static', express.static(AUDIO_DIRECTORY));
+
+    // Add a preflight handler for all routes
+    this.app.options('*', (req, res) => {
+      res.sendStatus(200);
+    });
   }
 
   private initializeRoutes(routes: Routes[]) {
