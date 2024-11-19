@@ -24,6 +24,7 @@ before_script:
   script:
     - echo "Building Docker image..."
     - docker build --no-cache
+      --build-arg OPENAI_API_KEY="$OPENAI_API_KEY"
       --build-arg GOOGLE_CRED_FILE="$GOOGLE_CRED_FILE"
       --build-arg GOOGLE_APPLICATION_CREDENTIALS="$GOOGLE_APPLICATION_CREDENTIALS"
       --build-arg NODE_ENV="$NODE_ENV"
