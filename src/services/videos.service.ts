@@ -266,7 +266,16 @@ class VideosService {
       }
 
       const processedDescriptions = await Promise.all(audioDescriptions.map(processAudioDescription));
-      newVideo.audio_descriptions = processedDescriptions;
+
+      // Sort the descriptions so AI drafts appear at the end
+      newVideo.audio_descriptions = processedDescriptions.sort((a, b) => {
+        // If a is an AI draft and b is not, a should come after b
+        if (a.user?.user_type === 'AI' && b.user?.user_type !== 'AI') return 1;
+        // If b is an AI draft and a is not, b should come after a
+        if (a.user?.user_type !== 'AI' && b.user?.user_type === 'AI') return -1;
+        // If both are the same type, maintain their original order
+        return 0;
+      });
 
       return { result: newVideo };
     } catch (error) {
