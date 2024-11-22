@@ -45,7 +45,7 @@ services:
       - GPU_PIPELINE_PORT=${GPU_PIPELINE_PORT}
       - CURRENT_YDX_HOST=${CURRENT_YDX_HOST}
       - GMAIL_USER=${GMAIL_USER}
-      - GMAIL_PASSWORD=${GMAIL_PASSWORD}
+      - GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD}
       - AI_USER_ID=${AI_USER_ID}
     logging:
       driver: "json-file"
