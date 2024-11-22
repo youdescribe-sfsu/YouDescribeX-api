@@ -17,7 +17,7 @@ export const { AUDIO_DIRECTORY = '/public/audio' } = process.env;
 export const { CURRENT_MONGO_DB = 'YDX' } = process.env;
 export const { GPU_HOST, GPU_PIPELINE_PORT } = process.env;
 export const { CURRENT_YDX_HOST, AI_USER_ID = '650506db3ff1c2140ea10ece' } = process.env;
-export const { GMAIL_USER, GMAIL_PASSWORD } = process.env;
+export const { GMAIL_USER, GMAIL_APP_PASSWORD } = process.env;
 export const { OPENAI_API_KEY } = process.env;
 
 export const GPU_URL = GPU_HOST && GPU_PIPELINE_PORT ? `http://${GPU_HOST}:${GPU_PIPELINE_PORT}` : null;
@@ -38,4 +38,37 @@ if (GOOGLE_CRED) {
   console.log('Google credentials have been written to tts_api_key.json for authentication with the Google Text-to-Speech API.');
 } else {
   console.log('Google credentials are not provided. Text-to-speech functionality will not work.');
+}
+
+// Update environment variable exports
+export const {
+  YOUTUBE_API_CREDENTIALS_FILE,
+  YOUTUBE_API_CREDENTIALS_PATH,
+  VISION_API_CREDENTIALS_FILE,
+  VISION_API_CREDENTIALS_PATH,
+  TTS_API_CREDENTIALS_FILE,
+  TTS_API_CREDENTIALS_PATH,
+  STT_API_CREDENTIALS_FILE,
+  STT_API_CREDENTIALS_PATH,
+} = process.env;
+
+// Initialize credentials
+if (YOUTUBE_API_CREDENTIALS_FILE) {
+  fs.writeFileSync(YOUTUBE_API_CREDENTIALS_PATH!, Buffer.from(YOUTUBE_API_CREDENTIALS_FILE, 'base64').toString());
+  console.log('YouTube API credentials written successfully');
+}
+
+if (VISION_API_CREDENTIALS_FILE) {
+  fs.writeFileSync(VISION_API_CREDENTIALS_PATH!, Buffer.from(VISION_API_CREDENTIALS_FILE, 'base64').toString());
+  console.log('Vision API credentials written successfully');
+}
+
+if (TTS_API_CREDENTIALS_FILE) {
+  fs.writeFileSync(TTS_API_CREDENTIALS_PATH!, Buffer.from(TTS_API_CREDENTIALS_FILE, 'base64').toString());
+  console.log('Text-to-Speech API credentials written successfully');
+}
+
+if (STT_API_CREDENTIALS_FILE) {
+  fs.writeFileSync(STT_API_CREDENTIALS_PATH!, Buffer.from(STT_API_CREDENTIALS_FILE, 'base64').toString());
+  console.log('Speech-to-Text API credentials written successfully');
 }
