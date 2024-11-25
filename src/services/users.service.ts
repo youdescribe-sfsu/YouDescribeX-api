@@ -683,12 +683,34 @@ class UserService {
     }
   }
 
-  public async requestAiDescriptionsWithGpu(userData: IUser, youtube_id: string, ydx_app_host: string) {
-    const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
+  public async checkAIServiceAvailability() {
+    try {
+      if (!GPU_URL) {
+        return { available: false, reason: 'GPU service not configured' };
+      }
 
+      const response = await axios.get(`${GPU_URL}/health-check`, { timeout: 5000 });
+      return {
+        available: response.status === 200,
+        reason: response.status === 200 ? 'Service available' : 'Service unavailable',
+      };
+    } catch (error) {
+      logger.error('AI service health check failed:', error);
+      return { available: false, reason: 'Service unavailable' };
+    }
+  }
+
+  public async requestAiDescriptionsWithGpu(userData: IUser, youtube_id: string, ydx_app_host: string) {
     try {
       logger.info(`Starting AI description request for video ${youtube_id}`, { userId: userData._id });
 
+      // First check if the service is available
+      const serviceStatus = await this.checkAIServiceAvailability();
+      if (!serviceStatus.available) {
+        throw new HttpException(503, 'AI service is currently unavailable');
+      }
+
+      const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
       if (!youtubeVideoData) {
         throw new VideoNotFoundError(`No data found for YouTube ID: ${youtube_id}`);
       }
@@ -698,10 +720,13 @@ class UserService {
       // Return immediate response
       const response = {
         message: 'Your request has been received and is being processed.',
+        status: 'pending',
       };
 
-      // Proceed with processing in the background
-      this.processAiDescriptionRequest(userData, youtube_id, ydx_app_host, youtubeVideoData);
+      // Process in background
+      this.processAiDescriptionRequest(userData, youtube_id, ydx_app_host, youtubeVideoData).catch(error => {
+        logger.error('Background processing failed:', error);
+      });
 
       return response;
     } catch (error) {
@@ -714,7 +739,9 @@ class UserService {
       if (error instanceof VideoNotFoundError) {
         throw new HttpException(404, error.message);
       } else if (error instanceof AIProcessingError) {
-        throw new HttpException(500, 'AI processing failed. Please try again later.');
+        throw new HttpException(503, 'AI processing service is currently unavailable');
+      } else if (error instanceof HttpException) {
+        throw error;
       } else {
         throw new HttpException(500, 'An unexpected error occurred');
       }
