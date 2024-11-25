@@ -1,19 +1,39 @@
-import { NODE_ENV } from '../config';
+import { GOOGLE_SERVICES, getCurrentYouTubeApiKey } from './google-services.config';
+import axios from 'axios';
+import { logger } from './logger';
 
-const youTubeApiUrl = 'https://www.googleapis.com/youtube/v3';
+class YouTubeUtils {
+  private static apiUrl = GOOGLE_SERVICES.YOUTUBE.API_URL;
+  private static apiKey = getCurrentYouTubeApiKey();
 
-let youTubeApiKey = 'AIzaSyAfU2tpVpMKmIyTlRljnKfPUFWXrNXg21Q';
+  static async getVideoData(videoId: string) {
+    try {
+      const response = await axios.get(`${this.apiUrl}/videos?id=${videoId}&part=contentDetails,snippet,statistics&key=${this.apiKey}`);
 
-if (NODE_ENV == 'dev') {
-  youTubeApiKey = 'AIzaSyBQFD0fJoEO2l8g0OIrqbtjj2qXXVNO__U';
-} else if (NODE_ENV == 'prod') {
-  youTubeApiKey = 'AIzaSyDV8QMir3NE8S2jA1GyXvLXyTuSq72FPyE';
+      if (!response.data.items?.length) {
+        throw new Error(`No video found for ID: ${videoId}`);
+      }
+
+      return response.data.items[0];
+    } catch (error) {
+      logger.error('YouTube API Error:', error);
+      throw error;
+    }
+  }
+
+  static async getVideoCategory(categoryId: string) {
+    try {
+      const response = await axios.get(`${this.apiUrl}/videoCategories?id=${categoryId}&part=snippet&key=${this.apiKey}`);
+      return response.data.items[0]?.snippet.title;
+    } catch (error) {
+      logger.error('YouTube Category API Error:', error);
+      throw error;
+    }
+  }
 }
 
-export { youTubeApiUrl, youTubeApiKey };
-
-// const youTubeApiKey = "AIzaSyCEMAn_7h1wgIgZ4xhLbQUDuLKlkmvgLHs";     // !!! occupied by ios app !!! (google cloud project: youdescribesfsu@gmail.com -> youdescribe)
-// const youTubeApiKey = "AIzaSyDV8QMir3NE8S2jA1GyXvLXyTuSq72FPyE"; // !!! occupied by https://youdescribe.org !!! (google cloud project: youdescribeadm@gmail.com -> youdescribe-0126)
-// const youTubeApiKey = "AIzaSyBQFD0fJoEO2l8g0OIrqbtjj2qXXVNO__U";     // !!! occupied by https://dev.youdescribe.org !!! (google cloud project: youdescribeadm@gmail.com -> youdescribe-0127)
-//const youTubeApiKey = "AIzaSyBWQ2o3N0MVc8oP96JvWVVwqjxpEOgkhQU";     // !!! occupied by http://18.221.192.73:3001 !!! (google cloud project: youdescribeadm@gmail.com -> youdescribe-0612)
-//const youTubeApiKey = "AIzaSyAfU2tpVpMKmIyTlRljnKfPUFWXrNXg21Q";     // free to use (google cloud project: youdescribeadm@gmail.com -> youdescribe-0613)
+export default YouTubeUtils;
+export const { apiUrl: youTubeApiUrl, apiKey: youTubeApiKey } = {
+  apiUrl: GOOGLE_SERVICES.YOUTUBE.API_URL,
+  apiKey: getCurrentYouTubeApiKey(),
+};
