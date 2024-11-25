@@ -280,10 +280,59 @@ class AIAudioDescriptionService {
   }
 }
 
-// Export services
-export { AudioDescriptionProcessingService, PopulationService, ContributionService, AIAudioDescriptionService };
+class AutoClipsService {
+  static async updateAutoClips(audioDescriptionId: string, newClips: string[]): Promise<void> {
+    try {
+      const audioDescription = await MongoAudio_Descriptions_Model.findById(audioDescriptionId);
+      if (!audioDescription) {
+        logger.error('Audio Description not found');
+        return null;
+      }
+      audioDescription.audio_clips = newClips;
+      await audioDescription.save();
+    } catch (error) {
+      logger.error('Update auto clips error:', error);
+    }
+  }
+
+  static async deepCopyAudioDescriptionWithoutNewClips(audioDescriptionId: string, toUserId: string): Promise<string | null> {
+    try {
+      const audioDescription = await MongoAudio_Descriptions_Model.findById(audioDescriptionId);
+      if (!audioDescription) {
+        logger.error('Audio Description not found');
+        return null;
+      }
+
+      const newAudioDescription = new MongoAudio_Descriptions_Model({
+        admin_review: audioDescription.admin_review,
+        audio_clips: [],
+        created_at: nowUtc(),
+        language: audioDescription.language,
+        legacy_notes: '',
+        status: 'draft',
+        updated_at: nowUtc(),
+        video: audioDescription.video,
+        user: toUserId,
+        collaborative_editing: false,
+        contributions: audioDescription.contributions || new Map<string, number>([[audioDescription.user, 1]]),
+        prev_audio_description: audioDescriptionId,
+        depth: audioDescription.depth + 1,
+      });
+
+      await newAudioDescription.save();
+      return newAudioDescription._id;
+    } catch (error) {
+      logger.error('Deep copy error:', error);
+      return null;
+    }
+  }
+}
+
+export { AudioDescriptionProcessingService, PopulationService, ContributionService, AIAudioDescriptionService, AutoClipsService };
 
 // Export functions for backward compatibility
+export const deepCopyAudioDescriptionWithoutNewClips = AutoClipsService.deepCopyAudioDescriptionWithoutNewClips;
+export const updateAutoClips = AutoClipsService.updateAutoClips;
 export const newAIAudioDescription = AIAudioDescriptionService.createNewDescription;
 export const processAllClipsInDBSession = AudioDescriptionProcessingService.processAllClips;
 export const updateContributions = ContributionService.updateContributions;
