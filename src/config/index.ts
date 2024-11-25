@@ -1,14 +1,7 @@
-import { config } from 'dotenv';
 import fs from 'fs';
 import path from 'path';
+import { ENV } from '../utils/env-initializer';
 import { logger } from '../utils/logger';
-
-// Initialize environment configuration
-const CURRENT_NODE_ENV = process.env.NODE_ENV || 'production';
-const ENV_FILE = `.env.${CURRENT_NODE_ENV}.local`;
-
-logger.info(`Loading environment from: ${ENV_FILE}`);
-config({ path: ENV_FILE });
 
 // Type definitions for configuration
 interface DatabaseConfig {
@@ -158,7 +151,7 @@ export const CONFIG = {
   } as GpuConfig,
 
   app: {
-    nodeEnv: CURRENT_NODE_ENV,
+    nodeEnv: ENV.nodeEnv,
     audioDirectory: process.env.AUDIO_DIRECTORY || '/public/audio',
     aiUserId: process.env.AI_USER_ID || '650506db3ff1c2140ea10ece',
     currentYdxHost: process.env.CURRENT_YDX_HOST,
@@ -302,6 +295,6 @@ export const {
 };
 
 // Export NODE_ENV separately to avoid redeclaration
-export const NODE_ENV = CURRENT_NODE_ENV;
+export const NODE_ENV = ENV.nodeEnv;
 
 export default CONFIG;

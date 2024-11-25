@@ -403,7 +403,7 @@ class AudioClipsService {
     const updatedAudioDuration = clipDurationStatus.data;
     const updatedClipEndTime = Number((parseFloat(clipStartTime) + parseFloat(updatedAudioDuration)).toFixed(2));
     const playbackTypeStatus = await analyzePlaybackType(
-      clipStartTime,
+      Number(clipStartTime),
       updatedClipEndTime,
       videoId,
       audioDescriptionId,
