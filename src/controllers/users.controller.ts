@@ -226,6 +226,15 @@ class UsersController {
     }
   };
 
+  public getAiServiceStatus = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const status = await this.userService.checkAIServiceAvailability();
+      res.status(200).json(status);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   public increaseRequestCount = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userData = req.user as unknown as IUser;
