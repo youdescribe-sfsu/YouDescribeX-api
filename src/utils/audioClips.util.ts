@@ -1,24 +1,54 @@
-import textToSpeech from '@google-cloud/text-to-speech';
+import { TextToSpeechClient } from '@google-cloud/text-to-speech';
 import fs from 'fs';
 import getMP3Duration from 'get-mp3-duration';
 import mime from 'mime-types';
 import { ClientSession } from 'mongoose';
-import multer from 'multer'; // to process form-data
+import multer from 'multer';
 import { Op } from 'sequelize';
-import util from 'util';
 import { v4 as uuidv4 } from 'uuid';
-import { AUDIO_DIRECTORY, CURRENT_DATABASE } from '../config';
+import { CONFIG } from '../config';
 import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
 import { MongoAudioClipsModel, MongoDialog_Timestamps_Model } from '../models/mongodb/init-models.mongo';
 import { Audio_Clips, Dialog_Timestamps, Videos } from '../models/postgres/init-models';
 import { logger } from './logger';
 import { getYouTubeVideoStatus, nowUtc } from './util';
 
-interface NudgeStartTimeIfZeroResult {
-  data: [] | null;
+// Types and Interfaces
+interface TextToSpeechResponse {
+  status: boolean;
+  filepath: string | null;
+  filename: string | null;
+  file_mime_type: string | null;
+  file_size_bytes: number;
+}
+
+interface PlaybackAnalysisResponse {
+  message: string;
+  data: 'extended' | 'inline' | null;
+}
+
+interface ClipStartTimeResponse {
+  message: string;
+  data: string | null;
+}
+
+interface AudioPathResponse {
+  message: string;
+  data: string | null;
+}
+
+interface ProcessClipResponse {
+  clip_id: string;
+  message: string;
+  playbackType?: 'extended' | 'inline';
+}
+
+interface NudgeStartTimeResult {
+  data: any[] | null;
   message: string;
 }
 
+// Type Guards
 function isIAudioClip(clip: IAudioClip | Audio_Clips): clip is IAudioClip {
   return (clip as IAudioClip).start_time !== undefined;
 }
@@ -27,51 +57,195 @@ function isAudioClips(clip: IAudioClip | Audio_Clips): clip is Audio_Clips {
   return (clip as Audio_Clips).clip_start_time !== undefined;
 }
 
-export const nudgeStartTimeIfZero = async (audioClips: Audio_Clips[] | IAudioClip[]): Promise<NudgeStartTimeIfZeroResult> => {
-  const startTimeZeroaudioClipIds: string[] = [];
-
-  for (const clip of audioClips) {
-    if (isAudioClips(clip)) {
-      if (clip.clip_start_time === 0) {
-        startTimeZeroaudioClipIds.push(clip.clip_id);
-      }
-    } else if (isIAudioClip(clip)) {
-      if (clip.start_time === 0) {
-        startTimeZeroaudioClipIds.push(clip._id);
-      }
+// Main Services
+class FileManagementService {
+  static ensureDirectoryExists(dir: string): void {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
     }
   }
 
-  if (startTimeZeroaudioClipIds.length === 0) {
-    return {
-      data: [],
-      message: 'None of the clips are starting at 0sec. Success OK!',
-    };
+  static async getAudioDuration(filepath: string): Promise<{ message: string; data: string | null }> {
+    const newPath = CONFIG.app.audioDirectory + filepath.replace('.', '');
+    logger.info(`Calculating duration for: ${newPath}`);
+
+    try {
+      const buffer = fs.readFileSync(newPath);
+      const duration = (getMP3Duration(buffer) / 1000).toFixed(2);
+      return { message: 'Success', data: duration };
+    } catch (err) {
+      logger.error('Audio Duration Error:', err);
+      return { message: 'Error in Getting Audio Duration', data: null };
+    }
   }
 
-  try {
-    if (CURRENT_DATABASE == 'mongodb') {
-      const clipsToUpdate = await MongoAudioClipsModel.find({
-        clip_id: { $in: startTimeZeroaudioClipIds },
+  static deleteFile(filepath: string): boolean {
+    const newPath = CONFIG.app.audioDirectory + filepath.replace('.', '');
+    try {
+      fs.unlinkSync(newPath);
+      logger.info('File deleted successfully:', newPath);
+      return true;
+    } catch (err) {
+      logger.error('File deletion error:', err);
+      return false;
+    }
+  }
+
+  static copyFile(oldPath: string, youtubeVideoId: string, fileName: string, adId: string): string {
+    const oldAbsPath = `${CONFIG.app.audioDirectory}${oldPath.replace('.', '')}/${fileName}`;
+
+    if (!fs.existsSync(oldAbsPath)) {
+      logger.error(`File does not exist: ${oldAbsPath}`);
+      return oldPath;
+    }
+
+    const newPath = `${CONFIG.app.audioDirectory}/audio/${youtubeVideoId}/${adId}/${fileName}`;
+    try {
+      fs.copyFileSync(oldPath, newPath);
+      return `./audio/${youtubeVideoId}/${adId}`;
+    } catch (err) {
+      logger.error('File copy error:', err);
+      return oldPath;
+    }
+  }
+}
+
+class AudioClipService {
+  private static textToSpeechClient = new TextToSpeechClient({
+    keyFilename: CONFIG.google.textToSpeech.credentialsPath,
+  });
+
+  static async generateMp3forDescriptionText(
+    adId: string,
+    youtubeVideoId: string,
+    clipDescriptionText: string,
+    clipDescriptionType: string,
+  ): Promise<TextToSpeechResponse> {
+    try {
+      const voiceName = clipDescriptionType === 'Visual' ? 'en-US-Wavenet-D' : 'en-US-Wavenet-C';
+      const [response] = await this.textToSpeechClient.synthesizeSpeech({
+        input: { text: clipDescriptionText },
+        voice: {
+          languageCode: 'en-US',
+          name: voiceName,
+          ssmlGender: 'NEUTRAL',
+        },
+        audioConfig: {
+          audioEncoding: 'MP3',
+          speakingRate: 1.25,
+        },
       });
 
-      await Promise.all(clipsToUpdate.map(async clip => await clip.update({ start_time: clip.start_time + 1 })));
+      const uniqueId = uuidv4();
+      const type = clipDescriptionType === 'Visual' ? 'nonOCR' : 'OCR';
+      const fileName = `${type}-${uniqueId}.mp3`;
+      const dir = `${CONFIG.app.audioDirectory}/audio/${youtubeVideoId}/${adId}`;
+
+      FileManagementService.ensureDirectoryExists(dir);
+
+      const filepath = `${dir}/${fileName}`;
+      await fs.promises.writeFile(filepath, response.audioContent, 'binary');
+
+      const fileMimeType = mime.lookup(filepath);
+      const fileSizeBytes = fs.statSync(filepath).size;
+      const servingFilepath = `./audio/${youtubeVideoId}/${adId}`;
+
+      return {
+        status: true,
+        filepath: servingFilepath,
+        filename: fileName,
+        file_mime_type: fileMimeType || 'audio/mpeg',
+        file_size_bytes: fileSizeBytes,
+      };
+    } catch (error) {
+      logger.error('Text-to-Speech Error:', error);
+      return {
+        status: false,
+        filepath: null,
+        filename: null,
+        file_mime_type: null,
+        file_size_bytes: -1,
+      };
+    }
+  }
+
+  static async analyzePlaybackType(
+    startTime: number,
+    endTime: number,
+    videoId: string,
+    adId: string,
+    clipId: string | null,
+    processingAllClips: boolean,
+  ): Promise<PlaybackAnalysisResponse> {
+    try {
+      const overlappingDialogs = await MongoDialog_Timestamps_Model.find({
+        video: videoId,
+        $and: [{ dialog_start_time: { $lte: endTime } }, { dialog_end_time: { $gte: startTime } }],
+      });
+
+      if (overlappingDialogs.length !== 0) {
+        return { message: 'Success - extended!', data: 'extended' };
+      }
+
+      const overlappingClips = await MongoAudioClipsModel.find({
+        audio_description: adId,
+        $and: [{ start_time: { $lte: endTime } }, { end_time: { $gte: startTime } }, { _id: { $ne: clipId } }],
+      });
+
+      if (overlappingClips.length === 0) {
+        return { message: 'Success - inline!', data: 'inline' };
+      }
+
+      if (processingAllClips) {
+        const clipsAfter = overlappingClips.filter(clip => clip.start_time > startTime);
+        return {
+          message: 'Success - ' + (clipsAfter.length > 0 ? 'extended!' : 'inline!'),
+          data: clipsAfter.length > 0 ? 'extended' : 'inline',
+        };
+      }
+
+      return { message: 'Success - extended!', data: 'extended' };
+    } catch (error) {
+      logger.error('Playback Analysis Error:', error);
+      return {
+        message: 'Unable to analyze playback type',
+        data: null,
+      };
+    }
+  }
+}
+
+class DatabaseService {
+  static async nudgeStartTimeIfZero(audioClips: Audio_Clips[] | IAudioClip[]): Promise<NudgeStartTimeResult> {
+    const startTimeZeroaudioClipIds: string[] = [];
+
+    for (const clip of audioClips) {
+      if (isAudioClips(clip)) {
+        if (clip.clip_start_time === 0) {
+          startTimeZeroaudioClipIds.push(clip.clip_id);
+        }
+      } else if (isIAudioClip(clip)) {
+        if (clip.start_time === 0) {
+          startTimeZeroaudioClipIds.push(clip._id);
+        }
+      }
+    }
+
+    if (startTimeZeroaudioClipIds.length === 0) {
       return {
         data: [],
-        message: 'Clip Start Times Updated. Success OK!',
+        message: 'None of the clips are starting at 0sec. Success OK!',
       };
-    } else {
-      const clipsToUpdate = await Audio_Clips.findAll({
-        where: {
-          clip_id: startTimeZeroaudioClipIds,
-        },
-        logging: false,
-        // raw: true, // for getting just data and no db info
+    }
+
+    try {
+      const clipsToUpdate = await MongoAudioClipsModel.find({
+        _id: { $in: startTimeZeroaudioClipIds },
       });
 
       await Promise.all(
         clipsToUpdate.map(async clip => {
-          await clip.update({ clip_start_time: clip.clip_start_time + 1 });
+          await clip.update({ start_time: clip.start_time + 1 });
         }),
       );
 
@@ -79,101 +253,235 @@ export const nudgeStartTimeIfZero = async (audioClips: Audio_Clips[] | IAudioCli
         data: [],
         message: 'Clip Start Times Updated. Success OK!',
       };
+    } catch (err) {
+      logger.error('Nudge start time error:', err);
+      return {
+        data: null,
+        message: `Error nudging Clip Start Times: ${err}`,
+      };
     }
-  } catch (err) {
-    return {
-      data: null,
-      message: `Error nudging Clip Start Times. Please check again.. ${err}`,
-    };
   }
-};
 
-interface GenerateMp3forDescriptionTextResponse {
-  status: boolean;
-  filepath: string | null;
-  filename: string | null;
-  file_mime_type: string | null;
-  file_size_bytes: number;
+  static async getClipStartTime(clipId: string): Promise<ClipStartTimeResponse> {
+    try {
+      const clip = await MongoAudioClipsModel.findById(clipId);
+      return {
+        message: 'Success',
+        data: clip.start_time.toFixed(2),
+      };
+    } catch (err) {
+      logger.error('Get clip start time error:', err);
+      return {
+        message: `Unable to get clip start time: ${err}`,
+        data: null,
+      };
+    }
+  }
+
+  static async updatePlaybackType(clipId: string, playbackType: 'extended' | 'inline') {
+    try {
+      const result = await MongoAudioClipsModel.updateOne({ _id: clipId }, { playback_type: playbackType });
+      return {
+        message: 'Updated Playback Type',
+        data: result,
+      };
+    } catch (err) {
+      logger.error('Update playback type error:', err);
+      return {
+        message: `Error in Updating Playback Type: ${err}`,
+        data: null,
+      };
+    }
+  }
+
+  static async getOldAudioPath(clipId: string): Promise<AudioPathResponse> {
+    try {
+      const clip = await MongoAudioClipsModel.findById(clipId);
+      return {
+        message: 'Success',
+        data: clip.file_name ? `${clip.file_path}/${clip.file_name}` : clip.file_path,
+      };
+    } catch (err) {
+      logger.error('Get old audio path error:', err);
+      return {
+        message: `Unable to get old audio path: ${err}`,
+        data: null,
+      };
+    }
+  }
+
+  static async getVideoFromYoutubeId(youtubeVideoId: string) {
+    try {
+      const video = await getYouTubeVideoStatus(youtubeVideoId);
+      return {
+        message: 'Success',
+        data: video._id,
+      };
+    } catch (err) {
+      logger.error('Get video from YouTube ID error:', err);
+      return {
+        message: `Error getting video: ${err}`,
+        data: null,
+      };
+    }
+  }
 }
 
+class ClipProcessingService {
+  static async processCurrentClip(data: {
+    textToSpeechOutput: TextToSpeechResponse;
+    clip_id: string;
+    video_id: string;
+    ad_id: string;
+  }): Promise<ProcessClipResponse> {
+    if (!data.textToSpeechOutput.status) {
+      return {
+        clip_id: data.clip_id,
+        message: 'Unable to generate Text to Speech',
+      };
+    }
+
+    try {
+      const clipPath = data.textToSpeechOutput.filename
+        ? `${data.textToSpeechOutput.filepath}/${data.textToSpeechOutput.filename}`
+        : data.textToSpeechOutput.filepath;
+
+      const duration = await FileManagementService.getAudioDuration(clipPath);
+      if (!duration.data) {
+        return {
+          clip_id: data.clip_id,
+          message: duration.message,
+        };
+      }
+
+      const startTime = await DatabaseService.getClipStartTime(data.clip_id);
+      if (!startTime.data) {
+        return {
+          clip_id: data.clip_id,
+          message: startTime.message,
+        };
+      }
+
+      const clipStartTime = parseFloat(startTime.data);
+      const clipDuration = parseFloat(duration.data);
+      const clipEndTime = clipStartTime + clipDuration;
+
+      await MongoAudioClipsModel.updateOne(
+        { _id: data.clip_id },
+        {
+          start_time: clipStartTime,
+          duration: clipDuration,
+          end_time: clipEndTime,
+          file_path: data.textToSpeechOutput.filepath,
+          file_name: data.textToSpeechOutput.filename,
+          file_mime_type: data.textToSpeechOutput.file_mime_type,
+          file_size_bytes: data.textToSpeechOutput.file_size_bytes,
+        },
+      );
+
+      const playbackType = await AudioClipService.analyzePlaybackType(clipStartTime, clipEndTime, data.video_id, data.ad_id, data.clip_id, true);
+
+      if (!playbackType.data) {
+        return {
+          clip_id: data.clip_id,
+          message: playbackType.message,
+        };
+      }
+
+      await DatabaseService.updatePlaybackType(data.clip_id, playbackType.data);
+
+      return {
+        clip_id: data.clip_id,
+        message: 'Success OK',
+        playbackType: playbackType.data,
+      };
+    } catch (error) {
+      logger.error('Process clip error:', error);
+      return {
+        clip_id: data.clip_id,
+        message: `Processing error: ${error}`,
+      };
+    }
+  }
+}
+
+// File Upload Configuration
+export const upload = multer({
+  storage: multer.diskStorage({
+    filename: (req, _file, cb) => {
+      const uniqueId = uuidv4();
+      const newACType = req.body.newACType === 'Visual' ? 'nonOCR' : 'OCR';
+      cb(null, `${newACType}-${uniqueId}.mp3`);
+    },
+    destination: (req, _file, cb) => {
+      const audioDescriptionId = req.params.adId || req.body.audioDescriptionId;
+      const dir = `${CONFIG.app.audioDirectory}/audio/${req.body.youtubeVideoId}/${audioDescriptionId}`;
+      FileManagementService.ensureDirectoryExists(dir);
+      cb(null, dir);
+    },
+  }),
+});
+
+// Deep copy functionality
+class DeepCopyService {
+  static async deepCopyAudioClip(
+    audioDescriptionId: string,
+    deepCopiedAudioDescriptionId: string,
+    userIdTo: string,
+    videoId: string,
+  ): Promise<string[] | null> {
+    try {
+      const audioClips = await MongoAudioClipsModel.find({
+        audio_description: audioDescriptionId,
+      });
+
+      const copiedClips = await Promise.all(
+        audioClips.map(async audioClip => {
+          const newPath = FileManagementService.copyFile(audioClip.file_path, videoId, audioClip.file_name, deepCopiedAudioDescriptionId);
+
+          return MongoAudioClipsModel.create({
+            description_type: audioClip.description_type || 'Visual',
+            description_text: audioClip.description_text,
+            playback_type: audioClip.playback_type,
+            start_time: audioClip.start_time,
+            end_time: audioClip.end_time,
+            duration: audioClip.duration,
+            file_path: newPath,
+            file_name: audioClip.file_name,
+            file_mime_type: audioClip.file_mime_type,
+            file_size_bytes: audioClip.file_size_bytes,
+            audio_description: deepCopiedAudioDescriptionId,
+            user: userIdTo,
+            video: audioClip.video,
+            created_at: nowUtc(),
+            updated_at: nowUtc(),
+            transcript: audioClip.transcript,
+            label: audioClip.label,
+          });
+        }),
+      );
+
+      return copiedClips.map(clip => clip._id);
+    } catch (error) {
+      logger.error('Deep copy error:', error);
+      return null;
+    }
+  }
+}
+
+// Export all services
+export { AudioClipService, DatabaseService, FileManagementService, ClipProcessingService, DeepCopyService };
+
+// Export functions for backward compatibility
 export const generateMp3forDescriptionText = async (
   adId: string,
   youtubeVideoId: string,
   clipDescriptionText: string,
   clipDescriptionType: string,
-): Promise<GenerateMp3forDescriptionTextResponse> => {
-  try {
-    const client = new textToSpeech.TextToSpeechClient();
-
-    // generate a unique ID
-    const uniqueId = uuidv4();
-    // assign female/male voice types based on description type
-    // OCR => Female, NON OCR => Male
-    const voiceName =
-      clipDescriptionType === 'Visual'
-        ? 'en-US-Wavenet-D' // Male
-        : 'en-US-Wavenet-C'; // Female
-
-    // Construct the request
-    const request: any = {
-      input: { text: clipDescriptionText },
-      // Select the language and SSML voice gender (optional)
-      voice: {
-        languageCode: 'en-US',
-        name: voiceName,
-        ssmlGender: 'NEUTRAL',
-      },
-      // select the type of audio encoding
-      audioConfig: { audioEncoding: 'MP3', speakingRate: 1.25 },
-    };
-    // Performs the text-to-speech request
-    const [response] = await client.synthesizeSpeech(request);
-
-    // add a folder for video ID and a sub folder for user ID
-
-    const dir = `${AUDIO_DIRECTORY}/audio/${youtubeVideoId}/${adId}`;
-    logger.info(`dir: ${dir}`);
-    // creates the folder structure if it doesn't exist -- ${youtubeVideoId}/${adId}
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-
-    // write the audio file only if the directory exists/created
-    if (fs.existsSync(dir)) {
-      // store a variable ocr to add to the path of the audio file
-      const type = clipDescriptionType === 'Visual' ? 'nonOCR' : 'OCR';
-      const fileName = `${type}-${uniqueId}.mp3`;
-      const filepath = `${dir}/${fileName}`;
-      // Write the binary audio content to a local file
-      const writeFile = util.promisify(fs.writeFile);
-      await writeFile(filepath, response.audioContent, 'binary');
-
-      const fileMimeType = mime.lookup(filepath);
-      const fileSizeBytes = fs.statSync(filepath).size;
-      // remove public from the file path
-      const servingFilepath = `./audio/${youtubeVideoId}/${adId}`;
-      logger.info(`Converted Text to Speech:Serving file path ${servingFilepath}`);
-      return {
-        status: true,
-        filepath: servingFilepath,
-        filename: fileName,
-        file_mime_type: fileMimeType ? fileMimeType : 'audio/mpeg',
-        file_size_bytes: fileSizeBytes,
-      };
-    }
-    return { status: false, filepath: null, filename: null, file_mime_type: null, file_size_bytes: -1 };
-  } catch (error) {
-    logger.info(error);
-    return { status: false, filepath: null, filename: null, file_mime_type: null, file_size_bytes: -1 };
-  }
+): Promise<TextToSpeechResponse> => {
+  return AudioClipService.generateMp3forDescriptionText(adId, youtubeVideoId, clipDescriptionText, clipDescriptionType);
 };
 
-interface AnalyzePlaybackTypeResponse {
-  message: string;
-  data: 'extended' | 'inline' | null;
-}
-
-// analyze clip playback type from dialog timestamp data
 export const analyzePlaybackType = async (
   currentClipStartTime: number,
   currentClipEndTime: number,
@@ -181,578 +489,45 @@ export const analyzePlaybackType = async (
   adId: string,
   clipId: string | null,
   processingAllClips: boolean,
-): Promise<AnalyzePlaybackTypeResponse> => {
-  if (CURRENT_DATABASE == 'mongodb') {
-    try {
-      console.log('currentClipStartTime', currentClipStartTime);
-      console.log('currentClipEndTime', currentClipEndTime);
-      console.log('videoId', videoId);
-      console.log('adId', adId);
-      console.log('clipId', clipId);
-
-      // Query to find overlapping dialogs
-      const overlappingDialogs = await MongoDialog_Timestamps_Model.find({
-        video: videoId,
-        $and: [{ dialog_start_time: { $lte: currentClipEndTime } }, { dialog_end_time: { $gte: currentClipStartTime } }],
-      }).select('dialog_start_time dialog_end_time');
-
-      console.log('overlappingDialogs', overlappingDialogs.length);
-      if (overlappingDialogs.length !== 0) {
-        return {
-          message: 'Success - extended!',
-          data: 'extended',
-        };
-      }
-
-      // Query to find overlapping audio clips
-      const overlappingClips = await MongoAudioClipsModel.find({
-        audio_description: adId,
-        $and: [{ start_time: { $lte: currentClipEndTime } }, { end_time: { $gte: currentClipStartTime } }, { _id: { $ne: clipId === null ? null : clipId } }],
-      });
-
-      console.log('overlappingClips', overlappingClips.length);
-      if (overlappingClips.length === 0) {
-        return {
-          message: 'Success - inline!',
-          data: 'inline',
-        };
-      }
-
-      if (processingAllClips) {
-        let countOfClipsAfter = 0;
-        overlappingClips.forEach(clip => {
-          if (clip.start_time > currentClipStartTime) {
-            countOfClipsAfter++;
-          }
-        });
-
-        if (countOfClipsAfter > 0) {
-          return {
-            message: 'Success - extended!',
-            data: 'extended',
-          };
-        } else {
-          return {
-            message: 'Success - inline!',
-            data: 'inline',
-          };
-        }
-      } else {
-        if (clipId === null) {
-          return {
-            message: 'Success - extended!',
-            data: 'extended',
-          };
-        }
-
-        const existingClip = await MongoAudioClipsModel.findById(clipId);
-        if (!existingClip) {
-          return {
-            message: 'Clip not found',
-            data: null,
-          };
-        }
-
-        const playbackType = existingClip.playback_type;
-        return {
-          message: `Success - ${playbackType}!`,
-          data: playbackType,
-        };
-      }
-    } catch (error) {
-      console.error(error);
-      return {
-        message: 'Unable to connect to DB - Analyze Playback Type!! Please try again',
-        data: null,
-      };
-    }
-  } else {
-    // Existing code for other databases (e.g., PostgreSQL)
-    try {
-      const overlappingDialogs = await Dialog_Timestamps.findAll({
-        where: {
-          VideoVideoId: videoId,
-          [Op.and]: [
-            {
-              dialog_start_time: {
-                [Op.lte]: currentClipEndTime,
-              },
-            },
-            {
-              dialog_end_time: {
-                [Op.gte]: currentClipStartTime,
-              },
-            },
-          ],
-        },
-        attributes: ['dialog_start_time', 'dialog_end_time'],
-      });
-
-      if (overlappingDialogs.length !== 0) {
-        return {
-          message: 'Success - extended!',
-          data: 'extended',
-        };
-      }
-
-      const overlappingClips = await Audio_Clips.findAll({
-        where: {
-          AudioDescriptionAdId: adId,
-          [Op.and]: [
-            {
-              clip_start_time: {
-                [Op.lte]: currentClipEndTime,
-              },
-            },
-            {
-              clip_end_time: {
-                [Op.gte]: currentClipStartTime,
-              },
-            },
-            {
-              clip_id: {
-                [Op.not]: clipId === null ? null : [clipId],
-              },
-            },
-          ],
-        },
-        raw: true,
-      });
-
-      if (overlappingClips.length === 0) {
-        return {
-          message: 'Success - inline!',
-          data: 'inline',
-        };
-      }
-
-      if (processingAllClips) {
-        let countOfClipsAfter = 0;
-        overlappingClips.forEach(clip => {
-          if (clip.clip_start_time > currentClipStartTime) {
-            countOfClipsAfter++;
-          }
-        });
-
-        if (countOfClipsAfter > 0) {
-          return {
-            message: 'Success - extended!',
-            data: 'extended',
-          };
-        } else {
-          return {
-            message: 'Success - inline!',
-            data: 'inline',
-          };
-        }
-      } else {
-        return {
-          message: 'Success - extended!',
-          data: 'extended',
-        };
-      }
-    } catch (err) {
-      logger.info(err);
-      return {
-        message: 'Unable to connect to DB - Analyze Playback Type!! Please try again',
-        data: null,
-      };
-    }
-  }
+): Promise<PlaybackAnalysisResponse> => {
+  return AudioClipService.analyzePlaybackType(currentClipStartTime, currentClipEndTime, videoId, adId, clipId, processingAllClips);
 };
 
-export const deleteOldAudioFile = async (old_audio_path: string) => {
-  const newPath = AUDIO_DIRECTORY + old_audio_path.replace('.', '');
-  // const newPath = path.join(__dirname, '../../', old_audio_path.replace('.', 'public'));
-  logger.info(`Old Audio File Path: ${old_audio_path}`);
-  logger.info(`new Path: ${newPath}`);
-
-  try {
-    fs.unlinkSync(newPath);
-    logger.info('Old Audio File Deleted');
-    return true;
-  } catch (err) {
-    logger.error(err);
-    return false;
-  }
+export const getAudioDuration = async (filepath: string): Promise<{ message: string; data: string | null }> => {
+  return FileManagementService.getAudioDuration(filepath);
 };
 
-export const getClipStartTimebyId = async (clipId: string) => {
-  if (CURRENT_DATABASE === 'mongodb') {
-    return MongoAudioClipsModel.findById(clipId)
-      .then(clip => {
-        return {
-          message: 'Success',
-          data: clip.start_time.toFixed(2),
-        };
-      })
-      .catch(err => {
-        return {
-          message: `Unable to connect to DB - getClipStartTimebyId!! Please try again ${err}`,
-          data: null,
-        }; // send error message
-      });
-  } else {
-    return Audio_Clips.findOne({
-      where: {
-        clip_id: clipId,
-      },
-      attributes: ['clip_start_time'],
-    })
-      .then(clip => {
-        return {
-          message: 'Success',
-          data: clip.clip_start_time.toFixed(2),
-        };
-      })
-      .catch(err => {
-        return {
-          message: `Unable to connect to DB - getClipStartTimebyId!! Please try again ${err}`,
-          data: null,
-        }; // send error message
-      });
-  }
+export const deleteOldAudioFile = (filepath: string): boolean => {
+  return FileManagementService.deleteFile(filepath);
 };
 
-export const getOldAudioFilePath = async (clipId: string) => {
-  if (CURRENT_DATABASE === 'mongodb') {
-    return MongoAudioClipsModel.findById(clipId)
-      .then(clip => {
-        return {
-          message: 'Success',
-          data: clip.file_name ? clip.file_path + '/' + clip.file_name : clip.file_path,
-        };
-      })
-      .catch(err => {
-        return {
-          message: `Unable to connect to DB - getOldAudioFilePath!! Please try again ${err}`,
-          data: null,
-        }; // send error message
-      });
-  } else {
-    return Audio_Clips.findOne({
-      where: {
-        clip_id: clipId,
-      },
-      attributes: ['clip_audio_path'],
-    })
-      .then(clip => {
-        return {
-          message: 'Success',
-          data: clip.clip_audio_path,
-        };
-      })
-      .catch(err => {
-        return {
-          message: `Unable to connect to DB - getOldAudioFilePath!! Please try again ${err}`,
-          data: null,
-        }; // send error message
-      });
-  }
+export const nudgeStartTimeIfZero = async (audioClips: Audio_Clips[] | IAudioClip[]): Promise<NudgeStartTimeResult> => {
+  return DatabaseService.nudgeStartTimeIfZero(audioClips);
 };
 
-export const getVideoFromYoutubeId = async youtubeVideoID => {
-  if (CURRENT_DATABASE === 'mongodb') {
-    return getYouTubeVideoStatus(youtubeVideoID)
-      .then(video => {
-        return { message: 'Success', data: video._id };
-      })
-      .catch(err => {
-        return {
-          message: 'Error Connecting to DB!! Please try again. getVideoFromYoutubeId ' + err,
-          data: null,
-        };
-      });
-  } else {
-    return Videos.findOne({
-      where: {
-        youtube_video_id: youtubeVideoID,
-      },
-    })
-      .then(video => {
-        return { message: 'Success', data: video.video_id };
-      })
-      .catch(err => {
-        return {
-          message: 'Error Connecting to DB!! Please try again. getVideoFromYoutubeId ' + err,
-          data: null,
-        };
-      });
-  }
+export const getClipStartTimebyId = async (clipId: string): Promise<ClipStartTimeResponse> => {
+  return DatabaseService.getClipStartTime(clipId);
 };
 
-export const updatePlaybackinDB = async (clipId: string, playbackType: any) => {
-  if (CURRENT_DATABASE === 'mongodb') {
-    return MongoAudioClipsModel.updateOne(
-      {
-        _id: clipId,
-      },
-      {
-        playback_type: playbackType,
-      },
-    )
-      .then(async clip => {
-        return {
-          message: 'Updated Playback Type',
-          data: clip,
-        };
-      })
-      .catch(err => {
-        return {
-          message: 'Error in Updating Playback Type' + err,
-          data: null,
-        };
-      });
-  } else {
-    return Audio_Clips.update(
-      {
-        playback_type: playbackType,
-      },
-      {
-        where: {
-          clip_id: clipId,
-        },
-      },
-    )
-      .then(async clip => {
-        return {
-          message: 'Updated Playback Type',
-          data: clip,
-        };
-      })
-      .catch(err => {
-        return {
-          message: 'Error in Updating Playback Type' + err,
-          data: null,
-        };
-      });
-  }
+export const getOldAudioFilePath = async (clipId: string): Promise<AudioPathResponse> => {
+  return DatabaseService.getOldAudioPath(clipId);
 };
 
-export const processCurrentClip = async data => {
-  // check if there is an error in text to speech generation
-  if (!data.textToSpeechOutput.status) {
-    return {
-      clip_id: data.clip_id,
-      message: 'Unable to generate Text to Speech!! Please try again',
-    };
-  }
-  // text to speech generation is successful
-  else {
-    // calculate audio duration
-    logger.info('Generating Audio Duration');
-    const clipPath =
-      data.textToSpeechOutput.filename == null || data.textToSpeechOutput.filename.length <= 0
-        ? data.textToSpeechOutput.filepath
-        : data.textToSpeechOutput.filepath + '/' + data.textToSpeechOutput.filename;
-    const clipDurationStatus = await getAudioDuration(clipPath);
-    // check if the returned data is null - an error in generating Audio Duration
-    if (clipDurationStatus.data === null) {
-      return {
-        clip_id: data.clip_id,
-        message: clipDurationStatus.message,
-      };
-    } else {
-      // Audio Duration generation successful
-      const clipDuration = clipDurationStatus.data;
-
-      // fetch the updated nudged start time - done by nudgeStartTimeIfZero()
-      const getClipStartTimeStatus = await getClipStartTimebyId(data.clip_id);
-      // check if the returned data is null - an error in analyzing Playback type
-      if (getClipStartTimeStatus.data === null) {
-        return {
-          clip_id: data.clip_id,
-          message: getClipStartTimeStatus.message,
-        };
-      } else {
-        const clipStartTime = parseFloat(getClipStartTimeStatus.data).toFixed(2);
-        const clipEndTime = Number((parseFloat(clipStartTime) + parseFloat(clipDuration)).toFixed(2));
-
-        if (CURRENT_DATABASE === 'mongodb') {
-          return MongoAudioClipsModel.updateOne(
-            {
-              _id: data.clip_id,
-            },
-            {
-              start_time: Number(parseFloat(clipStartTime).toFixed(2)), // rounding the start time
-              file_path: data.textToSpeechOutput.filepath,
-              duration: parseFloat(clipDuration),
-              end_time: clipEndTime,
-              file_name: data.textToSpeechOutput.filename,
-              file_mime_type: data.textToSpeechOutput.file_mime_type,
-              file_size_bytes: data.textToSpeechOutput.file_size_bytes,
-            },
-          )
-            .then(async () => {
-              // analyze clip playback type from dialog timestamp & Audio Clips data
-              logger.info('Analyzing clip playback type from dialog timestamp & Audio Clips data');
-              const analysisStatus = await analyzePlaybackType(
-                Number(clipStartTime),
-                clipEndTime,
-                data.video_id,
-                data.ad_id,
-                data.clip_id,
-                true, // passing true as this is processing all audio clips at once
-              );
-              // check if the returned data is null - an error in analyzing Playback type
-              if (analysisStatus.data === null) {
-                return {
-                  clip_id: data.clip_id,
-                  message: analysisStatus.message,
-                };
-              } else {
-                const playbackType = analysisStatus.data;
-
-                const updatePlaybackStatus = await updatePlaybackinDB(data.clip_id, playbackType);
-                // check if the returned data is null - an error in updatingPlayback type
-                if (updatePlaybackStatus.data === null) {
-                  return {
-                    clip_id: data.clip_id,
-                    message: updatePlaybackStatus.message,
-                  };
-                } else {
-                  return {
-                    clip_id: data.clip_id,
-                    message: 'Success OK',
-                    playbackType: playbackType,
-                  };
-                }
-              }
-            })
-            .catch(err => {
-              logger.info(err);
-              return {
-                clip_id: data.clip_id,
-                message: 'Unable to Update DB !! Please try again' + err,
-              };
-              // return the error msg with the clip_id
-            });
-        } else {
-          // update the path of the audio file, duration, end time, start time of the audio clip in the db
-          return await Audio_Clips.update(
-            {
-              clip_start_time: Number(parseFloat(clipStartTime).toFixed(2)), // rounding the start time
-              clip_audio_path: data.textToSpeechOutput.filepath,
-              clip_duration: parseFloat(clipDuration),
-              clip_end_time: clipEndTime,
-            },
-            {
-              where: {
-                clip_id: data.clip_id,
-              },
-              // logging: false,
-            },
-          )
-            .then(async () => {
-              // analyze clip playback type from dialog timestamp & Audio Clips data
-              logger.info('Analyzing clip playback type from dialog timestamp & Audio Clips data');
-              const analysisStatus = await analyzePlaybackType(
-                Number(clipStartTime),
-                clipEndTime,
-                data.video_id,
-                data.ad_id,
-                data.clip_id,
-                true, // passing true as this is processing all audio clips at once
-              );
-              // check if the returned data is null - an error in analyzing Playback type
-              if (analysisStatus.data === null) {
-                return {
-                  clip_id: data.clip_id,
-                  message: analysisStatus.message,
-                };
-              } else {
-                const playbackType = analysisStatus.data;
-
-                const updatePlaybackStatus = await updatePlaybackinDB(data.clip_id, playbackType);
-                // check if the returned data is null - an error in updatingPlayback type
-                if (updatePlaybackStatus.data === null) {
-                  return {
-                    clip_id: data.clip_id,
-                    message: updatePlaybackStatus.message,
-                  };
-                } else {
-                  return {
-                    clip_id: data.clip_id,
-                    message: 'Success OK',
-                    playbackType: playbackType,
-                  };
-                }
-              }
-            })
-            .catch(err => {
-              logger.info(err);
-              return {
-                clip_id: data.clip_id,
-                message: 'Unable to Update DB !! Please try again' + err,
-              };
-              // return the error msg with the clip_id
-            });
-        }
-      }
-    }
-  }
+export const getVideoFromYoutubeId = async (youtubeVideoId: string) => {
+  return DatabaseService.getVideoFromYoutubeId(youtubeVideoId);
 };
 
-export const getAudioDuration = async (filepath: string) => {
-  const newPath = AUDIO_DIRECTORY + filepath.replace('.', '');
-  // const newPath = path.join(__dirname, '../../', filepath.replace('.', './public'));
-  logger.info(`new path: ${newPath}`);
-
-  try {
-    const buffer = fs.readFileSync(newPath);
-    const duration = (getMP3Duration(buffer) / 1000).toFixed(2);
-    return {
-      message: 'Success',
-      data: duration,
-    };
-  } catch (err) {
-    logger.error(err);
-    return {
-      message: 'Error in Getting Audio Duration!! Please try again',
-      data: null,
-    };
-  }
+export const updatePlaybackinDB = async (clipId: string, playbackType: 'extended' | 'inline') => {
+  return DatabaseService.updatePlaybackType(clipId, playbackType);
 };
 
-const storage = multer.diskStorage({
-  filename: function (req, _file, cb) {
-    const uniqueId = uuidv4();
-    const newACType = req.body.newACType === 'Visual' ? 'nonOCR' : 'OCR';
-    cb(null, `${newACType}-${uniqueId}.mp3`);
-  },
-  destination: function (req, _file, cb) {
-    const audioDescriptionId = req.params.adId || req.body.audioDescriptionId;
-    const dir = `${AUDIO_DIRECTORY}/audio/${req.body.youtubeVideoId}/${audioDescriptionId}`;
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    // const dir = path.join(__dirname, '../../', `.${AUDIO_DIRECTORY}/${req.body.youtubeVideoId}/${req.body.userId}`);
-    cb(null, dir);
-  },
-  // onError:(err, next) => {
-  //     logger.info('error', err);
-  //     next(err);
-  // } ,
-});
-
-export const upload = multer({ storage });
-
-const copyAudioClipFile = (oldPath: string, youtubeVideoId: string, fileName: string, adId: string) => {
-  // old path = oldPath + / + fileName
-  const oldAbsPath = `${AUDIO_DIRECTORY}${oldPath.replace('.', '')}/${fileName}`;
-  if (!fs.existsSync(oldAbsPath)) {
-    logger.error(oldAbsPath + `does not exist`);
-    return oldPath;
-  }
-  const newPath = `${AUDIO_DIRECTORY}/audio/${youtubeVideoId}/${adId}/${fileName}`;
-  try {
-    fs.copyFileSync(oldPath, newPath);
-    const serverPath = `./audio/${youtubeVideoId}/${adId}`;
-    return serverPath;
-  } catch (err) {
-    logger.error(err);
-    return oldPath;
-  }
+export const processCurrentClip = async (data: {
+  textToSpeechOutput: TextToSpeechResponse;
+  clip_id: string;
+  video_id: string;
+  ad_id: string;
+}): Promise<ProcessClipResponse> => {
+  return ClipProcessingService.processCurrentClip(data);
 };
 
 export const deepCopyAudioClip = async (
@@ -761,49 +536,8 @@ export const deepCopyAudioClip = async (
   userIdTo: string,
   videoId: string,
 ): Promise<string[] | null> => {
-  const copiedClips = [];
-  if (CURRENT_DATABASE === 'mongodb') {
-    // get all audio clips for the audio description
-    const audioClips = await MongoAudioClipsModel.find({
-      audio_description: audioDescriptionId,
-    }).catch(err => {
-      logger.error(`Error getting audio clips for the audio description: ${err}`);
-      return null;
-    });
-    if (!audioClips) {
-      logger.error('No audio clips found for the audio description');
-      return null;
-    }
-    // deep copy the clips with different user id
-    for (let i = 0; i < audioClips.length; i++) {
-      const audioClip = audioClips[i];
-      // console.log('audioClip', audioClip);
-      const newPath = copyAudioClipFile(audioClip.file_path, videoId, audioClip.file_name, deepCopiedAudioDescriptionId);
-      const copiedClip = await MongoAudioClipsModel.create({
-        description_type: audioClip.description_type === null ? 'Visual' : audioClip.description_type,
-        description_text: audioClip.description_text,
-        playback_type: audioClip.playback_type,
-        start_time: audioClip.start_time,
-        end_time: audioClip.end_time,
-        duration: audioClip.duration,
-        file_path: newPath,
-        file_name: audioClip.file_name,
-        file_mime_type: audioClip.file_mime_type,
-        file_size_bytes: audioClip.file_size_bytes,
-        audio_description: deepCopiedAudioDescriptionId,
-        user: userIdTo,
-        video: audioClip.video,
-        created_at: nowUtc(),
-        updated_at: nowUtc(),
-        transcript: audioClip.transcript,
-        label: audioClip.label,
-      }).catch(err => {
-        logger.error(`Error creating a deep copy of the audio clip: ${err}`);
-        return null;
-      });
-      copiedClips.push(copiedClip);
-    }
-  }
-  // return the deep copied clip ids
-  return copiedClips.map(copiedClip => copiedClip._id);
+  return DeepCopyService.deepCopyAudioClip(audioDescriptionId, deepCopiedAudioDescriptionId, userIdTo, videoId);
 };
+
+// Export types for external use
+export type { TextToSpeechResponse, PlaybackAnalysisResponse, ClipStartTimeResponse, AudioPathResponse, ProcessClipResponse, NudgeStartTimeResult };
