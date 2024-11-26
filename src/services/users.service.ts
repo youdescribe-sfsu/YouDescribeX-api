@@ -689,7 +689,7 @@ class UserService {
         return { available: false, reason: 'GPU service not configured' };
       }
 
-      const response = await axios.get(`${GPU_URL}/health-check`, { timeout: 5000 });
+      const response = await axios.get(`${GPU_URL}/health_check`, { timeout: 5000 });
       return {
         available: response.status === 200,
         reason: response.status === 200 ? 'Service available' : 'Service unavailable',
