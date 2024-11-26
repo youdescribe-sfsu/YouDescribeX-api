@@ -1214,90 +1214,113 @@ class UserService {
     }
   }
 
+  // Add these methods to your UserService class
+
   public async saveVisitedVideosHistory(user_id: string, youtube_id: string) {
     try {
       if (!user_id || !youtube_id) {
-        throw new HttpException(400, 'No data provided');
+        throw new HttpException(400, 'Missing required parameters');
       }
 
-      const userDocument = await MongoHistoryModel.findOne({ user: user_id });
-      if (userDocument) {
-        if (!userDocument.visited_videos.includes(youtube_id)) {
-          userDocument.visited_videos.push(youtube_id);
-          await MongoHistoryModel.updateOne({ _id: userDocument._id }, { $set: { visited_videos: userDocument.visited_videos } });
-        }
+      // Find user's history document
+      let userHistory = await MongoHistoryModel.findOne({ user: user_id });
 
-        return userDocument.visited_videos;
+      if (userHistory) {
+        // Remove existing entry of this video if it exists
+        userHistory.visited_videos = userHistory.visited_videos.filter(video => video.youtube_id !== youtube_id);
+
+        // Add new entry at the beginning
+        userHistory.visited_videos.unshift({
+          youtube_id,
+          visited_at: new Date(),
+        });
+
+        await userHistory.save();
       } else {
-        const newUserDocument = {
+        // Create new history document for user
+        userHistory = await MongoHistoryModel.create({
           user: user_id,
-          visited_videos: [youtube_id],
-        };
-
-        const insertedDocument = await MongoHistoryModel.create(newUserDocument);
-
-        return insertedDocument.visited_videos;
+          visited_videos: [
+            {
+              youtube_id,
+              visited_at: new Date(),
+            },
+          ],
+        });
       }
+
+      return userHistory.visited_videos;
     } catch (error) {
-      logger.error('Error:', error);
-      return error;
+      logger.error('Error saving video history:', error);
+      throw error;
     }
   }
 
-  public async getVisitedVideosHistory(user_id: string, pageNumber: string, paginate: boolean) {
-    if (!user_id) {
-      throw new HttpException(400, 'No data provided');
-    }
-
-    const page = parseInt(pageNumber, 10);
-    const perPage = 4;
-    const skipCount = Math.max((page - 1) * perPage, 0);
-    const userIdObject = await MongoUsersModel.findById(user_id);
-    const visitedVideosHistory = await MongoHistoryModel.find({
-      user: userIdObject._id,
-    });
-
-    const visitedVideosArray = [...new Set(visitedVideosHistory.flatMap(history => history.visited_videos))];
-    visitedVideosArray.reverse();
-    const videos = [];
-    const adjustedSkipCount = skipCount;
-
-    for (let i = adjustedSkipCount; i < visitedVideosArray.length && videos.length < perPage; i++) {
-      const youtube_id = visitedVideosArray[i];
-
-      try {
-        const existingVideo = (await MongoVideosModel.findOne({ youtube_id })) || (await getYouTubeVideoStatus(youtube_id));
-
-        if (existingVideo) {
-          videos.push(existingVideo);
-        }
-      } catch (error) {
-        await MongoHistoryModel.updateOne({ user: userIdObject._id }, { $pull: { visited_videos: youtube_id } });
+  public async getVisitedVideosHistory(user_id: string, pageNumber: string, paginate = true) {
+    try {
+      if (!user_id) {
+        throw new HttpException(400, 'User ID is required');
       }
-    }
 
-    const videoIds = videos.map(videoId => videoId._id);
-    const audioDescription = await MongoAudio_Descriptions_Model.find({ video: { $in: videoIds } });
-    const resultVideos = videos.map(video => {
-      const { _id, youtube_id, title, duration, created_at, updated_at } = video;
-      const descriptions = audioDescription.find(ad => ad.video.toString() === _id.toString());
+      const page = parseInt(pageNumber, 10);
+      const perPage = 4;
+      const skipCount = Math.max((page - 1) * perPage, 0);
+
+      const userHistory = await MongoHistoryModel.findOne({ user: user_id }).select('visited_videos').lean();
+
+      if (!userHistory) {
+        return { videos: [], total: 0 };
+      }
+
+      const visitedVideos = userHistory.visited_videos;
+      const total = visitedVideos.length;
+      const paginatedVideos = visitedVideos.slice(skipCount, skipCount + perPage);
+
+      const enrichedVideos = [];
+      for (const entry of paginatedVideos) {
+        try {
+          // Get video details from our DB or YouTube
+          const videoData = (await MongoVideosModel.findOne({ youtube_id: entry.youtube_id })) || (await getYouTubeVideoStatus(entry.youtube_id));
+
+          if (videoData) {
+            // Get associated audio description
+            const audioDescription = await MongoAudio_Descriptions_Model.findOne({
+              video: videoData._id,
+            });
+
+            enrichedVideos.push({
+              video_id: videoData._id,
+              youtube_video_id: videoData.youtube_id,
+              video_name: videoData.title,
+              video_length: videoData.duration,
+              visited_at: entry.visited_at,
+              createdAt: videoData.created_at,
+              updatedAt: videoData.updated_at,
+              audio_description_id: audioDescription?._id || null,
+              status: audioDescription?.status || null,
+              overall_rating_votes_average: audioDescription?.overall_rating_votes_average || null,
+              overall_rating_votes_counter: audioDescription?.overall_rating_votes_counter || null,
+              overall_rating_votes_sum: audioDescription?.overall_rating_votes_sum || null,
+            });
+          } else {
+            // Remove invalid video from history
+            await MongoHistoryModel.updateOne({ user: user_id }, { $pull: { visited_videos: { youtube_id: entry.youtube_id } } });
+          }
+        } catch (error) {
+          logger.error(`Error processing video ${entry.youtube_id}:`, error);
+          // Remove invalid video from history
+          await MongoHistoryModel.updateOne({ user: user_id }, { $pull: { visited_videos: { youtube_id: entry.youtube_id } } });
+        }
+      }
 
       return {
-        video_id: _id,
-        youtube_video_id: youtube_id,
-        video_name: title,
-        video_length: duration,
-        createdAt: created_at,
-        updatedAt: updated_at,
-        audio_description_id: descriptions ? descriptions._id : null,
-        status: descriptions ? descriptions.status : null,
-        overall_rating_votes_average: descriptions ? descriptions.overall_rating_votes_average : null,
-        overall_rating_votes_counter: descriptions ? descriptions.overall_rating_votes_counter : null,
-        overall_rating_votes_sum: descriptions ? descriptions.overall_rating_votes_sum : null,
+        videos: enrichedVideos,
+        total,
       };
-    });
-
-    return { videos: resultVideos, total: visitedVideosArray.length };
+    } catch (error) {
+      logger.error('Error fetching video history:', error);
+      throw error;
+    }
   }
 }
 
