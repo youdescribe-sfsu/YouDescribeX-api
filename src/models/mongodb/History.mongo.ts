@@ -1,5 +1,5 @@
 // History.mongo.ts
-import { Schema, Document, model, Types } from 'mongoose';
+import { Schema, Document, Types } from 'mongoose';
 
 interface IHistoryEntry {
   youtube_id: string;
@@ -11,7 +11,7 @@ interface IHistory extends Document {
   visited_videos: IHistoryEntry[];
 }
 
-const HistorySchema = new Schema(
+const HistorySchema: Schema = new Schema(
   {
     user: {
       type: Schema.Types.ObjectId,
@@ -42,5 +42,5 @@ const HistorySchema = new Schema(
 // Index for faster queries by user and visit date
 HistorySchema.index({ user: 1, 'visited_videos.visited_at': -1 });
 
-export const MongoHistoryModel = model<IHistory>('History', HistorySchema);
+export default HistorySchema;
 export { IHistory, IHistoryEntry };
