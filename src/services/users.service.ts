@@ -1222,34 +1222,45 @@ class UserService {
         throw new HttpException(400, 'Missing required parameters');
       }
 
-      // Find user's history document
-      let userHistory = await MongoHistoryModel.findOne({ user: user_id });
+      const userHistory = await MongoHistoryModel.findOne({ user: user_id });
 
       if (userHistory) {
-        // Remove existing entry of this video if it exists
-        userHistory.visited_videos = userHistory.visited_videos.filter(video => video.youtube_id !== youtube_id);
+        // Remove any existing entry of this video
+        const filteredVideos = userHistory.visited_videos.filter(video => video.youtube_id !== youtube_id);
 
-        // Add new entry at the beginning
-        userHistory.visited_videos.unshift({
-          youtube_id,
-          visited_at: new Date(),
-        });
+        // Add new entry at the beginning with proper structure
+        const updatedVideos = [
+          {
+            youtube_id: youtube_id,
+            visited_at: new Date(),
+          },
+          ...filteredVideos,
+        ];
 
-        await userHistory.save();
+        // Update the document with valid data
+        await MongoHistoryModel.findOneAndUpdate(
+          { user: user_id },
+          {
+            $set: { visited_videos: updatedVideos },
+          },
+          { new: true },
+        );
+
+        return { success: true, visited_videos: updatedVideos };
       } else {
-        // Create new history document for user
-        userHistory = await MongoHistoryModel.create({
+        // Create new history document
+        const newHistory = await MongoHistoryModel.create({
           user: user_id,
           visited_videos: [
             {
-              youtube_id,
+              youtube_id: youtube_id,
               visited_at: new Date(),
             },
           ],
         });
-      }
 
-      return userHistory.visited_videos;
+        return { success: true, visited_videos: newHistory.visited_videos };
+      }
     } catch (error) {
       logger.error('Error saving video history:', error);
       throw error;
@@ -1266,29 +1277,63 @@ class UserService {
       const perPage = 4;
       const skipCount = Math.max((page - 1) * perPage, 0);
 
-      const userHistory = await MongoHistoryModel.findOne({ user: user_id }).select('visited_videos').lean();
+      // Find the user's history and get only the required page of videos
+      const userHistory = await MongoHistoryModel.findOne({ user: user_id }).select('visited_videos').slice('visited_videos', [skipCount, perPage]).lean();
 
-      if (!userHistory) {
+      if (!userHistory || !userHistory.visited_videos) {
         return { videos: [], total: 0 };
       }
 
-      const visitedVideos = userHistory.visited_videos;
-      const total = visitedVideos.length;
-      const paginatedVideos = visitedVideos.slice(skipCount, skipCount + perPage);
+      // Get total count separately
+      const totalCount = await MongoHistoryModel.aggregate([
+        { $match: { user: new mongoose.Types.ObjectId(user_id) } },
+        { $project: { count: { $size: '$visited_videos' } } },
+      ]);
 
-      const enrichedVideos = [];
-      for (const entry of paginatedVideos) {
-        try {
-          // Get video details from our DB or YouTube
-          const videoData = (await MongoVideosModel.findOne({ youtube_id: entry.youtube_id })) || (await getYouTubeVideoStatus(entry.youtube_id));
+      const total = totalCount[0]?.count || 0;
 
-          if (videoData) {
-            // Get associated audio description
-            const audioDescription = await MongoAudio_Descriptions_Model.findOne({
-              video: videoData._id,
-            });
+      // Process videos in parallel
+      const enrichedVideos = await Promise.all(
+        userHistory.visited_videos.map(async entry => {
+          try {
+            // First try to get from our DB
+            let videoData = await MongoVideosModel.findOne({ youtube_id: entry.youtube_id })
+              .select('_id youtube_id title duration created_at updated_at')
+              .lean();
 
-            enrichedVideos.push({
+            // If not in our DB, get from YouTube and save to DB
+            if (!videoData) {
+              try {
+                const ytVideoData = await getYouTubeVideoStatus(entry.youtube_id);
+                if (!ytVideoData) {
+                  throw new Error('Video not found on YouTube');
+                }
+
+                // Save to our database first
+                const newVideo = new MongoVideosModel({
+                  youtube_id: ytVideoData.youtube_id,
+                  title: ytVideoData.title,
+                  duration: ytVideoData.duration,
+                  created_at: ytVideoData.created_at || Date.now(),
+                  updated_at: ytVideoData.updated_at || Date.now(),
+                });
+
+                const savedVideo = await newVideo.save();
+                videoData = savedVideo.toObject(); // Convert to plain object
+              } catch (ytError) {
+                logger.error(`Error fetching YouTube video ${entry.youtube_id}:`, ytError);
+                // Remove invalid video from history
+                await MongoHistoryModel.updateOne({ user: user_id }, { $pull: { visited_videos: { youtube_id: entry.youtube_id } } });
+                return null;
+              }
+            }
+
+            // Get audio description data
+            const audioDescription = await MongoAudio_Descriptions_Model.findOne({ video: videoData._id })
+              .select('_id status overall_rating_votes_average overall_rating_votes_counter overall_rating_votes_sum')
+              .lean();
+
+            return {
               video_id: videoData._id,
               youtube_video_id: videoData.youtube_id,
               video_name: videoData.title,
@@ -1301,21 +1346,22 @@ class UserService {
               overall_rating_votes_average: audioDescription?.overall_rating_votes_average || null,
               overall_rating_votes_counter: audioDescription?.overall_rating_votes_counter || null,
               overall_rating_votes_sum: audioDescription?.overall_rating_votes_sum || null,
-            });
-          } else {
+            };
+          } catch (error) {
+            logger.error(`Error processing video ${entry.youtube_id}:`, error);
             // Remove invalid video from history
             await MongoHistoryModel.updateOne({ user: user_id }, { $pull: { visited_videos: { youtube_id: entry.youtube_id } } });
+            return null;
           }
-        } catch (error) {
-          logger.error(`Error processing video ${entry.youtube_id}:`, error);
-          // Remove invalid video from history
-          await MongoHistoryModel.updateOne({ user: user_id }, { $pull: { visited_videos: { youtube_id: entry.youtube_id } } });
-        }
-      }
+        }),
+      );
+
+      // Filter out null entries (failed videos)
+      const validVideos = enrichedVideos.filter((video): video is NonNullable<typeof video> => video !== null);
 
       return {
-        videos: enrichedVideos,
-        total,
+        videos: validVideos,
+        total: Math.max(0, total - (enrichedVideos.length - validVideos.length)),
       };
     } catch (error) {
       logger.error('Error fetching video history:', error);
