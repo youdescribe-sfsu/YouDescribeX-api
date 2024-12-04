@@ -12,7 +12,6 @@ services:
       - "host.docker.internal:host-gateway"
     network_mode: host
     volumes:
-      - /home/ubuntu/ydx_data/public:/app/public
       - /home/ubuntu/ydx_data/logs:/app/logs
       - /mnt/ebs/audio-descriptions-files:/app/public
     environment:
