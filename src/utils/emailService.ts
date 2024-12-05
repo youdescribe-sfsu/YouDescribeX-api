@@ -2,6 +2,37 @@ import nodemailer, { Transporter } from 'nodemailer';
 import { GMAIL_USER, GMAIL_APP_PASSWORD } from '../config';
 import { logger } from './logger';
 
+function formatEmailAsHTML(body: string): string {
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+          }
+          .paragraph {
+            margin: 16px 0;
+          }
+        </style>
+      </head>
+      <body>
+        ${body
+          .split('\n')
+          .map(line => (line.trim() ? `<div class="paragraph">${line.trim()}</div>` : ''))
+          .join('')}
+      </body>
+    </html>
+  `;
+}
+
 class EmailService {
   private transporter: Transporter;
   private static instance: EmailService;
@@ -102,21 +133,21 @@ class EmailService {
 
   async sendEmail(email: string, subject: string, content: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      // Add email to queue
+      const isAlreadyHTML = content.trim().toLowerCase().startsWith('<!doctype html>');
+      const htmlContent = isAlreadyHTML ? content : formatEmailAsHTML(content);
+
       this.emailQueue.push({
         email,
         subject,
-        content,
+        content: htmlContent,
         resolve,
         reject,
       });
 
-      // Start processing queue if not already processing
       setImmediate(() => this.processEmailQueue());
     });
   }
 
-  // Method to get queue status (useful for monitoring)
   public getQueueStatus() {
     return {
       queueLength: this.emailQueue.length,
