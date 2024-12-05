@@ -702,55 +702,49 @@ class UserService {
 
   public async requestAiDescriptionsWithGpu(userData: IUser, youtube_id: string, ydx_app_host: string) {
     try {
-      logger.info(`Starting AI description request for video ${youtube_id}`, { userId: userData._id });
-
       const serviceStatus = await this.checkAIServiceAvailability();
       if (!serviceStatus.available) {
         throw new HttpException(503, 'AI service is currently unavailable');
       }
 
-      const session = await mongoose.startSession();
-      let captionRequest;
-
       try {
-        await session.withTransaction(async () => {
-          captionRequest = await MongoAICaptionRequestModel.findOne({ youtube_id, ai_user_id: AI_USER_ID }, null, { session });
-
-          if (captionRequest) {
-            if (!captionRequest.caption_requests.includes(userData._id)) {
-              await captionRequest.updateOne({ $addToSet: { caption_requests: userData._id } }, { session });
-            }
-          } else {
-            captionRequest = await MongoAICaptionRequestModel.create(
-              [
-                {
-                  youtube_id,
-                  ai_user_id: AI_USER_ID,
-                  status: 'pending',
-                  caption_requests: [userData._id],
-                },
-              ],
-              { session },
-            );
-
-            // Send to GPU server
-            await axios.post(`${GPU_URL}/generate_ai_caption`, {
+        const captionRequest = await MongoAICaptionRequestModel.findOneAndUpdate(
+          { youtube_id, ai_user_id: AI_USER_ID },
+          {
+            $setOnInsert: {
               youtube_id,
-              user_id: userData._id,
-              ydx_app_host,
-              ydx_server: CURRENT_YDX_HOST,
-              AI_USER_ID: AI_USER_ID,
-            });
-          }
-        });
-      } finally {
-        session.endSession();
-      }
+              ai_user_id: AI_USER_ID,
+              status: 'pending',
+            },
+            $addToSet: { caption_requests: userData._id },
+          },
+          {
+            new: true,
+            upsert: true,
+          },
+        );
 
-      return {
-        message: 'Your request has been received and is being processed.',
-        status: 'pending',
-      };
+        if (captionRequest.caption_requests.length === 1) {
+          await axios.post(`${GPU_URL}/generate_ai_caption`, {
+            youtube_id,
+            user_id: userData._id,
+            ydx_app_host,
+            ydx_server: CURRENT_YDX_HOST,
+            AI_USER_ID: AI_USER_ID,
+          });
+          logger.info(`New request sent to GPU server for video ${youtube_id}`);
+        } else {
+          logger.info(`User added to existing request for video ${youtube_id}`);
+        }
+
+        return {
+          message: 'Your request has been received and is being processed.',
+          status: 'pending',
+        };
+      } catch (error) {
+        logger.error(`Database operation failed: ${error.message}`);
+        throw new HttpException(500, 'Failed to process request');
+      }
     } catch (error) {
       logger.error(`Error in requestAiDescriptionsWithGpu: ${error.message}`);
       throw error;
