@@ -707,6 +707,11 @@ class UserService {
         throw new HttpException(503, 'AI service is currently unavailable');
       }
 
+      const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
+      if (!youtubeVideoData) {
+        throw new VideoNotFoundError(`No data found for YouTube ID: ${youtube_id}`);
+      }
+
       try {
         const captionRequest = await MongoAICaptionRequestModel.findOneAndUpdate(
           { youtube_id, ai_user_id: AI_USER_ID },
@@ -723,6 +728,8 @@ class UserService {
             upsert: true,
           },
         );
+
+        await this.processAiDescriptionRequest(userData, youtube_id, ydx_app_host, youtubeVideoData);
 
         if (captionRequest.caption_requests.length === 1) {
           await axios.post(`${GPU_URL}/generate_ai_caption`, {
