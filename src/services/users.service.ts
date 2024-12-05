@@ -704,47 +704,56 @@ class UserService {
     try {
       logger.info(`Starting AI description request for video ${youtube_id}`, { userId: userData._id });
 
-      // First check if the service is available
       const serviceStatus = await this.checkAIServiceAvailability();
       if (!serviceStatus.available) {
         throw new HttpException(503, 'AI service is currently unavailable');
       }
 
-      const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
-      if (!youtubeVideoData) {
-        throw new VideoNotFoundError(`No data found for YouTube ID: ${youtube_id}`);
+      const session = await mongoose.startSession();
+      let captionRequest;
+
+      try {
+        await session.withTransaction(async () => {
+          captionRequest = await MongoAICaptionRequestModel.findOne({ youtube_id, ai_user_id: AI_USER_ID }, null, { session });
+
+          if (captionRequest) {
+            if (!captionRequest.caption_requests.includes(userData._id)) {
+              await captionRequest.updateOne({ $addToSet: { caption_requests: userData._id } }, { session });
+            }
+          } else {
+            captionRequest = await MongoAICaptionRequestModel.create(
+              [
+                {
+                  youtube_id,
+                  ai_user_id: AI_USER_ID,
+                  status: 'pending',
+                  caption_requests: [userData._id],
+                },
+              ],
+              { session },
+            );
+
+            // Send to GPU server
+            await axios.post(`${GPU_URL}/generate_ai_caption`, {
+              youtube_id,
+              user_id: userData._id,
+              ydx_app_host,
+              ydx_server: CURRENT_YDX_HOST,
+              AI_USER_ID: AI_USER_ID,
+            });
+          }
+        });
+      } finally {
+        session.endSession();
       }
 
-      logger.info(`Video data retrieved for ${youtube_id}`, { videoTitle: youtubeVideoData.title });
-
-      // Return immediate response
-      const response = {
+      return {
         message: 'Your request has been received and is being processed.',
         status: 'pending',
       };
-
-      // Process in background
-      this.processAiDescriptionRequest(userData, youtube_id, ydx_app_host, youtubeVideoData).catch(error => {
-        logger.error('Background processing failed:', error);
-      });
-
-      return response;
     } catch (error) {
-      logger.error(`Error in requestAiDescriptionsWithGpu: ${error.message}`, {
-        userId: userData._id,
-        youtubeId: youtube_id,
-        error: error,
-      });
-
-      if (error instanceof VideoNotFoundError) {
-        throw new HttpException(404, error.message);
-      } else if (error instanceof AIProcessingError) {
-        throw new HttpException(503, 'AI processing service is currently unavailable');
-      } else if (error instanceof HttpException) {
-        throw error;
-      } else {
-        throw new HttpException(500, 'An unexpected error occurred');
-      }
+      logger.error(`Error in requestAiDescriptionsWithGpu: ${error.message}`);
+      throw error;
     }
   }
 
