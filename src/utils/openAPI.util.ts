@@ -56,6 +56,7 @@ const getRelevanceScores = async (items: IWishList[], keyword: string): Promise<
         ],
         max_tokens: 4000,
       });
+
       const responseContent = response.choices[0].message.content;
       const parsedResponse: { youtube_id: string; relevance_score: number }[] = JSON.parse(responseContent);
 
@@ -69,10 +70,15 @@ const getRelevanceScores = async (items: IWishList[], keyword: string): Promise<
 
       scoredItems.push(...batchWithScores);
     } catch (err) {
-      console.error('Error:', err);
+      console.error('Error:', err.message);
+      const batchWithScores: RelevanceScoreResult[] = batch.map(item => ({
+        ...item,
+        relevance_score: 1,
+      }));
+
+      scoredItems.push(...batchWithScores);
     }
   }
-
   const sortedItems: RelevanceScoreResult[] = scoredItems.sort((a, b) => b.relevance_score - a.relevance_score);
   return sortedItems;
 };
