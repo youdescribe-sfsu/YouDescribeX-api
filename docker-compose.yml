@@ -12,10 +12,10 @@ services:
       - "host.docker.internal:host-gateway"
     network_mode: host
     volumes:
-      - /home/ubuntu/ydx_data/public:/app/public
       - /home/ubuntu/ydx_data/logs:/app/logs
       - /mnt/ebs/audio-descriptions-files:/app/public
     environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GOOGLE_CRED_FILE=${GOOGLE_CRED_FILE}
       - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
       - PORT=${PORT}
@@ -44,8 +44,16 @@ services:
       - GPU_PIPELINE_PORT=${GPU_PIPELINE_PORT}
       - CURRENT_YDX_HOST=${CURRENT_YDX_HOST}
       - GMAIL_USER=${GMAIL_USER}
-      - GMAIL_PASSWORD=${GMAIL_PASSWORD}
+      - GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD}
       - AI_USER_ID=${AI_USER_ID}
+      - YOUTUBE_API_CREDENTIALS_FILE=${YOUTUBE_API_CREDENTIALS_FILE}
+      - YOUTUBE_API_CREDENTIALS_PATH=${YOUTUBE_API_CREDENTIALS_PATH}
+      - VISION_API_CREDENTIALS_FILE=${VISION_API_CREDENTIALS_FILE}
+      - VISION_API_CREDENTIALS_PATH=${VISION_API_CREDENTIALS_PATH}
+      - TTS_API_CREDENTIALS_FILE=${TTS_API_CREDENTIALS_FILE}
+      - TTS_API_CREDENTIALS_PATH=${TTS_API_CREDENTIALS_PATH}
+      - STT_API_CREDENTIALS_FILE=${STT_API_CREDENTIALS_FILE}
+      - STT_API_CREDENTIALS_PATH=${STT_API_CREDENTIALS_PATH}
     logging:
       driver: "json-file"
       options:

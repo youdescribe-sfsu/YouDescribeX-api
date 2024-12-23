@@ -24,8 +24,53 @@ import { VideoNotFoundError, AIProcessingError } from '../utils/customErrors';
 import moment from 'moment';
 import { PipelineFailureDto } from '../dtos/pipelineFailure.dto';
 
+interface ProcessingProgress {
+  stage: string;
+  progress: number;
+  startTime: Date;
+  estimatedCompletion: Date;
+}
+
+interface ProcessingMetrics {
+  requestCount: number;
+  averageProcessingTime: number;
+  successRate: number;
+  failureRate: number;
+}
+
 class UserService {
   public audioClipsService = new AudioClipsService();
+
+  private processingMetrics = new Map<string, ProcessingMetrics>();
+  private activeProcessing = new Map<string, ProcessingProgress>();
+
+  constructor() {
+    this.setupAutomaticCleanup();
+
+    logger.info('UserService initialized with enhanced progress tracking');
+  }
+
+  private calculateEstimatedTime(videoDuration: number): string {
+    const estimatedMinutes = 5 + Math.ceil(videoDuration / 60);
+    return `${estimatedMinutes} minutes`;
+  }
+
+  private setupAutomaticCleanup(): void {
+    setInterval(() => {
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+      this.activeProcessing.forEach((progress, youtube_id) => {
+        if (progress.stage === 'completed' || progress.stage === 'failed') {
+          if (progress.estimatedCompletion < oneHourAgo) {
+            this.cleanupProcessingData(youtube_id);
+          }
+        }
+      });
+
+      // Log cleanup activity
+      logger.info('Performed automatic processing data cleanup');
+    }, 60 * 60 * 1000); // Run every hour
+  }
 
   public async findAllUser(): Promise<IUser[] | UsersAttributes[]> {
     if (CURRENT_DATABASE == 'mongodb') {
@@ -217,6 +262,172 @@ class UserService {
       audioDescriptionId: createNewAudioDescription._id,
       fromAI: true,
     };
+  }
+
+  // Add this method to parse estimated minutes from the string format
+  private parseEstimatedMinutes(videoDuration: number): number {
+    // Get raw minutes from calculateEstimatedTime and convert to number
+    const estimatedTimeString = this.calculateEstimatedTime(videoDuration);
+    return parseInt(estimatedTimeString.split(' ')[0]);
+  }
+
+  // Add the method to update processing progress
+  private async updateProcessingProgress(youtube_id: string, progress: ProcessingProgress): Promise<void> {
+    try {
+      // Update our local tracking
+      this.activeProcessing.set(youtube_id, progress);
+
+      // Update in database
+      await MongoAICaptionRequestModel.findOneAndUpdate(
+        { youtube_id },
+        {
+          $set: {
+            processing_stage: progress.stage,
+            progress_percentage: progress.progress,
+            estimated_completion: progress.estimatedCompletion,
+            updated_at: new Date(),
+          },
+        },
+        { new: true },
+      );
+
+      logger.info(`Updated progress for ${youtube_id}:`, progress);
+    } catch (error) {
+      logger.error(`Error updating progress for ${youtube_id}:`, error);
+    }
+  }
+
+  // Add the retry handling method
+  private async handleProcessingRetry(youtube_id: string, userData: IUser, attempt = 1, maxAttempts = 3): Promise<void> {
+    try {
+      if (attempt > maxAttempts) {
+        logger.error(`Max retry attempts (${maxAttempts}) reached for ${youtube_id}`);
+        await this.updateProcessingProgress(youtube_id, {
+          stage: 'failed',
+          progress: 0,
+          startTime: this.activeProcessing.get(youtube_id)?.startTime || new Date(),
+          estimatedCompletion: new Date(),
+        });
+        return;
+      }
+
+      logger.info(`Attempting retry ${attempt} for ${youtube_id}`);
+
+      // Exponential backoff
+      const delayMs = Math.min(1000 * Math.pow(2, attempt), 30000);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+
+      // Update database with retry attempt
+      await MongoAICaptionRequestModel.findOneAndUpdate(
+        { youtube_id },
+        {
+          $set: {
+            status: 'pending',
+            retry_count: attempt,
+            last_retry: new Date(),
+          },
+        },
+      );
+
+      // Attempt to process again
+      const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
+      if (youtubeVideoData) {
+        await this.processAiDescriptionRequest(userData, youtube_id, this.activeProcessing.get(youtube_id)?.stage || 'retry', youtubeVideoData);
+      }
+    } catch (error) {
+      logger.error(`Retry attempt ${attempt} failed for ${youtube_id}:`, error);
+      // Try next retry
+      await this.handleProcessingRetry(youtube_id, userData, attempt + 1, maxAttempts);
+    }
+  }
+
+  // Add the metrics tracking method
+  private async trackProcessingMetrics(youtube_id: string): Promise<ProcessingMetrics> {
+    try {
+      const timeWindow = new Date(Date.now() - 24 * 60 * 60 * 1000); // Last 24 hours
+
+      const metrics = await MongoAICaptionRequestModel.aggregate([
+        {
+          $match: {
+            created_at: { $gte: timeWindow },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            completed: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'completed'] }, 1, 0],
+              },
+            },
+            failed: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'failed'] }, 1, 0],
+              },
+            },
+            totalTime: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'completed'] }, { $subtract: ['$completed_at', '$created_at'] }, 0],
+              },
+            },
+          },
+        },
+      ]);
+
+      if (!metrics.length) {
+        return {
+          requestCount: 0,
+          averageProcessingTime: 0,
+          successRate: 0,
+          failureRate: 0,
+        };
+      }
+
+      const result = metrics[0];
+      const processingMetrics: ProcessingMetrics = {
+        requestCount: result.total,
+        averageProcessingTime: result.completed ? result.totalTime / result.completed : 0,
+        successRate: result.total ? (result.completed / result.total) * 100 : 0,
+        failureRate: result.total ? (result.failed / result.total) * 100 : 0,
+      };
+
+      // Update our local metrics cache
+      this.processingMetrics.set(youtube_id, processingMetrics);
+
+      return processingMetrics;
+    } catch (error) {
+      logger.error(`Error tracking metrics for ${youtube_id}:`, error);
+      throw error;
+    }
+  }
+
+  private async cleanupProcessingData(youtube_id: string): Promise<void> {
+    try {
+      // Remove from active processing map
+      this.activeProcessing.delete(youtube_id);
+
+      // Store final metrics before cleanup
+      const finalMetrics = this.processingMetrics.get(youtube_id);
+      if (finalMetrics) {
+        await MongoAICaptionRequestModel.findOneAndUpdate(
+          { youtube_id },
+          {
+            $set: {
+              final_processing_metrics: finalMetrics,
+              cleanup_time: new Date(),
+            },
+          },
+        );
+      }
+
+      // Remove from metrics map
+      this.processingMetrics.delete(youtube_id);
+
+      logger.info(`Cleaned up processing data for ${youtube_id}`);
+    } catch (error) {
+      logger.error(`Error cleaning up processing data for ${youtube_id}:`, error);
+    }
   }
 
   public async createNewUserAudioDescription(newUserAudioDescription: CreateUserAudioDescriptionDto, expressUser: Express.User) {
@@ -664,38 +875,142 @@ class UserService {
   `;
   }
 
-  public async requestAiDescriptionsWithGpu(userData: IUser, youtube_id: string, ydx_app_host: string) {
-    const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
-
+  private async processAiDescriptionRequest(userData: IUser, youtube_id: string, ydx_app_host: string, youtubeVideoData: any) {
     try {
-      logger.info(`Starting AI description request for video ${youtube_id}`, { userId: userData._id });
-
-      if (!youtubeVideoData) {
-        throw new VideoNotFoundError(`No data found for YouTube ID: ${youtube_id}`);
-      }
-
-      logger.info(`Video data retrieved for ${youtube_id}`, { videoTitle: youtubeVideoData.title });
+      // Update progress for initialization
+      await this.updateProcessingProgress(youtube_id, {
+        stage: 'checking_existing_description',
+        progress: 10,
+        startTime: this.activeProcessing.get(youtube_id)?.startTime || new Date(),
+        estimatedCompletion: this.activeProcessing.get(youtube_id)?.estimatedCompletion || new Date(),
+      });
 
       const aiAudioDescriptions = await this.checkIfVideoHasAudioDescription(youtube_id, AI_USER_ID, userData._id);
 
       if (aiAudioDescriptions) {
-        return await this.handleExistingAudioDescription(userData, youtube_id, ydx_app_host, youtubeVideoData, aiAudioDescriptions);
+        // Update progress for existing description
+        await this.updateProcessingProgress(youtube_id, {
+          stage: 'processing_existing_description',
+          progress: 50,
+          startTime: this.activeProcessing.get(youtube_id)?.startTime || new Date(),
+          estimatedCompletion: this.activeProcessing.get(youtube_id)?.estimatedCompletion || new Date(),
+        });
+
+        await this.handleExistingAudioDescription(userData, youtube_id, ydx_app_host, youtubeVideoData, aiAudioDescriptions);
       } else {
-        return await this.initiateNewAudioDescription(userData, youtube_id, ydx_app_host, youtubeVideoData);
+        // Update progress for new description
+        await this.updateProcessingProgress(youtube_id, {
+          stage: 'creating_new_description',
+          progress: 30,
+          startTime: this.activeProcessing.get(youtube_id)?.startTime || new Date(),
+          estimatedCompletion: this.activeProcessing.get(youtube_id)?.estimatedCompletion || new Date(),
+        });
+
+        await this.initiateNewAudioDescription(userData, youtube_id, ydx_app_host, youtubeVideoData);
       }
+
+      // Final progress update
+      await this.updateProcessingProgress(youtube_id, {
+        stage: 'completed',
+        progress: 100,
+        startTime: this.activeProcessing.get(youtube_id)?.startTime || new Date(),
+        estimatedCompletion: new Date(),
+      });
     } catch (error) {
+      logger.error(`Error in processAiDescriptionRequest: ${error.message}`, {
+        userId: userData._id,
+        youtubeId: youtube_id,
+        error: error,
+      });
+      await this.handleProcessingRetry(youtube_id, userData);
+    }
+  }
+
+  public async checkAIServiceAvailability() {
+    try {
+      if (!GPU_URL) {
+        return { available: false, reason: 'GPU service not configured' };
+      }
+
+      const response = await axios.get(`${GPU_URL}/health_check`, { timeout: 5000 });
+      return {
+        available: response.status === 200,
+        reason: response.status === 200 ? 'Service available' : 'Service unavailable',
+      };
+    } catch (error) {
+      logger.error('AI service health check failed:', error);
+      return { available: false, reason: 'Service unavailable' };
+    }
+  }
+
+  public async requestAiDescriptionsWithGpu(userData: IUser, youtube_id: string, ydx_app_host: string) {
+    try {
+      logger.info(`Starting AI description request for video ${youtube_id}`, { userId: userData._id });
+
+      // First check service availability as you currently do
+      const serviceStatus = await this.checkAIServiceAvailability();
+      if (!serviceStatus.available) {
+        throw new HttpException(503, 'AI service is currently unavailable');
+      }
+
+      // Get video data with additional validation
+      const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
+      if (!youtubeVideoData) {
+        throw new VideoNotFoundError(`No data found for YouTube ID: ${youtube_id}`);
+      }
+
+      // Add duration check
+      if (youtubeVideoData.duration > 600) {
+        throw new HttpException(400, 'Video exceeds maximum duration of 10 minutes');
+      }
+
+      // Initialize progress tracking
+      const progress: ProcessingProgress = {
+        stage: 'initialized',
+        progress: 0,
+        startTime: new Date(),
+        estimatedCompletion: new Date(Date.now() + this.parseEstimatedMinutes(youtubeVideoData.duration) * 60000),
+      };
+
+      this.activeProcessing.set(youtube_id, progress);
+
+      // Create enhanced response
+      const response = {
+        message: 'Your request has been received and is being processed.',
+        status: 'pending',
+        estimatedTime: this.calculateEstimatedTime(youtubeVideoData.duration),
+        progress: {
+          stage: progress.stage,
+          percentage: progress.progress,
+          estimatedCompletion: progress.estimatedCompletion,
+        },
+      };
+
+      // Process in background with enhanced error handling
+      this.processAiDescriptionRequest(userData, youtube_id, ydx_app_host, youtubeVideoData).catch(async error => {
+        logger.error('Background processing failed:', error);
+        await this.handleProcessingRetry(youtube_id, userData);
+      });
+
+      return response;
+    } catch (error) {
+      // Enhanced error handling
       logger.error(`Error in requestAiDescriptionsWithGpu: ${error.message}`, {
         userId: userData._id,
         youtubeId: youtube_id,
         error: error,
       });
 
-      await this.handleError(userData, youtube_id, youtubeVideoData?.title || 'Unknown Video');
+      // Track failure in metrics
+      await this.trackProcessingMetrics(youtube_id);
 
+      // Throw appropriate error
       if (error instanceof VideoNotFoundError) {
         throw new HttpException(404, error.message);
       } else if (error instanceof AIProcessingError) {
-        throw new HttpException(500, 'AI processing failed. Please try again later.');
+        throw new HttpException(503, 'AI processing service is currently unavailable');
+      } else if (error instanceof HttpException) {
+        throw error;
       } else {
         throw new HttpException(500, 'An unexpected error occurred');
       }
@@ -974,10 +1289,37 @@ class UserService {
     }
   }
 
-  public async aiDescriptionStatus(user_id: string, youtube_id: string): Promise<{ status: string; requested: boolean; url?: string }> {
+  public async aiDescriptionStatus(
+    user_id: string,
+    youtube_id: string,
+  ): Promise<{
+    status: string;
+    requested: boolean;
+    url?: string;
+    progress?: {
+      stage: string;
+      percentage: number;
+      estimatedCompletion: Date;
+    };
+  }> {
     try {
-      const response = await this.aiDescriptionStatusUtil(user_id, youtube_id, AI_USER_ID);
-      return response;
+      // Get active processing status if available
+      const activeProgress = this.activeProcessing.get(youtube_id);
+
+      // Get base status from database
+      const baseStatus = await this.aiDescriptionStatusUtil(user_id, youtube_id, AI_USER_ID);
+
+      // Enhance response with progress information if available
+      return {
+        ...baseStatus,
+        progress: activeProgress
+          ? {
+              stage: activeProgress.stage,
+              percentage: activeProgress.progress,
+              estimatedCompletion: activeProgress.estimatedCompletion,
+            }
+          : undefined,
+      };
     } catch (error) {
       logger.error(`Error in aiDescriptionStatus: ${error.message}`);
       throw error;
@@ -1168,90 +1510,159 @@ class UserService {
     }
   }
 
+  // Add these methods to your UserService class
+
   public async saveVisitedVideosHistory(user_id: string, youtube_id: string) {
     try {
       if (!user_id || !youtube_id) {
-        throw new HttpException(400, 'No data provided');
+        throw new HttpException(400, 'Missing required parameters');
       }
 
-      const userDocument = await MongoHistoryModel.findOne({ user: user_id });
-      if (userDocument) {
-        if (!userDocument.visited_videos.includes(youtube_id)) {
-          userDocument.visited_videos.push(youtube_id);
-          await MongoHistoryModel.updateOne({ _id: userDocument._id }, { $set: { visited_videos: userDocument.visited_videos } });
-        }
+      const userHistory = await MongoHistoryModel.findOne({ user: user_id });
 
-        return userDocument.visited_videos;
+      if (userHistory) {
+        // Remove any existing entry of this video
+        const filteredVideos = userHistory.visited_videos.filter(video => video.youtube_id !== youtube_id);
+
+        // Add new entry at the beginning with proper structure
+        const updatedVideos = [
+          {
+            youtube_id: youtube_id,
+            visited_at: new Date(),
+          },
+          ...filteredVideos,
+        ];
+
+        // Update the document with valid data
+        await MongoHistoryModel.findOneAndUpdate(
+          { user: user_id },
+          {
+            $set: { visited_videos: updatedVideos },
+          },
+          { new: true },
+        );
+
+        return { success: true, visited_videos: updatedVideos };
       } else {
-        const newUserDocument = {
+        // Create new history document
+        const newHistory = await MongoHistoryModel.create({
           user: user_id,
-          visited_videos: [youtube_id],
-        };
+          visited_videos: [
+            {
+              youtube_id: youtube_id,
+              visited_at: new Date(),
+            },
+          ],
+        });
 
-        const insertedDocument = await MongoHistoryModel.create(newUserDocument);
-
-        return insertedDocument.visited_videos;
+        return { success: true, visited_videos: newHistory.visited_videos };
       }
     } catch (error) {
-      logger.error('Error:', error);
-      return error;
+      logger.error('Error saving video history:', error);
+      throw error;
     }
   }
 
-  public async getVisitedVideosHistory(user_id: string, pageNumber: string, paginate: boolean) {
-    if (!user_id) {
-      throw new HttpException(400, 'No data provided');
-    }
-
-    const page = parseInt(pageNumber, 10);
-    const perPage = 4;
-    const skipCount = Math.max((page - 1) * perPage, 0);
-    const userIdObject = await MongoUsersModel.findById(user_id);
-    const visitedVideosHistory = await MongoHistoryModel.find({
-      user: userIdObject._id,
-    });
-
-    const visitedVideosArray = [...new Set(visitedVideosHistory.flatMap(history => history.visited_videos))];
-    visitedVideosArray.reverse();
-    const videos = [];
-    const adjustedSkipCount = skipCount;
-
-    for (let i = adjustedSkipCount; i < visitedVideosArray.length && videos.length < perPage; i++) {
-      const youtube_id = visitedVideosArray[i];
-
-      try {
-        const existingVideo = (await MongoVideosModel.findOne({ youtube_id })) || (await getYouTubeVideoStatus(youtube_id));
-
-        if (existingVideo) {
-          videos.push(existingVideo);
-        }
-      } catch (error) {
-        await MongoHistoryModel.updateOne({ user: userIdObject._id }, { $pull: { visited_videos: youtube_id } });
+  public async getVisitedVideosHistory(user_id: string, pageNumber: string, paginate = true) {
+    try {
+      if (!user_id) {
+        throw new HttpException(400, 'User ID is required');
       }
-    }
 
-    const videoIds = videos.map(videoId => videoId._id);
-    const audioDescription = await MongoAudio_Descriptions_Model.find({ video: { $in: videoIds } });
-    const resultVideos = videos.map(video => {
-      const { _id, youtube_id, title, duration, created_at, updated_at } = video;
-      const descriptions = audioDescription.find(ad => ad.video.toString() === _id.toString());
+      const page = parseInt(pageNumber, 10);
+      const perPage = 4;
+      const skipCount = Math.max((page - 1) * perPage, 0);
+
+      // Find the user's history and get only the required page of videos
+      const userHistory = await MongoHistoryModel.findOne({ user: user_id }).select('visited_videos').slice('visited_videos', [skipCount, perPage]).lean();
+
+      if (!userHistory || !userHistory.visited_videos) {
+        return { videos: [], total: 0 };
+      }
+
+      // Get total count separately
+      const totalCount = await MongoHistoryModel.aggregate([
+        { $match: { user: new mongoose.Types.ObjectId(user_id) } },
+        { $project: { count: { $size: '$visited_videos' } } },
+      ]);
+
+      const total = totalCount[0]?.count || 0;
+
+      // Process videos in parallel
+      const enrichedVideos = await Promise.all(
+        userHistory.visited_videos.map(async entry => {
+          try {
+            // First try to get from our DB
+            let videoData = await MongoVideosModel.findOne({ youtube_id: entry.youtube_id })
+              .select('_id youtube_id title duration created_at updated_at')
+              .lean();
+
+            // If not in our DB, get from YouTube and save to DB
+            if (!videoData) {
+              try {
+                const ytVideoData = await getYouTubeVideoStatus(entry.youtube_id);
+                if (!ytVideoData) {
+                  throw new Error('Video not found on YouTube');
+                }
+
+                // Save to our database first
+                const newVideo = new MongoVideosModel({
+                  youtube_id: ytVideoData.youtube_id,
+                  title: ytVideoData.title,
+                  duration: ytVideoData.duration,
+                  created_at: ytVideoData.created_at || Date.now(),
+                  updated_at: ytVideoData.updated_at || Date.now(),
+                });
+
+                const savedVideo = await newVideo.save();
+                videoData = savedVideo.toObject(); // Convert to plain object
+              } catch (ytError) {
+                logger.error(`Error fetching YouTube video ${entry.youtube_id}:`, ytError);
+                // Remove invalid video from history
+                await MongoHistoryModel.updateOne({ user: user_id }, { $pull: { visited_videos: { youtube_id: entry.youtube_id } } });
+                return null;
+              }
+            }
+
+            // Get audio description data
+            const audioDescription = await MongoAudio_Descriptions_Model.findOne({ video: videoData._id })
+              .select('_id status overall_rating_votes_average overall_rating_votes_counter overall_rating_votes_sum')
+              .lean();
+
+            return {
+              video_id: videoData._id,
+              youtube_video_id: videoData.youtube_id,
+              video_name: videoData.title,
+              video_length: videoData.duration,
+              visited_at: entry.visited_at,
+              createdAt: videoData.created_at,
+              updatedAt: videoData.updated_at,
+              audio_description_id: audioDescription?._id || null,
+              status: audioDescription?.status || null,
+              overall_rating_votes_average: audioDescription?.overall_rating_votes_average || null,
+              overall_rating_votes_counter: audioDescription?.overall_rating_votes_counter || null,
+              overall_rating_votes_sum: audioDescription?.overall_rating_votes_sum || null,
+            };
+          } catch (error) {
+            logger.error(`Error processing video ${entry.youtube_id}:`, error);
+            // Remove invalid video from history
+            await MongoHistoryModel.updateOne({ user: user_id }, { $pull: { visited_videos: { youtube_id: entry.youtube_id } } });
+            return null;
+          }
+        }),
+      );
+
+      // Filter out null entries (failed videos)
+      const validVideos = enrichedVideos.filter((video): video is NonNullable<typeof video> => video !== null);
 
       return {
-        video_id: _id,
-        youtube_video_id: youtube_id,
-        video_name: title,
-        video_length: duration,
-        createdAt: created_at,
-        updatedAt: updated_at,
-        audio_description_id: descriptions ? descriptions._id : null,
-        status: descriptions ? descriptions.status : null,
-        overall_rating_votes_average: descriptions ? descriptions.overall_rating_votes_average : null,
-        overall_rating_votes_counter: descriptions ? descriptions.overall_rating_votes_counter : null,
-        overall_rating_votes_sum: descriptions ? descriptions.overall_rating_votes_sum : null,
+        videos: validVideos,
+        total: Math.max(0, total - (enrichedVideos.length - validVideos.length)),
       };
-    });
-
-    return { videos: resultVideos, total: visitedVideosArray.length };
+    } catch (error) {
+      logger.error('Error fetching video history:', error);
+      throw error;
+    }
   }
 }
 
