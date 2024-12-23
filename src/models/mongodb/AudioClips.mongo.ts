@@ -22,7 +22,7 @@ interface IAudioClip extends Document {
   file_size_bytes: number;
   is_recorded: boolean;
   label: string;
-  playback_type: string;
+  playback_type: 'extended' | 'inline';
   start_time: number;
   transcript: ITranscript[];
   updated_at: number;
@@ -85,6 +85,7 @@ const AudioClipSchema: Schema = new Schema(
     playback_type: {
       type: String,
       required: true,
+      enum: ['extended', 'inline'],
     },
     start_time: {
       type: Number,

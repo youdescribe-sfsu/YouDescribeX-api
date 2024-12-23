@@ -14,9 +14,7 @@ services:
   - docker:24.0.5-dind
 
 before_script:
-  - echo "Installing Docker Compose..."
-  - sudo curl -L "https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-  - sudo chmod +x /usr/local/bin/docker-compose
+  - echo "Using pre-installed Docker Compose..."
   - docker-compose --version
   - echo "Logging into Docker..."
   - echo "$DOCKER_REGISTRY_PASSWORD" | docker login -u "$DOCKER_REGISTRY_USER" --password-stdin $CI_REGISTRY
@@ -26,6 +24,7 @@ before_script:
   script:
     - echo "Building Docker image..."
     - docker build --no-cache
+      --build-arg OPENAI_API_KEY="$OPENAI_API_KEY"
       --build-arg GOOGLE_CRED_FILE="$GOOGLE_CRED_FILE"
       --build-arg GOOGLE_APPLICATION_CREDENTIALS="$GOOGLE_APPLICATION_CREDENTIALS"
       --build-arg NODE_ENV="$NODE_ENV"
@@ -42,6 +41,14 @@ before_script:
       --build-arg MONGO_DB_PORT="$MONGO_DB_PORT"
       --build-arg MONGO_DB_USER="$MONGO_DB_USER"
       --build-arg MONGO_DB_PASSWORD="$MONGO_DB_PASSWORD"
+      --build-arg YOUTUBE_API_CREDENTIALS_FILE="$YOUTUBE_API_CREDENTIALS_FILE"
+      --build-arg YOUTUBE_API_CREDENTIALS_PATH="$YOUTUBE_API_CREDENTIALS_PATH"
+      --build-arg VISION_API_CREDENTIALS_FILE="$VISION_API_CREDENTIALS_FILE"
+      --build-arg VISION_API_CREDENTIALS_PATH="$VISION_API_CREDENTIALS_PATH"
+      --build-arg TTS_API_CREDENTIALS_FILE="$TTS_API_CREDENTIALS_FILE"
+      --build-arg TTS_API_CREDENTIALS_PATH="$TTS_API_CREDENTIALS_PATH"
+      --build-arg STT_API_CREDENTIALS_FILE="$STT_API_CREDENTIALS_FILE"
+      --build-arg STT_API_CREDENTIALS_PATH="$STT_API_CREDENTIALS_PATH"
       -t $LATEST_IMAGE .
     - docker push $LATEST_IMAGE
     - echo "Build complete"
