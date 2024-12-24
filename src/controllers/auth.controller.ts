@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import passport from 'passport';
-import { PASSPORT_REDIRECT_URL } from '../config/index';
+import { PASSPORT_REDIRECT_URL, APPLE_CALLBACK_URL } from '../config/index';
 import { logger } from '../utils/logger';
 import { MongoUsersModel } from '../models/mongodb/init-models.mongo';
 
@@ -89,6 +89,29 @@ class AuthController {
       });
     } catch (error) {
       logger.error('Error with Google Callback: ', error);
+      next(error);
+    }
+  };
+
+  public initAppleAuthentication = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      logger.info('Initiating Apple Authentication');
+      passport.authenticate('apple')(req, res, next);
+    } catch (error) {
+      logger.error('Error signing in with Apple: ', error);
+      next(error);
+    }
+  };
+
+  public handleAppleCallback = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      passport.authenticate('apple', {
+        successRedirect: APPLE_CALLBACK_URL,
+        failureRedirect: APPLE_CALLBACK_URL,
+        failureFlash: 'Sign In Unsuccessful. Please try again!',
+      })(req, res, next);
+    } catch (error) {
+      logger.error('Error with Apple Callback: ', error);
       next(error);
     }
   };
