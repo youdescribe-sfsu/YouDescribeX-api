@@ -158,10 +158,9 @@ class WishListService {
         const startIndex = (pageNumber - 1) * pageSize;
         const endIndex = startIndex + pageSize;
 
-        if (!cacheData || cacheData.length === 0) {
+        if (!cacheData) {
           const keywordVideos = await KeywordVideosModel.findOne({ keyword: cacheKey });
-
-          if (!keywordVideos || keywordVideos.data.length === 0) {
+          if (!keywordVideos) {
             wishListItems = await MongoWishListModel.aggregate().facet({
               items: [
                 {
@@ -216,28 +215,11 @@ class WishListService {
                 { $count: 'count' },
               ],
             });
-            const rankedItems = await getRelevanceScores(wishListItems[0].items, search);
-            if (rankedItems.length > 0) {
-              cacheData = rankedItems;
-            }
+            cacheData = await getRelevanceScores(wishListItems[0].items, search);
           } else {
             cacheData = JSON.parse(keywordVideos.data);
           }
-
-          await this.cache.set(cacheKey, cacheData);
-          await KeywordVideosModel.findOneAndDelete({ keyword: cacheKey });
-        }
-
-        if (sort && sortField) {
-          cacheData.sort((a: any, b: any) => {
-            if (sortField === 'aiRequested') {
-              return sort === 'asc' ? a.aiRequested - b.aiRequested : b.aiRequested - a.aiRequested;
-            } else if (sortField === 'category') {
-              return sort === 'asc' ? a.lowercaseCategory.localeCompare(b.lowercaseCategory) : b.lowercaseCategory.localeCompare(a.lowercaseCategory);
-            } else {
-              return sort === 'asc' ? a[sortField] - b[sortField] : b[sortField] - a[sortField];
-            }
-          });
+          this.cache.set(cacheKey, cacheData);
         }
 
         return {
