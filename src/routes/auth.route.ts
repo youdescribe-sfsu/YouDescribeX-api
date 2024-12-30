@@ -27,6 +27,8 @@ class AuthRoute implements Routes {
     //                                                 }) );
     this.router.get(`${this.path}/login/success`, this.authController.logIn);
     this.router.get(`${this.path}/logout`, this.authController.logOut);
+    this.router.get(`${this.path}/apple`, this.authController.initAppleAuthentication);
+    this.router.post(`${this.path}/apple/callback`, this.authController.handleAppleCallback);
   }
 }
 
