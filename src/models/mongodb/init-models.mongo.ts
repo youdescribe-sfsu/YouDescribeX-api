@@ -19,14 +19,11 @@ import WishlistSchema, { IWishList } from './Wishlist.mongo';
 import { Strategy } from 'passport-google-oauth20';
 import crypto from 'crypto';
 import moment from 'moment';
-import { PASSPORT_CALLBACK_URL, CRYPTO_SECRET, CRYPTO_SEED, PORT, APPLE_CALLBACK_URL, APPLE_CLIENT_ID, APPLE_TEAM_ID, APPLE_KEY_ID } from '../../config/index';
+import { PASSPORT_CALLBACK_URL, CRYPTO_SECRET, CRYPTO_SEED, PORT } from '../../config/index';
 import passport from 'passport';
 import axios from 'axios';
 import AICaptionRequestSchema, { IAICaptionRequest } from './AICaptionRequests.mongo';
 import HistorySchema, { IHistory } from './History.mongo';
-import fs from 'fs';
-import path from 'path';
-const AppleStrategy = require('passport-apple');
 
 function initModels() {
   const VideosModel = model<IVideo>('Video', VideoSchema);
@@ -117,45 +114,6 @@ export const initPassport = () => {
           return cb(null, newUser.data);
         } catch (error) {
           return cb(error, null);
-        }
-      },
-    ),
-  );
-
-  passport.use(
-    new AppleStrategy(
-      {
-        clientID: APPLE_CLIENT_ID,
-        teamID: APPLE_TEAM_ID,
-        keyID: APPLE_KEY_ID,
-        key: fs.readFileSync(path.join(__dirname, '../../../AuthKey_57HVXW9Y8Z.p8')),
-        callbackURL: APPLE_CALLBACK_URL,
-      },
-      async (accessToken, refreshToken, idToken, profile, done) => {
-        const payload = profile._json;
-        logger.info('payload: ', payload);
-        const appleUserId = payload.sub;
-        const newToken = crypto
-          .createHmac('sha256', CRYPTO_SECRET)
-          .update(CRYPTO_SEED + moment().utc().format('YYYYMMDDHHmmss'))
-          .digest('hex');
-
-        try {
-          const newUser = await axios.post(`http://localhost:${PORT}/api/users/create-user`, {
-            email: payload.email,
-            name: payload.name,
-            given_name: payload.given_name,
-            picture: payload.picture,
-            locale: payload.locale,
-            apple_user_id: appleUserId,
-            token: newToken,
-            opt_in: false,
-            admin_level: 0,
-            user_type: 'Volunteer',
-          });
-          return done(null, newUser.data);
-        } catch (error) {
-          return done(error, null);
         }
       },
     ),

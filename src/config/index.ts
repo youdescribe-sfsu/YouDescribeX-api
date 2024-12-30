@@ -60,11 +60,6 @@ interface AuthConfig {
   passportCallbackUrl: string;
   cryptoSecret: string;
   cryptoSeed: string;
-  appleRedirectUrl: string;
-  appleCallbackUrl: string;
-  appleClientId: string;
-  appleTeamId: string;
-  appleKeyId: string;
 }
 
 interface GpuConfig {
@@ -144,11 +139,6 @@ export const CONFIG = {
   auth: {
     passportRedirectUrl: process.env.PASSPORT_REDIRECT_URL || '',
     passportCallbackUrl: process.env.PASSPORT_CALLBACK_URL || '',
-    appleRedirectUrl: process.env.APPLE_REDIRECT_URL,
-    appleCallbackUrl: process.env.APPLE_CALLBACK_URL,
-    appleClientId: process.env.APPLE_CLIENT_ID,
-    appleTeamId: process.env.APPLE_TEAM_ID,
-    appleKeyId: process.env.APPLE_KEY_ID,
     cryptoSecret: process.env.CRYPTO_SECRET || '',
     cryptoSeed: process.env.CRYPTO_SEED || '',
   } as AuthConfig,
@@ -266,11 +256,6 @@ export const {
   OPENAI_API_KEY,
   GPU_URL,
   GPU_NOTIFY_EMAILS,
-  APPLE_REDIRECT_URL,
-  APPLE_CALLBACK_URL,
-  APPLE_CLIENT_ID,
-  APPLE_TEAM_ID,
-  APPLE_KEY_ID,
 } = {
   CREDENTIALS: CONFIG.server.credentials,
   HOST: CONFIG.server.host,
@@ -307,11 +292,6 @@ export const {
   OPENAI_API_KEY: CONFIG.app.openai.apiKey,
   GPU_URL: CONFIG.gpu.url,
   GPU_NOTIFY_EMAILS: CONFIG.gpu.notifyEmails,
-  APPLE_REDIRECT_URL: CONFIG.auth.appleRedirectUrl,
-  APPLE_CALLBACK_URL: CONFIG.auth.appleCallbackUrl,
-  APPLE_CLIENT_ID: CONFIG.auth.appleClientId,
-  APPLE_TEAM_ID: CONFIG.auth.appleTeamId,
-  APPLE_KEY_ID: CONFIG.auth.appleKeyId,
 };
 
 // Export NODE_ENV separately to avoid redeclaration

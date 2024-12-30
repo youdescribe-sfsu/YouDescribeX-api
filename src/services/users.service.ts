@@ -24,53 +24,8 @@ import { VideoNotFoundError, AIProcessingError } from '../utils/customErrors';
 import moment from 'moment';
 import { PipelineFailureDto } from '../dtos/pipelineFailure.dto';
 
-interface ProcessingProgress {
-  stage: string;
-  progress: number;
-  startTime: Date;
-  estimatedCompletion: Date;
-}
-
-interface ProcessingMetrics {
-  requestCount: number;
-  averageProcessingTime: number;
-  successRate: number;
-  failureRate: number;
-}
-
 class UserService {
   public audioClipsService = new AudioClipsService();
-
-  private processingMetrics = new Map<string, ProcessingMetrics>();
-  private activeProcessing = new Map<string, ProcessingProgress>();
-
-  constructor() {
-    this.setupAutomaticCleanup();
-
-    logger.info('UserService initialized with enhanced progress tracking');
-  }
-
-  private calculateEstimatedTime(videoDuration: number): string {
-    const estimatedMinutes = 5 + Math.ceil(videoDuration / 60);
-    return `${estimatedMinutes} minutes`;
-  }
-
-  private setupAutomaticCleanup(): void {
-    setInterval(() => {
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-
-      this.activeProcessing.forEach((progress, youtube_id) => {
-        if (progress.stage === 'completed' || progress.stage === 'failed') {
-          if (progress.estimatedCompletion < oneHourAgo) {
-            this.cleanupProcessingData(youtube_id);
-          }
-        }
-      });
-
-      // Log cleanup activity
-      logger.info('Performed automatic processing data cleanup');
-    }, 60 * 60 * 1000); // Run every hour
-  }
 
   public async findAllUser(): Promise<IUser[] | UsersAttributes[]> {
     if (CURRENT_DATABASE == 'mongodb') {
@@ -262,172 +217,6 @@ class UserService {
       audioDescriptionId: createNewAudioDescription._id,
       fromAI: true,
     };
-  }
-
-  // Add this method to parse estimated minutes from the string format
-  private parseEstimatedMinutes(videoDuration: number): number {
-    // Get raw minutes from calculateEstimatedTime and convert to number
-    const estimatedTimeString = this.calculateEstimatedTime(videoDuration);
-    return parseInt(estimatedTimeString.split(' ')[0]);
-  }
-
-  // Add the method to update processing progress
-  private async updateProcessingProgress(youtube_id: string, progress: ProcessingProgress): Promise<void> {
-    try {
-      // Update our local tracking
-      this.activeProcessing.set(youtube_id, progress);
-
-      // Update in database
-      await MongoAICaptionRequestModel.findOneAndUpdate(
-        { youtube_id },
-        {
-          $set: {
-            processing_stage: progress.stage,
-            progress_percentage: progress.progress,
-            estimated_completion: progress.estimatedCompletion,
-            updated_at: new Date(),
-          },
-        },
-        { new: true },
-      );
-
-      logger.info(`Updated progress for ${youtube_id}:`, progress);
-    } catch (error) {
-      logger.error(`Error updating progress for ${youtube_id}:`, error);
-    }
-  }
-
-  // Add the retry handling method
-  private async handleProcessingRetry(youtube_id: string, userData: IUser, attempt = 1, maxAttempts = 3): Promise<void> {
-    try {
-      if (attempt > maxAttempts) {
-        logger.error(`Max retry attempts (${maxAttempts}) reached for ${youtube_id}`);
-        await this.updateProcessingProgress(youtube_id, {
-          stage: 'failed',
-          progress: 0,
-          startTime: this.activeProcessing.get(youtube_id)?.startTime || new Date(),
-          estimatedCompletion: new Date(),
-        });
-        return;
-      }
-
-      logger.info(`Attempting retry ${attempt} for ${youtube_id}`);
-
-      // Exponential backoff
-      const delayMs = Math.min(1000 * Math.pow(2, attempt), 30000);
-      await new Promise(resolve => setTimeout(resolve, delayMs));
-
-      // Update database with retry attempt
-      await MongoAICaptionRequestModel.findOneAndUpdate(
-        { youtube_id },
-        {
-          $set: {
-            status: 'pending',
-            retry_count: attempt,
-            last_retry: new Date(),
-          },
-        },
-      );
-
-      // Attempt to process again
-      const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
-      if (youtubeVideoData) {
-        await this.processAiDescriptionRequest(userData, youtube_id, this.activeProcessing.get(youtube_id)?.stage || 'retry', youtubeVideoData);
-      }
-    } catch (error) {
-      logger.error(`Retry attempt ${attempt} failed for ${youtube_id}:`, error);
-      // Try next retry
-      await this.handleProcessingRetry(youtube_id, userData, attempt + 1, maxAttempts);
-    }
-  }
-
-  // Add the metrics tracking method
-  private async trackProcessingMetrics(youtube_id: string): Promise<ProcessingMetrics> {
-    try {
-      const timeWindow = new Date(Date.now() - 24 * 60 * 60 * 1000); // Last 24 hours
-
-      const metrics = await MongoAICaptionRequestModel.aggregate([
-        {
-          $match: {
-            created_at: { $gte: timeWindow },
-          },
-        },
-        {
-          $group: {
-            _id: null,
-            total: { $sum: 1 },
-            completed: {
-              $sum: {
-                $cond: [{ $eq: ['$status', 'completed'] }, 1, 0],
-              },
-            },
-            failed: {
-              $sum: {
-                $cond: [{ $eq: ['$status', 'failed'] }, 1, 0],
-              },
-            },
-            totalTime: {
-              $sum: {
-                $cond: [{ $eq: ['$status', 'completed'] }, { $subtract: ['$completed_at', '$created_at'] }, 0],
-              },
-            },
-          },
-        },
-      ]);
-
-      if (!metrics.length) {
-        return {
-          requestCount: 0,
-          averageProcessingTime: 0,
-          successRate: 0,
-          failureRate: 0,
-        };
-      }
-
-      const result = metrics[0];
-      const processingMetrics: ProcessingMetrics = {
-        requestCount: result.total,
-        averageProcessingTime: result.completed ? result.totalTime / result.completed : 0,
-        successRate: result.total ? (result.completed / result.total) * 100 : 0,
-        failureRate: result.total ? (result.failed / result.total) * 100 : 0,
-      };
-
-      // Update our local metrics cache
-      this.processingMetrics.set(youtube_id, processingMetrics);
-
-      return processingMetrics;
-    } catch (error) {
-      logger.error(`Error tracking metrics for ${youtube_id}:`, error);
-      throw error;
-    }
-  }
-
-  private async cleanupProcessingData(youtube_id: string): Promise<void> {
-    try {
-      // Remove from active processing map
-      this.activeProcessing.delete(youtube_id);
-
-      // Store final metrics before cleanup
-      const finalMetrics = this.processingMetrics.get(youtube_id);
-      if (finalMetrics) {
-        await MongoAICaptionRequestModel.findOneAndUpdate(
-          { youtube_id },
-          {
-            $set: {
-              final_processing_metrics: finalMetrics,
-              cleanup_time: new Date(),
-            },
-          },
-        );
-      }
-
-      // Remove from metrics map
-      this.processingMetrics.delete(youtube_id);
-
-      logger.info(`Cleaned up processing data for ${youtube_id}`);
-    } catch (error) {
-      logger.error(`Error cleaning up processing data for ${youtube_id}:`, error);
-    }
   }
 
   public async createNewUserAudioDescription(newUserAudioDescription: CreateUserAudioDescriptionDto, expressUser: Express.User) {
@@ -877,52 +666,20 @@ class UserService {
 
   private async processAiDescriptionRequest(userData: IUser, youtube_id: string, ydx_app_host: string, youtubeVideoData: any) {
     try {
-      // Update progress for initialization
-      await this.updateProcessingProgress(youtube_id, {
-        stage: 'checking_existing_description',
-        progress: 10,
-        startTime: this.activeProcessing.get(youtube_id)?.startTime || new Date(),
-        estimatedCompletion: this.activeProcessing.get(youtube_id)?.estimatedCompletion || new Date(),
-      });
-
       const aiAudioDescriptions = await this.checkIfVideoHasAudioDescription(youtube_id, AI_USER_ID, userData._id);
 
       if (aiAudioDescriptions) {
-        // Update progress for existing description
-        await this.updateProcessingProgress(youtube_id, {
-          stage: 'processing_existing_description',
-          progress: 50,
-          startTime: this.activeProcessing.get(youtube_id)?.startTime || new Date(),
-          estimatedCompletion: this.activeProcessing.get(youtube_id)?.estimatedCompletion || new Date(),
-        });
-
         await this.handleExistingAudioDescription(userData, youtube_id, ydx_app_host, youtubeVideoData, aiAudioDescriptions);
       } else {
-        // Update progress for new description
-        await this.updateProcessingProgress(youtube_id, {
-          stage: 'creating_new_description',
-          progress: 30,
-          startTime: this.activeProcessing.get(youtube_id)?.startTime || new Date(),
-          estimatedCompletion: this.activeProcessing.get(youtube_id)?.estimatedCompletion || new Date(),
-        });
-
         await this.initiateNewAudioDescription(userData, youtube_id, ydx_app_host, youtubeVideoData);
       }
-
-      // Final progress update
-      await this.updateProcessingProgress(youtube_id, {
-        stage: 'completed',
-        progress: 100,
-        startTime: this.activeProcessing.get(youtube_id)?.startTime || new Date(),
-        estimatedCompletion: new Date(),
-      });
     } catch (error) {
       logger.error(`Error in processAiDescriptionRequest: ${error.message}`, {
         userId: userData._id,
         youtubeId: youtube_id,
         error: error,
       });
-      await this.handleProcessingRetry(youtube_id, userData);
+      // Optionally, handle the error, such as sending a notification to the user or admin
     }
   }
 
@@ -947,64 +704,38 @@ class UserService {
     try {
       logger.info(`Starting AI description request for video ${youtube_id}`, { userId: userData._id });
 
-      // First check service availability as you currently do
+      // First check if the service is available
       const serviceStatus = await this.checkAIServiceAvailability();
       if (!serviceStatus.available) {
         throw new HttpException(503, 'AI service is currently unavailable');
       }
 
-      // Get video data with additional validation
       const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
       if (!youtubeVideoData) {
         throw new VideoNotFoundError(`No data found for YouTube ID: ${youtube_id}`);
       }
 
-      // Add duration check
-      if (youtubeVideoData.duration > 600) {
-        throw new HttpException(400, 'Video exceeds maximum duration of 10 minutes');
-      }
+      logger.info(`Video data retrieved for ${youtube_id}`, { videoTitle: youtubeVideoData.title });
 
-      // Initialize progress tracking
-      const progress: ProcessingProgress = {
-        stage: 'initialized',
-        progress: 0,
-        startTime: new Date(),
-        estimatedCompletion: new Date(Date.now() + this.parseEstimatedMinutes(youtubeVideoData.duration) * 60000),
-      };
-
-      this.activeProcessing.set(youtube_id, progress);
-
-      // Create enhanced response
+      // Return immediate response
       const response = {
         message: 'Your request has been received and is being processed.',
         status: 'pending',
-        estimatedTime: this.calculateEstimatedTime(youtubeVideoData.duration),
-        progress: {
-          stage: progress.stage,
-          percentage: progress.progress,
-          estimatedCompletion: progress.estimatedCompletion,
-        },
       };
 
-      // Process in background with enhanced error handling
-      this.processAiDescriptionRequest(userData, youtube_id, ydx_app_host, youtubeVideoData).catch(async error => {
+      // Process in background
+      this.processAiDescriptionRequest(userData, youtube_id, ydx_app_host, youtubeVideoData).catch(error => {
         logger.error('Background processing failed:', error);
-        await this.handleProcessingRetry(youtube_id, userData);
       });
 
       return response;
     } catch (error) {
-      // Enhanced error handling
       logger.error(`Error in requestAiDescriptionsWithGpu: ${error.message}`, {
         userId: userData._id,
         youtubeId: youtube_id,
         error: error,
       });
 
-      // Track failure in metrics
-      await this.trackProcessingMetrics(youtube_id);
-
-      // Throw appropriate error
       if (error instanceof VideoNotFoundError) {
         throw new HttpException(404, error.message);
       } else if (error instanceof AIProcessingError) {
@@ -1289,37 +1020,10 @@ class UserService {
     }
   }
 
-  public async aiDescriptionStatus(
-    user_id: string,
-    youtube_id: string,
-  ): Promise<{
-    status: string;
-    requested: boolean;
-    url?: string;
-    progress?: {
-      stage: string;
-      percentage: number;
-      estimatedCompletion: Date;
-    };
-  }> {
+  public async aiDescriptionStatus(user_id: string, youtube_id: string): Promise<{ status: string; requested: boolean; url?: string }> {
     try {
-      // Get active processing status if available
-      const activeProgress = this.activeProcessing.get(youtube_id);
-
-      // Get base status from database
-      const baseStatus = await this.aiDescriptionStatusUtil(user_id, youtube_id, AI_USER_ID);
-
-      // Enhance response with progress information if available
-      return {
-        ...baseStatus,
-        progress: activeProgress
-          ? {
-              stage: activeProgress.stage,
-              percentage: activeProgress.progress,
-              estimatedCompletion: activeProgress.estimatedCompletion,
-            }
-          : undefined,
-      };
+      const response = await this.aiDescriptionStatusUtil(user_id, youtube_id, AI_USER_ID);
+      return response;
     } catch (error) {
       logger.error(`Error in aiDescriptionStatus: ${error.message}`);
       throw error;
