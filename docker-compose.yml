@@ -3,13 +3,13 @@ version: '3'
 services:
   backend:
     container_name: youdescribex-backend
-    image: "${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:latest"
+    image: '${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:latest'
     restart: always
     ports:
-      - "${PORT}:${PORT}"
-      - "${GPU_PIPELINE_PORT}:${GPU_PIPELINE_PORT}"
+      - '${PORT}:${PORT}'
+      - '${GPU_PIPELINE_PORT}:${GPU_PIPELINE_PORT}'
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - 'host.docker.internal:host-gateway'
     network_mode: host
     volumes:
       - /home/ubuntu/ydx_data/logs:/app/logs
@@ -54,8 +54,13 @@ services:
       - TTS_API_CREDENTIALS_PATH=${TTS_API_CREDENTIALS_PATH}
       - STT_API_CREDENTIALS_FILE=${STT_API_CREDENTIALS_FILE}
       - STT_API_CREDENTIALS_PATH=${STT_API_CREDENTIALS_PATH}
+      - APPLE_REDIRECT_URL=${APPLE_REDIRECT_URL}
+      - APPLE_CALLBACK_URL=${APPLE_CALLBACK_URL}
+      - APPLE_CLIENT_ID=${APPLE_CLIENT_ID}
+      - APPLE_TEAM_ID=${APPLE_TEAM_ID}
+      - APPLE_KEY_ID=${APPLE_KEY_ID}
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "200k"
-        max-file: "10"
+        max-size: '200k'
+        max-file: '10'
