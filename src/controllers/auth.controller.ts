@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import passport from 'passport';
-import { PASSPORT_REDIRECT_URL, APPLE_CALLBACK_URL } from '../config/index';
+import { PASSPORT_REDIRECT_URL, APPLE_REDIRECT_URL } from '../config/index';
 import { logger } from '../utils/logger';
 import { MongoUsersModel } from '../models/mongodb/init-models.mongo';
 
@@ -105,9 +105,10 @@ class AuthController {
 
   public handleAppleCallback = async (req: Request, res: Response, next: NextFunction) => {
     try {
+      logger.info('Handling Apple Callback');
       passport.authenticate('apple', {
-        successRedirect: APPLE_CALLBACK_URL,
-        failureRedirect: APPLE_CALLBACK_URL,
+        successRedirect: APPLE_REDIRECT_URL,
+        failureRedirect: APPLE_REDIRECT_URL,
         failureFlash: 'Sign In Unsuccessful. Please try again!',
       })(req, res, next);
     } catch (error) {
