@@ -130,7 +130,7 @@ export const initPassport = () => {
         clientID: APPLE_CLIENT_ID,
         teamID: APPLE_TEAM_ID,
         keyID: APPLE_KEY_ID,
-        key: fs.readFileSync(path.join(__dirname, '../../../AuthKey_57HVXW9Y8Z.p8')),
+        privateKeyLocation: fs.readFileSync(path.join(__dirname, '../../../AuthKey_57HVXW9Y8Z.p8')),
         callbackURL: APPLE_CALLBACK_URL,
       },
       async (req, accessToken, refreshToken, idToken, profile, cb) => {
