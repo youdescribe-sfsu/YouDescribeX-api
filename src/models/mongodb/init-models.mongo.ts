@@ -26,6 +26,8 @@ import AICaptionRequestSchema, { IAICaptionRequest } from './AICaptionRequests.m
 import HistorySchema, { IHistory } from './History.mongo';
 import fs from 'fs';
 import path from 'path';
+import jsonwebtoken from 'jsonwebtoken';
+
 const AppleStrategy = require('passport-apple');
 
 function initModels() {
@@ -131,31 +133,33 @@ export const initPassport = () => {
         key: fs.readFileSync(path.join(__dirname, '../../../AuthKey_57HVXW9Y8Z.p8')),
         callbackURL: APPLE_CALLBACK_URL,
       },
-      async (accessToken, refreshToken, idToken, profile, done) => {
-        const payload = profile._json;
-        logger.info('payload: ', payload);
-        const appleUserId = payload.sub;
+      async (req, accessToken, refreshToken, idToken, profile, cb) => {
+        const decodedToken = jsonwebtoken.decode(idToken, { json: true });
+        logger.info('payload: ', decodedToken);
+        const { sub, email } = decodedToken;
+
+        const firstTimeUser = typeof req.query['user'] === 'string' ? JSON.parse(req.query['user']) : undefined;
         const newToken = crypto
           .createHmac('sha256', CRYPTO_SECRET)
           .update(CRYPTO_SEED + moment().utc().format('YYYYMMDDHHmmss'))
           .digest('hex');
 
         try {
-          const newUser = await axios.post(`http://localhost:${PORT}/api/users/create-user`, {
-            email: payload.email,
-            name: payload.name,
-            given_name: payload.given_name,
-            picture: payload.picture,
-            locale: payload.locale,
-            apple_user_id: appleUserId,
+          // let user = await MongoUsersModel.findOne({ apple_user_id: sub });
+
+          // If user does not exist, create a new user
+          const user = await axios.post(`http://localhost:${PORT}/api/users/create-user`, {
+            email: email,
+            name: firstTimeUser || null,
+            apple_user_id: sub,
             token: newToken,
             opt_in: false,
             admin_level: 0,
             user_type: 'Volunteer',
           });
-          return done(null, newUser.data);
+          return cb(null, user.data);
         } catch (error) {
-          return done(error, null);
+          return cb(error, null);
         }
       },
     ),
