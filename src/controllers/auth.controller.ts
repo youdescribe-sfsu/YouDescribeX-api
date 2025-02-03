@@ -106,10 +106,32 @@ class AuthController {
   public handleAppleCallback = async (req: Request, res: Response, next: NextFunction) => {
     try {
       logger.info('Handling Apple Callback');
-      passport.authenticate('apple', {
-        successRedirect: APPLE_REDIRECT_URL,
-        failureRedirect: APPLE_REDIRECT_URL,
-        failureFlash: 'Sign In Unsuccessful. Please try again!',
+      passport.authenticate('apple', function (err, user, info) {
+        if (err) {
+          if (err == 'AuthorizationError') {
+            res.send(
+              'Oops! Looks like you didn\'t allow the app to proceed. Please sign in again! <br /> \
+                <a href="/login">Sign in with Apple</a>',
+            );
+          } else if (err == 'TokenError') {
+            res.send(
+              'Oops! Couldn\'t get a valid token from Apple\'s servers! <br /> \
+                <a href="/login">Sign in with Apple</a>',
+            );
+          } else {
+            res.send(err);
+          }
+        } else {
+          if (req.body.user) {
+            // Get the profile info (name and email) if the person is registering
+            res.json({
+              user: req.body.user,
+              idToken: user,
+            });
+          } else {
+            res.json(user);
+          }
+        }
       })(req, res, next);
     } catch (error) {
       logger.error('Error with Apple Callback: ', error);
