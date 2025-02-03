@@ -24,7 +24,6 @@ import passport from 'passport';
 import axios from 'axios';
 import AICaptionRequestSchema, { IAICaptionRequest } from './AICaptionRequests.mongo';
 import HistorySchema, { IHistory } from './History.mongo';
-import fs from 'fs';
 import path from 'path';
 import jsonwebtoken from 'jsonwebtoken';
 
@@ -130,7 +129,7 @@ export const initPassport = () => {
         clientID: APPLE_CLIENT_ID,
         teamID: APPLE_TEAM_ID,
         keyID: APPLE_KEY_ID,
-        privateKeyLocation: fs.readFileSync(path.join(__dirname, '../../../AuthKey_57HVXW9Y8Z.p8')),
+        privateKeyLocation: path.join(__dirname, '../../../AuthKey_57HVXW9Y8Z.p8'),
         callbackURL: APPLE_CALLBACK_URL,
       },
       async (req, accessToken, refreshToken, idToken, profile, cb) => {
