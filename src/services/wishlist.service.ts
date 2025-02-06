@@ -371,7 +371,7 @@ class WishListService {
         wishListItem.updated_at = Number(currentDate);
 
         await wishListItem.save();
-        return { status: 200, message: 'The requested video is already in the wish list' };
+        return { status: 200, message: 'Vote added successfully' };
       }
 
       const newWishList = new MongoWishListModel({
