@@ -176,8 +176,13 @@ class AudioClipService {
     adId: string,
     clipId: string | null,
     processingAllClips: boolean,
+    requestedPlaybackType?: 'extended' | 'inline',
   ): Promise<PlaybackAnalysisResponse> {
     try {
+      if (requestedPlaybackType === 'extended') {
+        return { message: 'Success - using requested extended type', data: 'extended' };
+      }
+
       const overlappingDialogs = await MongoDialog_Timestamps_Model.find({
         video: videoId,
         $and: [{ dialog_start_time: { $lte: endTime } }, { dialog_end_time: { $gte: startTime } }],
@@ -489,8 +494,9 @@ export const analyzePlaybackType = async (
   adId: string,
   clipId: string | null,
   processingAllClips: boolean,
+  requestedPlaybackType?: 'extended' | 'inline',
 ): Promise<PlaybackAnalysisResponse> => {
-  return AudioClipService.analyzePlaybackType(currentClipStartTime, currentClipEndTime, videoId, adId, clipId, processingAllClips);
+  return AudioClipService.analyzePlaybackType(currentClipStartTime, currentClipEndTime, videoId, adId, clipId, processingAllClips, requestedPlaybackType);
 };
 
 export const getAudioDuration = async (filepath: string): Promise<{ message: string; data: string | null }> => {
