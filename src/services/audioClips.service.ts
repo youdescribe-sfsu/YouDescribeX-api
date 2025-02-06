@@ -596,6 +596,7 @@ class AudioClipsService {
       adId,
       null, // see condition in method - sends null for clipId
       false, // passing false, as this is a single clip process
+      newACPlaybackType as 'extended' | 'inline',
     );
     if (playbackTypeStatus.data === null) throw new HttpException(409, playbackTypeStatus.message);
     const newPlaybackType = playbackTypeStatus.data;
