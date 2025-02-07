@@ -56,6 +56,10 @@ const UserSchema: Schema = new Schema(
       type: String,
       required: true,
     },
+    apple_user_id: {
+      type: String,
+      required: true,
+    },
     last_login: {
       type: Number,
       required: false,

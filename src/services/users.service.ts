@@ -534,6 +534,7 @@ class UserService {
 
           if (user) {
             console.log('User exists');
+            console.log('User exists', user);
             const updateduser = await MongoUsersModel.findOneAndUpdate(
               { apple_user_id: apple_user_id },
               {
