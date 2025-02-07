@@ -26,7 +26,6 @@ import AICaptionRequestSchema, { IAICaptionRequest } from './AICaptionRequests.m
 import HistorySchema, { IHistory } from './History.mongo';
 import path from 'path';
 import jsonwebtoken from 'jsonwebtoken';
-import { google } from '@google-cloud/text-to-speech/build/protos/protos';
 
 const AppleStrategy = require('passport-apple');
 
