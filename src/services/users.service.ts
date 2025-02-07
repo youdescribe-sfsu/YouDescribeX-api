@@ -1,3 +1,4 @@
+import { google } from '@google-cloud/text-to-speech/build/protos/protos';
 import { CreateUserAudioDescriptionDto, CreateUserDto, NewUserDto } from '../dtos/users.dto';
 import { HttpException } from '../exceptions/HttpException';
 import { getYouTubeVideoStatus, isEmpty, nowUtc } from '../utils/util';
@@ -485,43 +486,82 @@ class UserService {
     if (!newUserData) {
       throw new HttpException(400, 'No data provided');
     }
-    const { email, name, given_name, picture, locale, google_user_id, token, opt_in, admin_level, user_type } = newUserData;
+    const { email, name, given_name, picture, locale, apple_user_id, google_user_id, token, opt_in, admin_level, user_type } = newUserData;
 
     try {
       if (CURRENT_DATABASE === 'mongodb') {
-        const user = await MongoUsersModel.findOne({
-          google_user_id: google_user_id,
-        });
-
-        if (user) {
-          const updateduser = await MongoUsersModel.findOneAndUpdate(
-            { google_user_id: google_user_id },
-            {
-              $set: {
-                last_login: moment().utc().format('YYYYMMDDHHmmss'),
-                updated_at: moment().utc().format('YYYYMMDDHHmmss'),
-                token: token,
-              },
-            },
-            { new: true },
-          );
-          return updateduser;
-        } else {
-          const newUser = await MongoUsersModel.create({
-            email,
-            name,
-            given_name,
-            picture,
-            locale,
-            google_user_id,
-            token,
-            opt_in,
-            admin_level,
-            user_type,
-            last_login: moment().utc().format('YYYYMMDDHHmmss'),
+        if (google_user_id) {
+          const user = await MongoUsersModel.findOne({
+            google_user_id: google_user_id,
           });
 
-          return newUser;
+          if (user) {
+            const updateduser = await MongoUsersModel.findOneAndUpdate(
+              { google_user_id: google_user_id },
+              {
+                $set: {
+                  last_login: moment().utc().format('YYYYMMDDHHmmss'),
+                  updated_at: moment().utc().format('YYYYMMDDHHmmss'),
+                  token: token,
+                },
+              },
+              { new: true },
+            );
+            return updateduser;
+          } else {
+            const newUser = await MongoUsersModel.create({
+              email,
+              name,
+              given_name,
+              picture,
+              locale,
+              google_user_id,
+              apple_user_id: '',
+              token,
+              opt_in,
+              admin_level,
+              user_type,
+              last_login: moment().utc().format('YYYYMMDDHHmmss'),
+            });
+
+            return newUser;
+          }
+        } else if (apple_user_id) {
+          const user = await MongoUsersModel.findOne({
+            apple_user_id: apple_user_id,
+          });
+
+          if (user) {
+            const updateduser = await MongoUsersModel.findOneAndUpdate(
+              { apple_user_id: apple_user_id },
+              {
+                $set: {
+                  last_login: moment().utc().format('YYYYMMDDHHmmss'),
+                  updated_at: moment().utc().format('YYYYMMDDHHmmss'),
+                  token: token,
+                },
+              },
+              { new: true },
+            );
+            return updateduser;
+          } else {
+            const newUser = await MongoUsersModel.create({
+              email,
+              name,
+              given_name,
+              picture,
+              locale,
+              apple_user_id,
+              google_user_id: '',
+              token,
+              opt_in,
+              admin_level,
+              user_type,
+              last_login: moment().utc().format('YYYYMMDDHHmmss'),
+            });
+
+            return newUser;
+          }
         }
       } else {
         const newUser = await PostGres_Users.create({
