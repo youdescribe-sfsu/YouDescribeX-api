@@ -487,7 +487,7 @@ class UserService {
       throw new HttpException(400, 'No data provided');
     }
     const { email, name, given_name, picture, locale, apple_user_id, google_user_id, token, opt_in, admin_level, user_type } = newUserData;
-
+    console.log('newUserData :: ', newUserData);
     try {
       if (CURRENT_DATABASE === 'mongodb') {
         if (google_user_id) {
