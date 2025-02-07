@@ -26,6 +26,7 @@ import AICaptionRequestSchema, { IAICaptionRequest } from './AICaptionRequests.m
 import HistorySchema, { IHistory } from './History.mongo';
 import path from 'path';
 import jsonwebtoken from 'jsonwebtoken';
+import { google } from '@google-cloud/text-to-speech/build/protos/protos';
 
 const AppleStrategy = require('passport-apple');
 
@@ -133,9 +134,9 @@ export const initPassport = () => {
         callbackURL: APPLE_CALLBACK_URL,
       },
       async (req, accessToken, refreshToken, idToken, profile, cb) => {
-        logger.info('req: ', req.body.user);
-        logger.info('idToken: ', idToken);
-        logger.info('profile: ', profile);
+        console.log('req.body:', req.body);
+        console.log('idToken:', idToken);
+        console.log('profile:', profile);
         const decodedToken = jsonwebtoken.decode(idToken, { json: true });
         logger.info('payload: ', decodedToken);
         const { sub, email } = decodedToken;
@@ -152,7 +153,8 @@ export const initPassport = () => {
           // If user does not exist, create a new user
           const user = await axios.post(`http://localhost:${PORT}/api/users/create-user`, {
             email: email,
-            name: firstTimeUser || null,
+            name: firstTimeUser || '',
+            google_user_id: '',
             apple_user_id: sub,
             token: newToken,
             opt_in: false,
