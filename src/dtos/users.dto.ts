@@ -1,4 +1,4 @@
-import { IsBoolean, IsEmail, IsString, IsNumber, ValidateIf } from 'class-validator';
+import { IsBoolean, IsEmail, IsString, IsNumber, ValidateIf, IsOptional } from 'class-validator';
 
 export class CreateUserDto {
   @IsEmail()
@@ -21,6 +21,7 @@ export class CreateUserAudioDescriptionDto {
 export class NewUserDto {
   @IsString()
   public email: string;
+  @IsOptional()
   @IsString()
   public name: string;
   @IsString()
@@ -29,8 +30,12 @@ export class NewUserDto {
   public picture: string;
   @IsString()
   public locale: string;
+  // @IsOptional()
   @IsString()
-  public google_user_id: string;
+  public google_user_id?: string;
+  // @IsOptional()
+  @IsString()
+  public apple_user_id?: string;
   @IsString()
   public token: string;
   @IsBoolean()
