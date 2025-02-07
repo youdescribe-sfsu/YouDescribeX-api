@@ -133,12 +133,7 @@ export const initPassport = () => {
         callbackURL: APPLE_CALLBACK_URL,
       },
       async (req, accessToken, refreshToken, idToken, profile, cb) => {
-        console.log('req.body:', req.body);
-        console.log('req.query:', req.query);
-        console.log('idToken:', idToken);
-        console.log('profile:', profile);
         const decodedToken = jsonwebtoken.decode(idToken);
-        console.log('payload: ', decodedToken);
         const { sub, email } = decodedToken;
 
         const firstTimeUser = typeof req.query['user'] === 'string' ? JSON.parse(req.query['user']) : undefined;
@@ -148,9 +143,6 @@ export const initPassport = () => {
           .digest('hex');
 
         try {
-          // let user = await MongoUsersModel.findOne({ apple_user_id: sub });
-
-          // If user does not exist, create a new user
           const body_request = {
             email,
             name: firstTimeUser || '',
