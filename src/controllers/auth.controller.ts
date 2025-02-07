@@ -96,7 +96,7 @@ class AuthController {
   public initAppleAuthentication = async (req: Request, res: Response, next: NextFunction) => {
     try {
       logger.info('Initiating Apple Authentication');
-      passport.authenticate('apple')(req, res, next);
+      passport.authenticate('apple', { scope: ['name', 'email'] })(req, res, next);
     } catch (error) {
       logger.error('Error signing in with Apple: ', error);
       next(error);

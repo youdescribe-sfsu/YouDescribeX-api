@@ -134,11 +134,11 @@ export const initPassport = () => {
         callbackURL: APPLE_CALLBACK_URL,
       },
       async (req, accessToken, refreshToken, idToken, profile, cb) => {
-        console.log('req.body:', req.body);
+        console.log('req.body:', req.body.user);
         console.log('idToken:', idToken);
         console.log('profile:', profile);
-        const decodedToken = jsonwebtoken.decode(idToken, { json: true });
-        logger.info('payload: ', decodedToken);
+        const decodedToken = jsonwebtoken.decode(idToken);
+        console.log('payload: ', decodedToken);
         const { sub, email } = decodedToken;
 
         const firstTimeUser = typeof req.query['user'] === 'string' ? JSON.parse(req.query['user']) : undefined;
