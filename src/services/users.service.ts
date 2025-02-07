@@ -527,11 +527,13 @@ class UserService {
             return newUser;
           }
         } else if (apple_user_id) {
+          console.log('apple_user_id :: ', apple_user_id);
           const user = await MongoUsersModel.findOne({
             apple_user_id: apple_user_id,
           });
 
           if (user) {
+            console.log('User exists');
             const updateduser = await MongoUsersModel.findOneAndUpdate(
               { apple_user_id: apple_user_id },
               {
@@ -545,6 +547,9 @@ class UserService {
             );
             return updateduser;
           } else {
+            console.log("User doesn't exist");
+            console.log("User doesn't exist", email);
+            console.log("User doesn't exist", apple_user_id);
             const newUser = await MongoUsersModel.create({
               email,
               name,
