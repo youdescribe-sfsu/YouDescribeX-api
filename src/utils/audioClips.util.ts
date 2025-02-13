@@ -12,6 +12,7 @@ import { MongoAudioClipsModel, MongoDialog_Timestamps_Model } from '../models/mo
 import { Audio_Clips, Dialog_Timestamps, Videos } from '../models/postgres/init-models';
 import { logger } from './logger';
 import { getYouTubeVideoStatus, nowUtc } from './util';
+import path from 'path';
 
 // Types and Interfaces
 interface TextToSpeechResponse {
@@ -92,7 +93,8 @@ class FileManagementService {
   }
 
   static copyFile(oldPath: string, youtubeVideoId: string, fileName: string, adId: string): string {
-    const oldAbsPath = `${CONFIG.app.audioDirectory}${oldPath.replace('.', '')}/${fileName}`;
+    const normalizedPath = oldPath.replace(/^\./, '');
+    const oldAbsPath = `${CONFIG.app.audioDirectory}${normalizedPath}/${fileName}`;
 
     if (!fs.existsSync(oldAbsPath)) {
       logger.error(`File does not exist: ${oldAbsPath}`);
@@ -101,8 +103,11 @@ class FileManagementService {
 
     const newPath = `${CONFIG.app.audioDirectory}/audio/${youtubeVideoId}/${adId}/${fileName}`;
     try {
-      fs.copyFileSync(oldPath, newPath);
-      return `./audio/${youtubeVideoId}/${adId}`;
+      const targetDir = path.dirname(newPath);
+      fs.mkdirSync(targetDir, { recursive: true });
+
+      fs.copyFileSync(oldAbsPath, newPath);
+      return `/audio/${youtubeVideoId}/${adId}`;
     } catch (err) {
       logger.error('File copy error:', err);
       return oldPath;
