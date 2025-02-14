@@ -16,8 +16,11 @@ class AuthController {
 
   public handleGoogleCallback = async (req: Request, res: Response, next: NextFunction) => {
     try {
+      // Ensure we get a string from the query parameter and validate it
+      const returnTo = typeof req.query.returnTo === 'string' ? req.query.returnTo : PASSPORT_REDIRECT_URL;
+
       passport.authenticate('google', {
-        successRedirect: PASSPORT_REDIRECT_URL,
+        successRedirect: returnTo,
         failureRedirect: PASSPORT_REDIRECT_URL,
         failureFlash: 'Sign In Unsuccessful. Please try again!',
       })(req, res, next);
@@ -39,7 +42,6 @@ class AuthController {
         };
         res.status(ret.status).json(ret);
       } else {
-        // console.log('req.user is null');
         const ret = {
           type: 'system_error',
           code: 1,
