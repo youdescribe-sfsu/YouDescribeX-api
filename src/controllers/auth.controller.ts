@@ -16,10 +16,10 @@ class AuthController {
 
   public handleGoogleCallback = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const returnUrl = (req.query.returnTo as string) || PASSPORT_REDIRECT_URL;
+      const returnPath = (req.query.returnTo as string) || PASSPORT_REDIRECT_URL;
 
       passport.authenticate('google', {
-        successRedirect: returnUrl,
+        successRedirect: returnPath,
         failureRedirect: PASSPORT_REDIRECT_URL,
         failureFlash: 'Sign In Unsuccessful. Please try again!',
       })(req, res, next);
