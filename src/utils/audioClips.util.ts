@@ -81,10 +81,20 @@ class FileManagementService {
   }
 
   static deleteFile(filepath: string): boolean {
-    const newPath = CONFIG.app.audioDirectory + filepath.replace('.', '');
     try {
-      fs.unlinkSync(newPath);
-      logger.info('File deleted successfully:', newPath);
+      const normalizedPath = filepath.startsWith('.') ? filepath.substring(1) : filepath;
+
+      const fullPath = `${CONFIG.app.audioDirectory}${normalizedPath}`;
+
+      const finalPath = fullPath.endsWith('.mp3') ? fullPath : `${fullPath}.mp3`;
+
+      if (!fs.existsSync(finalPath)) {
+        logger.error(`File does not exist: ${finalPath}`);
+        return false;
+      }
+
+      fs.unlinkSync(finalPath);
+      logger.info('File deleted successfully:', finalPath);
       return true;
     } catch (err) {
       logger.error('File deletion error:', err);
@@ -307,9 +317,24 @@ class DatabaseService {
   static async getOldAudioPath(clipId: string): Promise<AudioPathResponse> {
     try {
       const clip = await MongoAudioClipsModel.findById(clipId);
+      if (!clip) {
+        return {
+          message: 'Clip not found',
+          data: null,
+        };
+      }
+
+      // Ensure proper path construction with file extension
+      let filePath = clip.file_name ? `${clip.file_path}/${clip.file_name}` : clip.file_path;
+
+      // Validate the file extension
+      if (clip.file_name && !clip.file_name.endsWith('.mp3')) {
+        filePath = filePath + '.mp3';
+      }
+
       return {
         message: 'Success',
-        data: clip.file_name ? `${clip.file_path}/${clip.file_name}` : clip.file_path,
+        data: filePath,
       };
     } catch (err) {
       logger.error('Get old audio path error:', err);
