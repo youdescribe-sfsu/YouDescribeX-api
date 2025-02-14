@@ -16,7 +16,8 @@ class AuthController {
 
   public handleGoogleCallback = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      // Ensure we get a string from the query parameter and validate it
+      console.log('Query params:', req.query);
+      console.log('Original URL:', req.originalUrl);
       const returnTo = typeof req.query.returnTo === 'string' ? req.query.returnTo : PASSPORT_REDIRECT_URL;
 
       passport.authenticate('google', {
