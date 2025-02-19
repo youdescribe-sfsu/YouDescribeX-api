@@ -1,13 +1,17 @@
 import { NextFunction, Request, Response } from 'express';
 import passport from 'passport';
-import { PASSPORT_REDIRECT_URL, APPLE_REDIRECT_URL } from '../config/index';
+import { PASSPORT_REDIRECT_URL } from '../config';
 import { logger } from '../utils/logger';
 import { MongoUsersModel } from '../models/mongodb/init-models.mongo';
 
 class AuthController {
   public initAuthentication = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      passport.authenticate('google', { scope: ['profile', 'email', 'openid'] })(req, res, next);
+      req.session.returnTo = req.query.returnTo as string; // Store return URL in session
+
+      passport.authenticate('google', {
+        scope: ['profile', 'email', 'openid'],
+      })(req, res, next);
     } catch (error) {
       logger.error('Error signing in: ', error);
       next(error);
@@ -16,10 +20,11 @@ class AuthController {
 
   public handleGoogleCallback = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const returnPath = (req.query.returnTo as string) || PASSPORT_REDIRECT_URL;
+      const returnTo = req.session.returnTo || PASSPORT_REDIRECT_URL;
+      delete req.session.returnTo; // Clean up after use
 
       passport.authenticate('google', {
-        successRedirect: returnPath,
+        successRedirect: returnTo,
         failureRedirect: PASSPORT_REDIRECT_URL,
         failureFlash: 'Sign In Unsuccessful. Please try again!',
       })(req, res, next);
