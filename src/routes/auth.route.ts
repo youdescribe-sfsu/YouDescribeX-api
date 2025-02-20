@@ -4,6 +4,7 @@ import AuthController from '../controllers/auth.controller';
 import { Routes } from '../interfaces/routes.interface';
 import { PASSPORT_REDIRECT_URL } from '../config/index';
 import { ParsedQs } from 'qs';
+import AuthService from '../services/auth.service';
 
 class AuthRoute implements Routes {
   public path = '/auth';
@@ -19,16 +20,8 @@ class AuthRoute implements Routes {
     const validateReturnUrl = (req: Request, res: Response, next: NextFunction) => {
       const returnTo = req.query.returnTo as string;
       if (returnTo) {
-        try {
-          const url = new URL(returnTo);
-          // Get the host from request headers for comparison
-          const requestHost = req.get('host');
-
-          // Only allow redirects to same domain
-          if (url.host !== requestHost) {
-            return next(new Error('Invalid return URL'));
-          }
-        } catch {
+        const authService = new AuthService();
+        if (!authService.validateReturnUrl(returnTo)) {
           return next(new Error('Invalid return URL'));
         }
       }
