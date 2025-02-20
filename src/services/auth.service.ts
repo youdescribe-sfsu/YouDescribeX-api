@@ -2,20 +2,15 @@ import { PASSPORT_REDIRECT_URL } from '../config';
 import { logger } from '../utils/logger';
 
 class AuthService {
-  private validateReturnUrl(url: string): boolean {
-    // First check if this is a relative path
-    if (url.startsWith('/')) {
-      return true; // Allow relative paths within our app
-    }
-
+  validateReturnUrl = url => {
+    const allowedDomains = ['ydx.youdescribe.org', 'localhost', process.env.ALLOWED_REDIRECT_DOMAIN];
     try {
       const parsedUrl = new URL(url);
-      const allowedDomains = [process.env.FRONTEND_DOMAIN, 'youdescribe.org', 'ydx.youdescribe.org'];
-      return allowedDomains.some(domain => parsedUrl.hostname.includes(domain));
+      return allowedDomains.includes(parsedUrl.hostname);
     } catch {
       return false;
     }
-  }
+  };
 
   public getRedirectUrl(returnTo: string | undefined): string {
     // If returnTo is a relative path, construct the full URL

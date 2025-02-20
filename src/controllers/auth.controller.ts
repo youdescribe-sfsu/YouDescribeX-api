@@ -23,18 +23,8 @@ class AuthController {
 
   public handleGoogleCallback = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const returnTo = req.session.returnTo;
-
-      // Get the validated redirect URL
-      const redirectUrl = this.authService.getRedirectUrl(returnTo);
-
-      // Clean up session
-      if (req.session.returnTo) {
-        delete req.session.returnTo;
-      }
-
       passport.authenticate('google', {
-        successRedirect: redirectUrl,
+        successRedirect: req.session?.returnTo || PASSPORT_REDIRECT_URL,
         failureRedirect: PASSPORT_REDIRECT_URL,
         failureFlash: 'Sign In Unsuccessful. Please try again!',
       })(req, res, next);
