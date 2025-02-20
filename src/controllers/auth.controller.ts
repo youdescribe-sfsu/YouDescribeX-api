@@ -3,8 +3,11 @@ import passport from 'passport';
 import { PASSPORT_REDIRECT_URL } from '../config';
 import { logger } from '../utils/logger';
 import { MongoUsersModel } from '../models/mongodb/init-models.mongo';
+import AuthService from '../services/auth.service';
 
 class AuthController {
+  private readonly authService: AuthService = new AuthService();
+
   public initAuthentication = async (req: Request, res: Response, next: NextFunction) => {
     try {
       req.session.returnTo = req.query.returnTo as string; // Store return URL in session
@@ -20,11 +23,18 @@ class AuthController {
 
   public handleGoogleCallback = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const returnTo = req.session.returnTo || PASSPORT_REDIRECT_URL;
-      delete req.session.returnTo; // Clean up after use
+      const returnTo = req.session.returnTo;
+
+      // Get the validated redirect URL
+      const redirectUrl = this.authService.getRedirectUrl(returnTo);
+
+      // Clean up session
+      if (req.session.returnTo) {
+        delete req.session.returnTo;
+      }
 
       passport.authenticate('google', {
-        successRedirect: returnTo,
+        successRedirect: redirectUrl,
         failureRedirect: PASSPORT_REDIRECT_URL,
         failureFlash: 'Sign In Unsuccessful. Please try again!',
       })(req, res, next);
