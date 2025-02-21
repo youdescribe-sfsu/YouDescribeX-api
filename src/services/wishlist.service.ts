@@ -235,13 +235,15 @@ class WishListService {
     }
   }
 
-  public async getTopWishlist(user_id: string) {
+  public async getTopWishlist(user_id: string | undefined) {
     try {
       const pipeline: PipelineStage[] = [
         {
           $match: {
             status: 'queued',
             youtube_status: 'available',
+            deleted: { $ne: true },
+            hidden: { $ne: true },
           },
         },
         {
@@ -253,40 +255,78 @@ class WishListService {
         {
           $limit: 5,
         },
-        {
-          $lookup: {
-            from: 'user_votes',
-            let: { youtube_id: '$youtube_id' },
-            pipeline: [
+        ...(user_id
+          ? [
               {
-                $match: {
-                  $expr: {
-                    $and: [{ $eq: ['$youtube_id', '$$youtube_id'] }, { $eq: ['$user', new Types.ObjectId(user_id)] }],
-                  },
+                $lookup: {
+                  from: 'user_votes',
+                  let: { youtube_id: '$youtube_id' },
+                  pipeline: [
+                    {
+                      $match: {
+                        $expr: {
+                          $and: [{ $eq: ['$youtube_id', '$$youtube_id'] }, { $eq: ['$user', new Types.ObjectId(user_id)] }],
+                        },
+                      },
+                    },
+                  ],
+                  as: 'userVote',
                 },
               },
-            ],
-            as: 'userVote',
-          },
-        },
-        {
-          $addFields: {
-            voted: { $gt: [{ $size: '$userVote' }, 0] },
-          },
-        },
-        {
-          $project: {
-            userVote: 0,
-          },
-        },
+              {
+                $addFields: {
+                  voted: { $gt: [{ $size: '$userVote' }, 0] },
+                },
+              },
+              {
+                $project: {
+                  userVote: 0,
+                },
+              },
+            ]
+          : []),
       ];
 
       const topWishlist = await MongoWishListModel.aggregate(pipeline);
 
-      return topWishlist;
+      if (topWishlist.length < 5) {
+        console.warn(
+          `getTopWishlist returned only ${topWishlist.length} items instead of 5. Total documents in collection: ${await MongoWishListModel.countDocuments()}`,
+        );
+
+        const filterMatches = await MongoWishListModel.countDocuments({
+          status: 'queued',
+          youtube_status: 'available',
+          deleted: { $ne: true },
+          hidden: { $ne: true },
+        });
+
+        console.warn(`Number of documents matching filter criteria: ${filterMatches}`);
+      }
+
+      if (topWishlist.length > 0) {
+        return {
+          message: 'Wish list successfully retrieved',
+          status: 200,
+          type: 'success',
+          result: topWishlist,
+        };
+      }
+
+      return {
+        message: 'No wish list items to deliver at this time',
+        status: 400,
+        type: 'error',
+        result: [],
+      };
     } catch (error) {
       console.error('Error in getTopWishlist:', error);
-      throw new Error('Failed to retrieve top wishlist items');
+      return {
+        message: 'Error retrieving wish list',
+        status: 400,
+        type: 'error',
+        result: [],
+      };
     }
   }
 
