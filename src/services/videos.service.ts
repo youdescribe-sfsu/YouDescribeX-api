@@ -26,6 +26,7 @@ import moment from 'moment';
 import axios from 'axios';
 import App from '../app';
 import stringSimilarity from 'string-similarity';
+import mongoose from 'mongoose';
 
 class VideosService {
   public async getVideobyYoutubeId(youtubeId: string): Promise<any> {
@@ -256,9 +257,23 @@ class VideosService {
         if (ad.contributions) {
           const nameContributions = new Map<string, number>();
           for (const [key, value] of Object.entries(ad.contributions)) {
-            const user = await MongoUsersModel.findOne({ _id: key });
-            const name = user.user_type !== 'AI' ? user.name : 'AI Description Draft';
-            nameContributions[name] = value;
+            try {
+              if (!mongoose.Types.ObjectId.isValid(key)) {
+                nameContributions[key] = value;
+                continue;
+              }
+
+              const user = await MongoUsersModel.findOne({ _id: key });
+              if (!user) {
+                logger.warn(`User not found for ID: ${key}, skipping contribution mapping`);
+                continue;
+              }
+              const name = user.user_type === 'AI' ? 'AI Description Draft' : user.name;
+              nameContributions[name] = value;
+            } catch (error) {
+              logger.error(`Error processing contribution for key ${key}:`, error);
+              continue;
+            }
           }
           ad.contributions = nameContributions;
         }

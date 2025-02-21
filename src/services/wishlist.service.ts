@@ -255,78 +255,60 @@ class WishListService {
         {
           $limit: 5,
         },
-        ...(user_id
-          ? [
-              {
-                $lookup: {
-                  from: 'user_votes',
-                  let: { youtube_id: '$youtube_id' },
-                  pipeline: [
-                    {
-                      $match: {
-                        $expr: {
-                          $and: [{ $eq: ['$youtube_id', '$$youtube_id'] }, { $eq: ['$user', new Types.ObjectId(user_id)] }],
-                        },
-                      },
-                    },
-                  ],
-                  as: 'userVote',
-                },
-              },
-              {
-                $addFields: {
-                  voted: { $gt: [{ $size: '$userVote' }, 0] },
-                },
-              },
-              {
-                $project: {
-                  userVote: 0,
-                },
-              },
-            ]
-          : []),
       ];
+
+      // Add user voting information if user is provided
+      if (user_id) {
+        pipeline.push(
+          {
+            $lookup: {
+              from: 'user_votes',
+              let: { youtube_id: '$youtube_id' },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $and: [{ $eq: ['$youtube_id', '$$youtube_id'] }, { $eq: ['$user', new Types.ObjectId(user_id)] }],
+                    },
+                  },
+                },
+              ],
+              as: 'userVote',
+            },
+          },
+          {
+            $addFields: {
+              voted: { $gt: [{ $size: '$userVote' }, 0] },
+            },
+          },
+          {
+            $project: {
+              userVote: 0,
+            },
+          },
+        );
+      }
 
       const topWishlist = await MongoWishListModel.aggregate(pipeline);
 
+      // Log diagnostic information
       if (topWishlist.length < 5) {
-        console.warn(
-          `getTopWishlist returned only ${topWishlist.length} items instead of 5. Total documents in collection: ${await MongoWishListModel.countDocuments()}`,
-        );
-
+        console.warn(`getTopWishlist returned only ${topWishlist.length} items instead of 5`);
         const filterMatches = await MongoWishListModel.countDocuments({
           status: 'queued',
           youtube_status: 'available',
           deleted: { $ne: true },
           hidden: { $ne: true },
         });
-
         console.warn(`Number of documents matching filter criteria: ${filterMatches}`);
       }
 
-      if (topWishlist.length > 0) {
-        return {
-          message: 'Wish list successfully retrieved',
-          status: 200,
-          type: 'success',
-          result: topWishlist,
-        };
-      }
-
-      return {
-        message: 'No wish list items to deliver at this time',
-        status: 400,
-        type: 'error',
-        result: [],
-      };
+      // Return just the array for backward compatibility with frontend
+      return topWishlist;
     } catch (error) {
       console.error('Error in getTopWishlist:', error);
-      return {
-        message: 'Error retrieving wish list',
-        status: 400,
-        type: 'error',
-        result: [],
-      };
+      // Return empty array instead of error object to maintain consistency
+      return [];
     }
   }
 
