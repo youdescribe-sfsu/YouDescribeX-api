@@ -167,21 +167,25 @@ class ContributionService {
   }
 
   private static async getConcatenatedAudioClips(audioDescriptionId: string): Promise<string> {
-    const audioClips = await MongoAudioClipsModel.find({
-      audio_description: audioDescriptionId,
-    });
+    try {
+      const audioClips = await MongoAudioClipsModel.find({
+        audio_description: audioDescriptionId,
+      });
 
-    if (!audioClips?.length) {
-      throw new HttpException(404, 'No audio clips found');
-    }
-
-    return audioClips.reduce((text, clip) => {
-      if (clip.description_text) {
-        return text + clip.description_text;
+      if (!audioClips?.length) {
+        return ''; // Return empty string instead of throwing error
       }
 
-      return text + clip.transcript.reduce((transcriptText, t) => transcriptText + t.sentence, '');
-    }, '');
+      return audioClips.reduce((text, clip) => {
+        if (clip.description_text) {
+          return text + clip.description_text;
+        }
+        return text + (clip.transcript?.reduce((transcriptText, t) => transcriptText + t.sentence, '') || '');
+      }, '');
+    } catch (error) {
+      logger.error('Error getting concatenated audio clips:', error);
+      return ''; // Return empty string on error
+    }
   }
 }
 
