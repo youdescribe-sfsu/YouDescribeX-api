@@ -1,6 +1,7 @@
 import { GOOGLE_SERVICES, getCurrentYouTubeApiKey } from './google-services.config';
 import axios from 'axios';
 import { logger } from './logger';
+import youtube_utils from './youtube_utils';
 
 class YouTubeUtils {
   private static apiUrl = GOOGLE_SERVICES.YOUTUBE.API_URL;
@@ -31,6 +32,23 @@ class YouTubeUtils {
     }
   }
 }
+
+export const fetchVideoDetails = async (videoIds: string | string[]) => {
+  const ids = Array.isArray(videoIds) ? videoIds : [videoIds];
+
+  try {
+    const responses = await Promise.allSettled(ids.map(id => youtube_utils.getVideoData(id)));
+
+    return {
+      items: responses
+        .filter(result => result.status === 'fulfilled' && result.value) // Remove failed requests
+        .map(result => (result as PromiseFulfilledResult<any>).value),
+    };
+  } catch (error) {
+    console.error('Error fetching video details:', error);
+    return { items: [] };
+  }
+};
 
 export default YouTubeUtils;
 export const { apiUrl: youTubeApiUrl, apiKey: youTubeApiKey } = {

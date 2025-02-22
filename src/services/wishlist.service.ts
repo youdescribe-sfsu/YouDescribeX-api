@@ -7,10 +7,11 @@ import { formattedDate, getYouTubeVideoStatus } from '../utils/util';
 import axios from 'axios';
 import * as conf from '../utils/youtube_utils';
 import { PipelineStage } from 'mongoose';
-import { Types } from 'mongoose';
 import getRelevanceScores from '../utils/openAPI.util';
 import { LRUCache } from 'lru-cache';
 import KeywordVideosModel from '../models/mongodb/KeywordVideos.mongo';
+import { fetchVideoDetails } from '../utils/youtube_utils';
+import { markVideoUnavailable } from '../utils/video-status.utils';
 
 interface IWishListResponse {
   items: IWishList[];
@@ -235,15 +236,14 @@ class WishListService {
     }
   }
 
-  public async getTopWishlist(user_id: string | undefined) {
+  getTopWishlist = async (user_id: string | undefined) => {
     try {
+      // Initial fetch of more items than we need (e.g., 8 instead of 5)
       const pipeline: PipelineStage[] = [
         {
           $match: {
             status: 'queued',
             youtube_status: 'available',
-            deleted: { $ne: true },
-            hidden: { $ne: true },
           },
         },
         {
@@ -253,64 +253,35 @@ class WishListService {
           },
         },
         {
-          $limit: 5,
+          $limit: 8, // Fetch extra items to account for potentially unavailable videos
         },
       ];
 
-      // Add user voting information if user is provided
-      if (user_id) {
-        pipeline.push(
-          {
-            $lookup: {
-              from: 'user_votes',
-              let: { youtube_id: '$youtube_id' },
-              pipeline: [
-                {
-                  $match: {
-                    $expr: {
-                      $and: [{ $eq: ['$youtube_id', '$$youtube_id'] }, { $eq: ['$user', new Types.ObjectId(user_id)] }],
-                    },
-                  },
-                },
-              ],
-              as: 'userVote',
-            },
-          },
-          {
-            $addFields: {
-              voted: { $gt: [{ $size: '$userVote' }, 0] },
-            },
-          },
-          {
-            $project: {
-              userVote: 0,
-            },
-          },
-        );
-      }
-
       const topWishlist = await MongoWishListModel.aggregate(pipeline);
 
-      // Log diagnostic information
-      if (topWishlist.length < 5) {
-        console.warn(`getTopWishlist returned only ${topWishlist.length} items instead of 5`);
-        const filterMatches = await MongoWishListModel.countDocuments({
-          status: 'queued',
-          youtube_status: 'available',
-          deleted: { $ne: true },
-          hidden: { $ne: true },
-        });
-        console.warn(`Number of documents matching filter criteria: ${filterMatches}`);
+      // Filter out unavailable videos and get the first 5 available ones
+      const availableVideos = [];
+      for (const video of topWishlist) {
+        try {
+          const youtubeResponse = await fetchVideoDetails([video.youtube_id]);
+          if (youtubeResponse?.items?.length > 0) {
+            availableVideos.push(video);
+            if (availableVideos.length === 5) break; // Stop once we have 5 videos
+          } else {
+            // Mark video as unavailable in background
+            markVideoUnavailable(video.youtube_id);
+          }
+        } catch (error) {
+          console.warn(`Video ${video.youtube_id} unavailable:`, error);
+        }
       }
 
-      // Return just the array for backward compatibility with frontend
-      return topWishlist;
+      return availableVideos;
     } catch (error) {
       console.error('Error in getTopWishlist:', error);
-      // Return empty array instead of error object to maintain consistency
       return [];
     }
-  }
+  };
 
   public async getUserWishlist(user_id: string | undefined, pageNumber: string) {
     try {
