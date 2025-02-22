@@ -2,7 +2,6 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import cookieSession from 'cookie-session';
 import passport from 'passport';
-import cors from 'cors';
 import express, { Application } from 'express';
 import { NODE_ENV, PORT, CURRENT_DATABASE, AUDIO_DIRECTORY } from './config';
 import { testDataBaseConnection } from './databases';
@@ -15,7 +14,7 @@ import options from './swaggerOptions';
 import yaml from 'js-yaml';
 import fs from 'fs';
 import { initPassport } from './models/mongodb/init-models.mongo';
-import { checkAndNotify, gpuStatusCronJob } from './utils/cron.utils';
+import { checkAndNotify, gpuStatusCronJob, videoStatusCheckJob } from './utils/cron.utils';
 import moment from 'moment';
 
 class App {
@@ -107,6 +106,7 @@ class App {
     this.resetNumOfVideos();
     checkAndNotify();
     gpuStatusCronJob.start();
+    videoStatusCheckJob.start();
     this.setupVideoCountIntervals();
   }
 

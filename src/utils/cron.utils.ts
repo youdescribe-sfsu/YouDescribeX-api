@@ -3,6 +3,7 @@ import { checkGPUServerStatus } from './util';
 import sendEmail from './emailService';
 import { logger } from './logger';
 import { GPU_NOTIFY_EMAILS } from '../config';
+import { checkAndUpdateVideoStatuses } from './video-status.utils';
 let previousStatus: any;
 // Function to check GPU server status and send an email for status transitions
 export const checkAndNotify = async (): Promise<void> => {
@@ -31,3 +32,9 @@ export const gpuStatusCronJob = new CronJob(
   true, // start the cron job immediately
   'America/Los_Angeles', // timeZone
 );
+
+export const videoStatusCheckJob = new CronJob('0 0 * * *', async () => {
+  logger.info('Starting scheduled video status check');
+  const stats = await checkAndUpdateVideoStatuses();
+  logger.info('Completed video status check', { totalVideosProcessed: stats.length });
+});
