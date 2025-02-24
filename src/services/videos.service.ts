@@ -255,27 +255,34 @@ class VideosService {
         }
 
         if (ad.contributions) {
-          const nameContributions = new Map<string, number>();
+          // Create a new object for display purposes only
+          ad.displayContributions = {};
+
           for (const [key, value] of Object.entries(ad.contributions)) {
             try {
               if (!mongoose.Types.ObjectId.isValid(key)) {
-                nameContributions[key] = value;
+                // If the key isn't a valid ObjectId, just use it as is for display
+                ad.displayContributions[key] = value;
                 continue;
               }
 
               const user = await MongoUsersModel.findOne({ _id: key });
               if (!user) {
                 logger.warn(`User not found for ID: ${key}, skipping contribution mapping`);
+                ad.displayContributions[key] = value; // Use the key as fallback
                 continue;
               }
               const name = user.user_type === 'AI' ? 'AI Description Draft' : user.name;
-              nameContributions[name] = value;
+              ad.displayContributions[name] = value;
             } catch (error) {
               logger.error(`Error processing contribution for key ${key}:`, error);
+              ad.displayContributions[key] = value; // Use the key as fallback
               continue;
             }
           }
-          ad.contributions = nameContributions;
+          // IMPORTANT: Do NOT replace the original contributions
+          // Instead of: ad.contributions = nameContributions;
+          // We keep ad.contributions unchanged with its ObjectId keys
         }
         return ad;
       }
