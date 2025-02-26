@@ -26,6 +26,13 @@ import moment from 'moment';
 import { PipelineFailureDto } from '../dtos/pipelineFailure.dto';
 
 class UserService {
+  private videoProcessingQueue: Array<{
+    youtubeId: string;
+    userId: string;
+    aiUserId: string;
+    ydx_app_host: string;
+  }> = [];
+  private isProcessingQueue = false;
   public audioClipsService = new AudioClipsService();
 
   public async findAllUser(): Promise<IUser[] | UsersAttributes[]> {
@@ -704,52 +711,33 @@ class UserService {
   `;
   }
 
-  private async processAiDescriptionRequest(userData: IUser, youtube_id: string, ydx_app_host: string, youtubeVideoData: any) {
-    try {
-      const aiAudioDescriptions = await this.checkIfVideoHasAudioDescription(youtube_id, AI_USER_ID, userData._id);
-
-      if (aiAudioDescriptions) {
-        await this.handleExistingAudioDescription(userData, youtube_id, ydx_app_host, youtubeVideoData, aiAudioDescriptions);
-      } else {
-        await this.initiateNewAudioDescription(userData, youtube_id, ydx_app_host, youtubeVideoData);
-      }
-    } catch (error) {
-      logger.error(`Error in processAiDescriptionRequest: ${error.message}`, {
-        userId: userData._id,
-        youtubeId: youtube_id,
-        error: error,
-      });
-      // Optionally, handle the error, such as sending a notification to the user or admin
-    }
-  }
-
   public async checkAIServiceAvailability() {
-    try {
-      if (!GPU_URL) {
-        return { available: false, reason: 'GPU service not configured' };
-      }
-
-      const response = await axios.get(`${GPU_URL}/health_check`, { timeout: 5000 });
-      return {
-        available: response.status === 200,
-        reason: response.status === 200 ? 'Service available' : 'Service unavailable',
-      };
-    } catch (error) {
-      logger.error('AI service health check failed:', error);
-      return { available: false, reason: 'Service unavailable' };
-    }
+    return {
+      available: true,
+      reason: 'Queuing system available',
+      queueSize: this.videoProcessingQueue.length,
+    };
+    // try {
+    //   if (!GPU_URL) {
+    //     return { available: false, reason: 'GPU service not configured' };
+    //   }
+    //
+    //   const response = await axios.get(`${GPU_URL}/health_check`, { timeout: 5000 });
+    //   return {
+    //     available: response.status === 200,
+    //     reason: response.status === 200 ? 'Service available' : 'Service unavailable',
+    //   };
+    // } catch (error) {
+    //   logger.error('AI service health check failed:', error);
+    //   return { available: false, reason: 'Service unavailable' };
+    // }
   }
 
   public async requestAiDescriptionsWithGpu(userData: IUser, youtube_id: string, ydx_app_host: string) {
     try {
       logger.info(`Starting AI description request for video ${youtube_id}`, { userId: userData._id });
 
-      // // First check if the service is available
-      // const serviceStatus = await this.checkAIServiceAvailability();
-      // if (!serviceStatus.available) {
-      //   throw new HttpException(503, 'AI service is currently unavailable');
-      // }
-
+      // Validate the YouTube video exists
       const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
       if (!youtubeVideoData) {
         throw new VideoNotFoundError(`No data found for YouTube ID: ${youtube_id}`);
@@ -757,18 +745,16 @@ class UserService {
 
       logger.info(`Video data retrieved for ${youtube_id}`, { videoTitle: youtubeVideoData.title });
 
-      // Return immediate response
-      const response = {
-        message: 'Your request has been received and is being processed.',
-        status: 'pending',
-      };
+      // Check if we already have an AI description for this video
+      const aiAudioDescriptions = await this.checkIfVideoHasAudioDescription(youtube_id, AI_USER_ID, userData._id);
+      if (aiAudioDescriptions) {
+        // Handle existing description case
+        logger.info(`Existing AI description found for ${youtube_id}`);
+        return await this.handleExistingAudioDescription(userData, youtube_id, ydx_app_host, youtubeVideoData, aiAudioDescriptions);
+      }
 
-      // Process in background
-      this.processAiDescriptionRequest(userData, youtube_id, ydx_app_host, youtubeVideoData).catch(error => {
-        logger.error('Background processing failed:', error);
-      });
-
-      return response;
+      // Queue the video for processing instead of sending directly
+      return await this.queueVideoForProcessing(userData, youtube_id, ydx_app_host, youtubeVideoData);
     } catch (error) {
       logger.error(`Error in requestAiDescriptionsWithGpu: ${error.message}`, {
         userId: userData._id,
@@ -785,6 +771,150 @@ class UserService {
       } else {
         throw new HttpException(500, 'An unexpected error occurred');
       }
+    }
+  }
+
+  // Add this method after requestAiDescriptionsWithGpu
+  private async queueVideoForProcessing(userData: IUser, youtube_id: string, ydx_app_host: string, youtubeVideoData: any): Promise<any> {
+    try {
+      logger.info(`Adding video ${youtube_id} to processing queue for user ${userData._id}`);
+
+      // First perform all immediate operations (database, email notification)
+      await this.performImmediateOperations(userData, youtube_id, ydx_app_host, youtubeVideoData);
+
+      // Add to queue
+      this.videoProcessingQueue.push({
+        youtubeId: youtube_id,
+        userId: userData._id.toString(),
+        aiUserId: AI_USER_ID,
+        ydx_app_host,
+      });
+
+      // Start processing the queue if not already processing
+      if (!this.isProcessingQueue) {
+        this.processNextInQueue();
+      }
+
+      return {
+        message: 'Your request has been queued and will be processed in order',
+        status: 'pending',
+        queuePosition: this.videoProcessingQueue.length,
+      };
+    } catch (error) {
+      logger.error(`Error queuing video ${youtube_id}: ${error.message}`, {
+        userId: userData._id,
+        error: error,
+      });
+      throw error;
+    }
+  }
+
+  // Add this method after queueVideoForProcessing
+  private async performImmediateOperations(userData: IUser, youtube_id: string, ydx_app_host: string, youtubeVideoData: any): Promise<void> {
+    try {
+      // Increment counter in database
+      await this.increaseRequestCount(youtube_id, userData._id.toString(), AI_USER_ID);
+
+      // Send initial notification email to user
+      await sendEmail(
+        userData.email,
+        `🎬 AI Description for "${youtubeVideoData.title}" is in the Works!`,
+        this.getNewAudioDescriptionEmailBody(userData.name, youtubeVideoData.title),
+      );
+
+      logger.info(`Immediate operations completed for video ${youtube_id}, user ${userData._id}`);
+    } catch (error) {
+      logger.error(`Error in immediate operations for ${youtube_id}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  // Add this method after performImmediateOperations
+  private async processNextInQueue() {
+    if (this.videoProcessingQueue.length === 0) {
+      this.isProcessingQueue = false;
+      logger.info('Queue processing completed - no more items in queue');
+      return;
+    }
+
+    this.isProcessingQueue = true;
+    const nextItem = this.videoProcessingQueue[0]; // Peek without removing yet
+
+    try {
+      logger.info(`Processing queue item for video ${nextItem.youtubeId}`);
+
+      // Check if GPU service is actually reachable before sending
+      let gpuServiceAvailable = false;
+      try {
+        if (GPU_URL) {
+          const response = await axios.get(`${GPU_URL}/health_check`, { timeout: 5000 });
+          gpuServiceAvailable = response.status === 200;
+        }
+      } catch (error) {
+        logger.error(`GPU service health check failed: ${error.message}`);
+        gpuServiceAvailable = false;
+      }
+
+      if (gpuServiceAvailable) {
+        // Remove from queue now that we're about to process it
+        this.videoProcessingQueue.shift();
+
+        // Fetch necessary data
+        const user = await MongoUsersModel.findById(nextItem.userId);
+        const youtubeVideoData = await getVideoDataByYoutubeId(nextItem.youtubeId);
+
+        if (!user || !youtubeVideoData) {
+          throw new Error('User or video data not found');
+        }
+
+        // Send to GPU service for processing
+        await this.sendToGpuService(user, nextItem.youtubeId, nextItem.ydx_app_host, nextItem.aiUserId);
+
+        logger.info(`Successfully sent video ${nextItem.youtubeId} to GPU service`);
+      } else {
+        logger.warn(`GPU service unavailable, will retry processing ${nextItem.youtubeId} later`);
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, 30000)); // 30 second wait
+      }
+    } catch (error) {
+      // Remove failed item from queue to prevent blocking
+      this.videoProcessingQueue.shift();
+
+      logger.error(`Error processing queue item for ${nextItem.youtubeId}: ${error.message}`);
+      try {
+        // Attempt to notify user of failure
+        const user = await MongoUsersModel.findById(nextItem.userId);
+        if (user) {
+          const youtubeVideoData = await getVideoDataByYoutubeId(nextItem.youtubeId);
+          const videoTitle = youtubeVideoData?.title || 'Unknown Video';
+          await this.sendErrorNotificationEmail(user, nextItem.youtubeId, videoTitle);
+        }
+      } catch (notifyError) {
+        logger.error(`Failed to send error notification: ${notifyError.message}`);
+      }
+    }
+
+    // Process next item regardless of success/failure of this one
+    // Small timeout to prevent immediate retries
+    setTimeout(() => this.processNextInQueue(), 1000);
+  }
+
+  // Add this method after processNextInQueue
+  private async sendToGpuService(user: IUser, youtube_id: string, ydx_app_host: string, aiUserId: string): Promise<void> {
+    try {
+      // Direct call to the GPU service API
+      const response = await axios.post(`${GPU_URL}/generate_ai_caption`, {
+        youtube_id: youtube_id,
+        user_id: user._id,
+        ydx_app_host,
+        ydx_server: CURRENT_YDX_HOST,
+        AI_USER_ID: aiUserId,
+      });
+
+      logger.info(`GPU service response for ${youtube_id}: ${JSON.stringify(response.data)}`);
+    } catch (error) {
+      logger.error(`Error sending to GPU service: ${error.message}`);
+      throw error;
     }
   }
 
@@ -840,11 +970,6 @@ class UserService {
     );
 
     return response.data;
-  }
-
-  private async handleError(userData: IUser, youtube_id: string, videoTitle: string) {
-    await this.sendErrorNotificationEmail(userData, youtube_id, videoTitle);
-    await this.cleanupDatabaseEntry(youtube_id, AI_USER_ID);
   }
 
   private async sendErrorNotificationEmail(userData: IUser, youtube_id: string, videoTitle: string) {
