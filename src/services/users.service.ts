@@ -744,11 +744,11 @@ class UserService {
     try {
       logger.info(`Starting AI description request for video ${youtube_id}`, { userId: userData._id });
 
-      // First check if the service is available
-      const serviceStatus = await this.checkAIServiceAvailability();
-      if (!serviceStatus.available) {
-        throw new HttpException(503, 'AI service is currently unavailable');
-      }
+      // // First check if the service is available
+      // const serviceStatus = await this.checkAIServiceAvailability();
+      // if (!serviceStatus.available) {
+      //   throw new HttpException(503, 'AI service is currently unavailable');
+      // }
 
       const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
       if (!youtubeVideoData) {
