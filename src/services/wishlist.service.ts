@@ -154,8 +154,9 @@ class WishListService {
           data: wishListItems[0].items,
         };
       } else {
-        const cacheKey = `scoredItems-${search}`;
+        const cacheKey = `${categoryRegex ? `${categoryRegex}-` : ''}${search}`;
         let cacheData = this.cache.get(cacheKey);
+
         const startIndex = (pageNumber - 1) * pageSize;
         const endIndex = startIndex + pageSize;
 
@@ -216,7 +217,10 @@ class WishListService {
                 { $count: 'count' },
               ],
             });
-            cacheData = await getRelevanceScores(wishListItems[0].items, search);
+            const rankedItems = await getRelevanceScores(wishListItems[0].items, search, categoryRegex);
+            if (rankedItems.length > 0) {
+              cacheData = rankedItems;
+            }
           } else {
             cacheData = JSON.parse(keywordVideos.data);
           }
