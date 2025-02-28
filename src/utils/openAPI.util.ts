@@ -23,14 +23,16 @@ type RelevanceScoreResult = IWishList & {
   relevance_score: number;
 };
 
-const getRelevanceScores = async (items: IWishList[], keyword: string): Promise<RelevanceScoreResult[]> => {
+const getRelevanceScores = async (items: IWishList[], keyword: string, category: string): Promise<RelevanceScoreResult[]> => {
   const scoredItems: RelevanceScoreResult[] = [];
 
   for (let i = 0; i < items.length; i += BATCH_SIZE) {
     const batch = items.slice(i, i + BATCH_SIZE);
 
     const prompt = `
-      I have a list of YouTube videos, and each video has a youtube_id and a list of tags. I want you to rank the relevance of each video to this keyword: "${keyword}". In addition to considering individual tags, you need to take into account how the tags combine to form an overall context for the video. For each video, provide a relevance score between 1 and 10, where 1 is "not relevant at all" and 10 is "highly relevant". Here is the data:
+      I have a list of YouTube videos, and each video has a youtube_id and a list of tags. I want you to rank the relevance of each video to this keyword: "${keyword}"${
+      category ? ` and this category "${category}"` : ''
+    }. In addition to considering individual tags, you need to take into account how the tags combine to form an overall context for the video. For each video, provide a relevance score between 1 and 10, where 1 is "not relevant at all" and 10 is "highly relevant". Here is the data:
 
       Videos:
       ${batch
