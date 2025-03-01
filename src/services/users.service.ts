@@ -944,49 +944,12 @@ class UserService {
     };
   }
 
-  private async initiateNewAudioDescription(userData: IUser, youtube_id: string, ydx_app_host: string, youtubeVideoData: any) {
-    logger.info(`Initiating new audio description for ${youtube_id}`);
-
-    if (!GPU_URL) throw new AIProcessingError('GPU_URL is not defined');
-
-    const response = await axios.post(`${GPU_URL}/generate_ai_caption`, {
-      youtube_id: youtube_id,
-      user_id: userData._id,
-      ydx_app_host,
-      ydx_server: CURRENT_YDX_HOST,
-      AI_USER_ID: AI_USER_ID,
-    });
-
-    const counterIncrement = await this.increaseRequestCount(youtube_id, userData._id, AI_USER_ID);
-
-    if (!counterIncrement) {
-      throw new AIProcessingError('Error incrementing counter');
-    }
-
-    await sendEmail(
-      userData.email,
-      `🎬 AI Description for "${youtubeVideoData.title}" is in the Works!`,
-      this.getNewAudioDescriptionEmailBody(userData.name, youtubeVideoData.title),
-    );
-
-    return response.data;
-  }
-
   private async sendErrorNotificationEmail(userData: IUser, youtube_id: string, videoTitle: string) {
     const emailSubject = `Video Processing Error - We're Working on It!`;
     const emailBody = this.getErrorNotificationEmailBody(userData.name, videoTitle, youtube_id);
 
     await sendEmail(userData.email, emailSubject, emailBody);
     logger.info(`Error notification email sent to ${userData.email}`);
-  }
-
-  private async cleanupDatabaseEntry(youtube_id: string, AI_USER_ID: string) {
-    try {
-      await MongoAICaptionRequestModel.deleteOne({ youtube_id, AI_USER_ID });
-      logger.info(`Database entry cleaned up for YouTube ID: ${youtube_id}`);
-    } catch (dbError) {
-      logger.error(`Error cleaning up database entry: ${dbError.message}`);
-    }
   }
 
   private getExistingAudioDescriptionEmailBody(userName: string, videoTitle: string, url: string) {
