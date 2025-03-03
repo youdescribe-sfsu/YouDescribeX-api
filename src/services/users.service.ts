@@ -16,7 +16,7 @@ import { IUser } from '../models/mongodb/User.mongo';
 import { logger } from '../utils/logger';
 import { getVideoDataByYoutubeId, isVideoAvailable } from '../utils/videos.util';
 import axios from 'axios';
-import mongoose from 'mongoose';
+import mongoose, { PipelineStage } from 'mongoose';
 import AudioClipsService from './audioClips.service';
 import { ObjectId } from 'mongodb';
 import sendEmail from '../utils/emailService';
@@ -24,6 +24,7 @@ import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
 import { VideoNotFoundError, AIProcessingError } from '../utils/customErrors';
 import moment from 'moment';
 import { PipelineFailureDto } from '../dtos/pipelineFailure.dto';
+import cacheService from '../utils/cacheService';
 
 class UserService {
   private videoProcessingQueue: Array<{
@@ -221,6 +222,10 @@ class UserService {
     });
 
     logger.info('Successfully created new Audio Description for existing Video that has an AI Audio Description');
+
+    await cacheService.invalidateByPrefix(`ai_requests_${user_id}`);
+    logger.info(`Invalidated cache for user ${user_id} after generating audio description`);
+
     return {
       audioDescriptionId: createNewAudioDescription._id,
       fromAI: true,
@@ -596,6 +601,14 @@ class UserService {
     // Log the failure
     console.error(`Pipeline failed for video ${youtube_id}: ${error_message}`);
 
+    const captionRequest = await MongoAICaptionRequestModel.findOne({ youtube_id, ai_user_id });
+    if (captionRequest && captionRequest.caption_requests) {
+      for (const userId of captionRequest.caption_requests) {
+        await cacheService.invalidateByPrefix(`ai_requests_${userId}`);
+        logger.info(`Invalidated cache for user ${userId} after pipeline failure`);
+      }
+    }
+
     console.log('Pipeline failure handling completed.');
   }
 
@@ -744,6 +757,9 @@ class UserService {
       }
 
       logger.info(`Video data retrieved for ${youtube_id}`, { videoTitle: youtubeVideoData.title });
+
+      await cacheService.invalidateByPrefix(`ai_requests_${userData._id}`);
+      logger.info(`Invalidated cache for user ${userData._id} after requesting AI description`);
 
       // Check if we already have an AI description for this video
       const aiAudioDescriptions = await this.checkIfVideoHasAudioDescription(youtube_id, AI_USER_ID, userData._id);
@@ -1278,10 +1294,25 @@ class UserService {
     try {
       const page = parseInt(pageNumber, 10) || 1;
       const perPage = paginate ? 4 : 20;
+
+      // Generate a cache key based on method parameters
+      const cacheKey = `ai_requests_${user_id}_${page}_${perPage}`;
+
+      // Try to get from cache first
+      const cachedResult = await cacheService.get(cacheKey);
+      if (cachedResult) {
+        logger.info(`Cache hit for AI description requests: ${cacheKey}`);
+        return cachedResult;
+      }
+
+      logger.info(`Cache miss for AI description requests: ${cacheKey}`);
       const skipCount = Math.max((page - 1) * perPage, 0);
 
-      const pipeline: any[] = [
+      const pipeline: PipelineStage[] = [
+        // First stage: quick filter by user_id (indexed field)
         { $match: { caption_requests: new ObjectId(user_id) } },
+
+        // Join with videos collection
         {
           $lookup: {
             from: 'videos',
@@ -1290,7 +1321,14 @@ class UserService {
             as: 'video',
           },
         },
+
+        // Filter out records without video data
+        { $match: { 'video.0': { $exists: true } } },
+
+        // Unwind the video array
         { $unwind: '$video' },
+
+        // Group by ID to deduplicate
         {
           $group: {
             _id: '$_id',
@@ -1299,6 +1337,8 @@ class UserService {
             video: { $first: '$video' },
           },
         },
+
+        // Project the fields we need
         {
           $project: {
             _id: 1,
@@ -1310,18 +1350,21 @@ class UserService {
             video_length: '$video.duration',
             createdAt: '$video.created_at',
             updatedAt: '$video.updated_at',
-            overall_rating_votes_average: 1,
-            overall_rating_votes_counter: 1,
-            overall_rating_votes_sum: 1,
           },
         },
-        { $sort: { _id: -1 } },
+
+        // Sort by most recent first
+        { $sort: { createdAt: -1 } },
+
+        // Use facet for pagination
         {
           $facet: {
             totalCount: [{ $count: 'count' }],
             paginatedResults: [{ $skip: skipCount }, { $limit: perPage }],
           },
         },
+
+        // Project final result
         {
           $project: {
             total: { $arrayElemAt: ['$totalCount.count', 0] },
@@ -1332,13 +1375,43 @@ class UserService {
 
       const result = await MongoAICaptionRequestModel.aggregate(pipeline).exec();
 
-      return {
+      const response = {
         total: result[0]?.total || 0,
         videos: result[0]?.videos || [],
       };
+
+      // Cache the result (5 minutes TTL)
+      await cacheService.set(cacheKey, response, 5 * 60 * 1000);
+
+      return response;
     } catch (error) {
       logger.error('Error retrieving user AI description requests:', error);
       throw new HttpException(500, 'Internal server error');
+    }
+  }
+
+  // Helper method to ensure indexes exist
+  private async ensureIndexes() {
+    try {
+      // Check if indexes exist and create them if they don't
+      const aiRequestsIndexes = await MongoAICaptionRequestModel.collection.indexInformation();
+      if (!aiRequestsIndexes.caption_requests_1) {
+        await MongoAICaptionRequestModel.collection.createIndex({ caption_requests: 1 });
+        logger.info('Created index on caption_requests for AICaptionRequests');
+      }
+
+      if (!aiRequestsIndexes.youtube_id_1) {
+        await MongoAICaptionRequestModel.collection.createIndex({ youtube_id: 1 });
+        logger.info('Created index on youtube_id for AICaptionRequests');
+      }
+
+      const videosIndexes = await MongoVideosModel.collection.indexInformation();
+      if (!videosIndexes.youtube_id_1) {
+        await MongoVideosModel.collection.createIndex({ youtube_id: 1 });
+        logger.info('Created index on youtube_id for Videos');
+      }
+    } catch (error) {
+      logger.error('Error ensuring indexes:', error);
     }
   }
 
@@ -1400,6 +1473,15 @@ class UserService {
       if (!user_id) {
         throw new HttpException(400, 'User ID is required');
       }
+
+      const cacheKey = `history_${user_id}_${pageNumber}_${paginate}`;
+      const cachedResult = await cacheService.get(cacheKey);
+      if (cachedResult) {
+        logger.info(`Cache hit for visited videos history: ${cacheKey}`);
+        return cachedResult;
+      }
+
+      logger.info(`Cache miss for visited videos history: ${cacheKey}`);
 
       const page = parseInt(pageNumber, 10);
       const perPage = 4;
@@ -1486,6 +1568,15 @@ class UserService {
 
       // Filter out null entries (failed videos)
       const validVideos = enrichedVideos.filter((video): video is NonNullable<typeof video> => video !== null);
+
+      await cacheService.set(
+        cacheKey,
+        {
+          videos: validVideos,
+          total: Math.max(0, total - (enrichedVideos.length - validVideos.length)),
+        },
+        5 * 60 * 1000,
+      );
 
       return {
         videos: validVideos,
