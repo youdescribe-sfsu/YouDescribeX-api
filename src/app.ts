@@ -13,7 +13,7 @@ import swaggerUi from 'swagger-ui-express';
 import options from './swaggerOptions';
 import yaml from 'js-yaml';
 import fs from 'fs';
-import { initPassport } from './models/mongodb/init-models.mongo';
+import { initPassport, MongoAICaptionRequestModel, MongoVideosModel } from './models/mongodb/init-models.mongo';
 import { checkAndNotify, gpuStatusCronJob, videoStatusCheckJob } from './utils/cron.utils';
 import moment from 'moment';
 
@@ -56,7 +56,7 @@ class App {
     testDataBaseConnection();
   }
 
-  private initializeMiddlewares() {
+  private async initializeMiddlewares() {
     this.app.use(compression());
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
@@ -77,6 +77,23 @@ class App {
     this.app.options('*', (req, res) => {
       res.sendStatus(200);
     });
+
+    await this.createIndexes();
+  }
+
+  private async createIndexes() {
+    try {
+      const aiRequestsCollection = MongoAICaptionRequestModel.collection;
+      const videosCollection = MongoVideosModel.collection;
+
+      await aiRequestsCollection.createIndex({ caption_requests: 1 });
+      await aiRequestsCollection.createIndex({ youtube_id: 1 });
+      await videosCollection.createIndex({ youtube_id: 1 });
+
+      logger.info('Database indexes created successfully');
+    } catch (error) {
+      logger.error('Error creating database indexes:', error);
+    }
   }
 
   private initializeRoutes(routes: Routes[]) {

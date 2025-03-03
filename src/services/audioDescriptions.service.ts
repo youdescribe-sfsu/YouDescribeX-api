@@ -23,6 +23,7 @@ import {
 import { logger } from '../utils/logger';
 import { getYouTubeVideoStatus, isEmpty, nowUtc } from '../utils/util';
 import { isVideoAvailable } from '../utils/videos.util';
+import cacheService from '../utils/cacheService';
 
 const fs = require('fs');
 
@@ -494,6 +495,14 @@ class AudioDescriptionsService {
     }
 
     try {
+      const cacheKey = `my_descriptions_${user_id}_${pageNumber}_${paginate}`;
+      const cachedResult = await cacheService.get(cacheKey);
+      if (cachedResult) {
+        logger.info(`Cache hit for my descriptions: ${cacheKey}`);
+        return cachedResult;
+      }
+
+      logger.info(`Cache miss for my descriptions: ${cacheKey}`);
       const page = parseInt(pageNumber, 10) || 1;
       const videosPerPage = paginate ? 4 : 20; // Set videos per page to 4 if paginate is true, otherwise 20
       const skipCount = (page - 1) * videosPerPage;
@@ -539,6 +548,8 @@ class AudioDescriptionsService {
       ];
 
       const result = await MongoAudio_Descriptions_Model.aggregate(pipeline).exec();
+
+      await cacheService.set(cacheKey, result, 5 * 60 * 1000);
 
       return {
         total: result[0]?.total || 0,
