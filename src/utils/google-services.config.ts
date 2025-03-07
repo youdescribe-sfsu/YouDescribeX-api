@@ -21,5 +21,8 @@ export const GOOGLE_SERVICES = {
 
 // Helper to get current API key based on environment
 export const getCurrentYouTubeApiKey = (env: string = process.env.NODE_ENV || 'development'): string => {
-  return GOOGLE_SERVICES.YOUTUBE.ENV_KEYS[env] || GOOGLE_SERVICES.YOUTUBE.ENV_KEYS.development;
+  console.log(`Getting YouTube API key for environment: ${env}`);
+  const key = GOOGLE_SERVICES.YOUTUBE.ENV_KEYS[env] || GOOGLE_SERVICES.YOUTUBE.ENV_KEYS.development;
+  console.log(`Selected key: ${key}`);
+  return key;
 };
