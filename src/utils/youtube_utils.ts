@@ -5,7 +5,9 @@ import youtube_utils from './youtube_utils';
 
 class YouTubeUtils {
   private static apiUrl = GOOGLE_SERVICES.YOUTUBE.API_URL;
-  private static apiKey = getCurrentYouTubeApiKey();
+  private static get apiKey() {
+    return getCurrentYouTubeApiKey();
+  }
 
   static async getVideoData(videoId: string) {
     try {
