@@ -27,6 +27,7 @@ import axios from 'axios';
 import App from '../app';
 import stringSimilarity from 'string-similarity';
 import mongoose from 'mongoose';
+import cacheService from '../utils/cacheService';
 
 class VideosService {
   public async getVideobyYoutubeId(youtubeId: string): Promise<any> {
@@ -636,6 +637,44 @@ class VideosService {
     } catch (error) {
       console.error('Error in getYouTubeCategory:', error);
       return '';
+    }
+  }
+
+  public async getHomePageVideos(page: string) {
+    try {
+      const cacheKey = `home_videos_page_${page}`;
+      const cachedResult = await cacheService.get(cacheKey);
+
+      if (cachedResult) {
+        logger.info(`Cache hit for home page videos: ${cacheKey}`);
+        return cachedResult;
+      }
+
+      logger.info(`Cache miss for home page videos: ${cacheKey}`);
+
+      // Get videos for the page
+      const pgNumber = Number(page);
+      const videos = await this.getAllVideos(page);
+
+      // Extract YouTube IDs for these videos
+      const youtubeIds = videos.map(video => video.youtube_id).join(',');
+
+      // Get YouTube data for these IDs
+      const youtubeData = await this.getYoutubeDataFromCache(youtubeIds, `home-${page}`);
+
+      // Create combined response
+      const combinedResponse = {
+        videos: videos,
+        youtubeData: youtubeData.result
+      };
+
+      // Cache the combined response (5 minute TTL)
+      await cacheService.set(cacheKey, combinedResponse, 5 * 60 * 1000);
+
+      return combinedResponse;
+    } catch (error) {
+      logger.error(`Error fetching home page videos: ${error}`);
+      throw error;
     }
   }
 
