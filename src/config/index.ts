@@ -138,7 +138,6 @@ export const CONFIG = {
       credentialsPath: process.env.STT_API_CREDENTIALS_PATH || '',
       credentialsFile: process.env.STT_API_CREDENTIALS_FILE || '',
     },
-    applicationCredentials: process.env.GOOGLE_APPLICATION_CREDENTIALS || '',
   } as GoogleConfig,
 
   auth: {
