@@ -572,18 +572,12 @@ class VideosService {
                 duration: duration,
                 youtube_status: 'available',
               };
-
-              const updatedVideo = await MongoVideosModel.findOneAndUpdate({ youtube_id: video.youtube_id }, { $set: toUpdate }, { new: true }).exec();
-
-              // console.log(updatedVideo?.youtube_id + '; available');
+              await MongoVideosModel.findOneAndUpdate({ youtube_id: video.youtube_id }, { $set: toUpdate }, { new: true }).exec();
             } else {
               const toUpdate = {
                 youtube_status: 'unavailable',
               };
-
-              const updatedVideo = await MongoVideosModel.findOneAndUpdate({ youtube_id: video.youtube_id }, { $set: toUpdate }, { new: true }).exec();
-
-              // console.log(updatedVideo?.youtube_id + '; unavailable');
+              await MongoVideosModel.findOneAndUpdate({ youtube_id: video.youtube_id }, { $set: toUpdate }, { new: true }).exec();
             }
             Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
           }
@@ -665,7 +659,7 @@ class VideosService {
       // Create combined response
       const combinedResponse = {
         videos: videos,
-        youtubeData: youtubeData.result
+        youtubeData: youtubeData.result,
       };
 
       // Cache the combined response (5 minute TTL)
