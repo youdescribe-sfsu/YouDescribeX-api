@@ -91,7 +91,7 @@ class VideosController {
 
   public getHomePageVideos = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const page = req.query.page as string || '1';
+      const page = (req.query.page as string) || '1';
       const result = await this.videosService.getHomePageVideos(page);
       res.status(200).json({ result });
     } catch (error) {
