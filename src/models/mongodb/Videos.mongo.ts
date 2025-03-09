@@ -14,6 +14,8 @@ interface IVideo extends Document {
   views: number;
   youtube_id: string;
   youtube_status: 'available' | 'unavailable';
+  youtube_metadata: any;
+  cached_at: number;
 }
 
 const VideoSchema: Schema = new Schema(
@@ -70,6 +72,14 @@ const VideoSchema: Schema = new Schema(
     youtube_status: {
       type: String,
       required: true,
+    },
+    youtube_metadata: {
+      type: Schema.Types.Mixed,
+      required: false,
+    },
+    cached_at: {
+      type: Number,
+      required: false,
     },
   },
   { collection: 'videos' },

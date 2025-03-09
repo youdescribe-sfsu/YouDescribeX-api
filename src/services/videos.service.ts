@@ -21,13 +21,12 @@ import {
 import { IVideo } from '../models/mongodb/Videos.mongo';
 import { logger } from '../utils/logger';
 import { getVideoDataByYoutubeId } from '../utils/videos.util';
-import cache from 'memory-cache';
 import moment from 'moment';
 import axios from 'axios';
-import App from '../app';
 import stringSimilarity from 'string-similarity';
 import mongoose from 'mongoose';
 import cacheService from '../utils/cacheService';
+import YoutubeCacheService from './youtube-cache.service';
 
 class VideosService {
   public async getVideobyYoutubeId(youtubeId: string): Promise<any> {
@@ -673,34 +672,20 @@ class VideosService {
   }
 
   public async getYoutubeDataFromCache(youtubeIds: string, key: string) {
-    const youtubeIdsCacheKey = key + 'YoutubeIds';
-    const youtubeDataCacheKey = key + 'YoutubeData';
+    try {
+      const videoIdsArray = youtubeIds.split(',');
+      const videoData = await YoutubeCacheService.getVideoData(videoIdsArray);
 
-    if (youtubeIds === cache.get(youtubeIdsCacheKey)) {
-      // console.log(`loading ${key} from cache`);
-      const ret = { status: 200, result: undefined };
-      ret.result = cache.get(youtubeDataCacheKey);
-      return ret;
-    } else {
-      cache.put(youtubeIdsCacheKey, youtubeIds);
-
-      try {
-        const response = await axios.get(
-          `${process.env.YOUTUBE_API_URL}/videos?id=${youtubeIds}&part=contentDetails,snippet,statistics&key=${process.env.YOUTUBE_API_KEY}`,
-        );
-
-        // console.log(`loading ${key} from youtube`);
-        App.numOfVideosFromYoutube += youtubeIds.split(',').length;
-        cache.put(youtubeDataCacheKey, response.data);
-        const ret = { status: 200, result: undefined };
-        ret.result = response.data;
-        return ret;
-      } catch (error) {
-        console.error('Error fetching data from YouTube API:', error.message);
-        throw error;
-      }
+      return {
+        status: 200,
+        result: videoData,
+      };
+    } catch (error) {
+      logger.error('Error fetching data from YouTube API:', error.message);
+      throw error;
     }
   }
+
   public async startMidnightVideoProcessing(): Promise<void> {
     const now = moment();
     const midnight = moment().startOf('day');
