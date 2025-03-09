@@ -1,59 +1,78 @@
-import { GOOGLE_SERVICES, getCurrentYouTubeApiKey } from './google-services.config';
+import { YOUTUBE_API_KEY, NODE_ENV } from '../config';
 import axios from 'axios';
 import { logger } from './logger';
-import youtube_utils from './youtube_utils';
+import YouTubeCacheService from '../services/youtube-cache.service';
 
 class YouTubeUtils {
-  private static apiUrl = GOOGLE_SERVICES.YOUTUBE.API_URL;
-  private static get apiKey() {
-    return getCurrentYouTubeApiKey();
-  }
+  private static apiUrl = 'https://www.googleapis.com/youtube/v3';
+  private static apiKey = YOUTUBE_API_KEY;
+  private static cacheService = YouTubeCacheService;
 
+  // Get video data with caching
   static async getVideoData(videoId: string) {
     try {
-      const response = await axios.get(`${this.apiUrl}/videos?id=${videoId}&part=contentDetails,snippet,statistics&key=${this.apiKey}`);
+      const response = await this.cacheService.getVideoData([videoId]);
 
-      if (!response.data.items?.length) {
+      if (!response.items?.length) {
         throw new Error(`No video found for ID: ${videoId}`);
       }
 
-      return response.data.items[0];
+      return response.items[0];
     } catch (error) {
       logger.error('YouTube API Error:', error);
       throw error;
     }
   }
 
+  // Get multiple videos with caching
+  static async getMultipleVideos(videoIds: string[]) {
+    try {
+      return await this.cacheService.getVideoData(videoIds);
+    } catch (error) {
+      logger.error('YouTube API Error:', error);
+      throw error;
+    }
+  }
+
+  // Get video category with caching
   static async getVideoCategory(categoryId: string) {
     try {
-      const response = await axios.get(`${this.apiUrl}/videoCategories?id=${categoryId}&part=snippet&key=${this.apiKey}`);
-      return response.data.items[0]?.snippet.title;
+      // Since categories change infrequently, cache them for longer
+      const cacheKey = `category-${categoryId}`;
+      let category = await this.getCachedCategory(cacheKey);
+
+      if (!category) {
+        const response = await axios.get(`${this.apiUrl}/videoCategories`, {
+          params: {
+            id: categoryId,
+            part: 'snippet',
+            key: this.apiKey,
+          },
+        });
+
+        category = response.data.items[0]?.snippet.title;
+
+        // Cache the category
+        if (category) {
+          await this.cacheCategory(cacheKey, category);
+        }
+      }
+
+      return category;
     } catch (error) {
       logger.error('YouTube Category API Error:', error);
       throw error;
     }
   }
+
+  // Helper methods for category caching
+  private static async getCachedCategory(key: string): Promise<string | null> {
+    return null; // Implement category caching as needed
+  }
+
+  private static async cacheCategory(key: string, value: string): Promise<void> {
+    // Implement category caching as needed
+  }
 }
 
-export const fetchVideoDetails = async (videoIds: string | string[]) => {
-  const ids = Array.isArray(videoIds) ? videoIds : [videoIds];
-
-  try {
-    const responses = await Promise.allSettled(ids.map(id => youtube_utils.getVideoData(id)));
-
-    return {
-      items: responses
-        .filter(result => result.status === 'fulfilled' && result.value) // Remove failed requests
-        .map(result => (result as PromiseFulfilledResult<any>).value),
-    };
-  } catch (error) {
-    console.error('Error fetching video details:', error);
-    return { items: [] };
-  }
-};
-
 export default YouTubeUtils;
-export const { apiUrl: youTubeApiUrl, apiKey: youTubeApiKey } = {
-  apiUrl: GOOGLE_SERVICES.YOUTUBE.API_URL,
-  apiKey: getCurrentYouTubeApiKey(),
-};

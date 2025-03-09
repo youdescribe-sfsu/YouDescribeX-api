@@ -16,6 +16,7 @@ import fs from 'fs';
 import { initPassport, MongoAICaptionRequestModel, MongoVideosModel } from './models/mongodb/init-models.mongo';
 import { checkAndNotify, gpuStatusCronJob, videoStatusCheckJob } from './utils/cron.utils';
 import moment from 'moment';
+import YouTubeProxyRoute from './routes/youtube-proxy.route';
 
 class App {
   public static numOfVideosFromYoutube = 0;
