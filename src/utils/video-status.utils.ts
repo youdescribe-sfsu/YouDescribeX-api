@@ -1,6 +1,6 @@
 import { logger } from './logger';
 import { MongoVideosModel, MongoWishListModel, MongoAudio_Descriptions_Model, MongoUserVotesModel } from '../models/mongodb/init-models.mongo';
-import { fetchVideoDetails } from './youtube_utils';
+import YouTubeCacheService from '../services/youtube-cache.service';
 import { nowUtc } from './util';
 
 interface VideoStatusUpdateStats {
@@ -109,7 +109,7 @@ export const checkAndUpdateVideoStatuses = async (): Promise<VideoStatusUpdateSt
 
     for (const video of videos) {
       try {
-        const response = await fetchVideoDetails([video.youtube_id]);
+        const response = await YouTubeCacheService.getVideoData([video.youtube_id]);
 
         if (!response?.items?.length) {
           const stats = await markVideoUnavailable(video.youtube_id);

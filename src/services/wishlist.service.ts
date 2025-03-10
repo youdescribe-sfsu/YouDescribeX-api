@@ -5,13 +5,14 @@ import { MongoAICaptionRequestModel, MongoUserVotesModel, MongoWishListModel } f
 import { IUser } from '../models/mongodb/User.mongo';
 import { formattedDate, getYouTubeVideoStatus } from '../utils/util';
 import axios from 'axios';
-import * as conf from '../utils/youtube_utils';
 import { PipelineStage } from 'mongoose';
 import getRelevanceScores from '../utils/openAPI.util';
 import { LRUCache } from 'lru-cache';
 import KeywordVideosModel from '../models/mongodb/KeywordVideos.mongo';
-import { fetchVideoDetails } from '../utils/youtube_utils';
+import YouTubeCacheService from '../services/youtube-cache.service';
 import { markVideoUnavailable } from '../utils/video-status.utils';
+import { YOUTUBE_API_KEY } from '../config';
+import { logger } from '../utils/logger';
 
 interface IWishListResponse {
   items: IWishList[];
@@ -267,8 +268,8 @@ class WishListService {
       const availableVideos = [];
       for (const video of topWishlist) {
         try {
-          const youtubeResponse = await fetchVideoDetails([video.youtube_id]);
-          if (youtubeResponse?.items?.length > 0) {
+          const response = await YouTubeCacheService.getVideoData([video.youtube_id]);
+          if (response?.items?.length > 0) {
             availableVideos.push(video);
             if (availableVideos.length === 5) break; // Stop once we have 5 videos
           } else {
@@ -417,20 +418,23 @@ class WishListService {
 
   private async updateWishListItem(wishListItemSaved: IWishList) {
     try {
-      const videoResponse = await axios.get(
-        `${conf.youTubeApiUrl}/videos?id=${wishListItemSaved.youtube_id}&part=contentDetails,snippet,statistics&forUsername=iamOTHER&key=${conf.youTubeApiKey}`,
-      );
+      // Use the YouTubeCacheService to get video data
+      const videoResponse = await YouTubeCacheService.getVideoData([wishListItemSaved.youtube_id]);
 
-      const jsonObj = videoResponse.data;
+      if (videoResponse.items && videoResponse.items.length > 0) {
+        const videoItem = videoResponse.items[0];
+        const duration = this.convertISO8601ToSeconds(videoItem.contentDetails.duration);
+        const tags = videoItem.snippet.tags || [];
+        const categoryId = videoItem.snippet.categoryId;
 
-      if (jsonObj.items.length > 0) {
-        const duration = this.convertISO8601ToSeconds(jsonObj.items[0].contentDetails.duration);
-        const tags = jsonObj.items[0].snippet.tags || [];
-        const categoryId = jsonObj.items[0].snippet.categoryId;
-
-        const categoryResponse = await axios.get(
-          `${conf.youTubeApiUrl}/videoCategories?id=${categoryId}&part=snippet&forUsername=iamOTHER&key=${conf.youTubeApiKey}`,
-        );
+        // Get category data
+        const categoryResponse = await axios.get(`https://www.googleapis.com/youtube/v3/videoCategories`, {
+          params: {
+            id: categoryId,
+            part: 'snippet',
+            key: YOUTUBE_API_KEY,
+          },
+        });
 
         const categoryJsonObj = categoryResponse.data;
         let category = '';
@@ -461,6 +465,7 @@ class WishListService {
     } catch (error) {
       // Handle errors
       console.error(error);
+      logger.error(`Error updating wishlist item: ${error.message}`);
     }
   }
 
