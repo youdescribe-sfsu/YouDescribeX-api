@@ -1417,7 +1417,7 @@ class UserService {
 
   // Add these methods to your UserService class
 
-  public async saveVisitedVideosHistory(user_id: string, youtube_id: string) {
+  public async saveVisitedVideosHistory(user_id: string, youtube_id: string, invalidate_cache: boolean) {
     try {
       if (!user_id || !youtube_id) {
         throw new HttpException(400, 'Missing required parameters');
@@ -1446,6 +1446,10 @@ class UserService {
           },
           { new: true },
         );
+
+        if (invalidate_cache) {
+          await cacheService.invalidateByPrefix(`history_${user_id}`);
+        }
 
         return { success: true, visited_videos: updatedVideos };
       } else {
