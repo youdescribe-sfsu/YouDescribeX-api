@@ -360,6 +360,7 @@ class UsersController {
     try {
       const userData = req.user as unknown as IUser;
       const youtubeId = req.body.youtube_id;
+      const invalidate_cache = req.body.invalidate_cache;
       if (!userData) {
         throw new Error('User not logged in');
       }
@@ -367,7 +368,7 @@ class UsersController {
       if (!user) {
         throw new Error('User not found');
       }
-      const response = await this.userService.saveVisitedVideosHistory(user._id, youtubeId);
+      const response = await this.userService.saveVisitedVideosHistory(user._id, youtubeId, invalidate_cache);
 
       res.status(201).json(response);
     } catch (error) {
