@@ -338,20 +338,23 @@ class AudioDescriptionsService {
       if (!videoIdStatus) {
         throw new HttpException(400, 'No videoIdStatus provided');
       }
-      const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
-        video: videoIdStatus._id,
-        _id: audioDescriptionId,
-      });
-      if (!checkIfAudioDescriptionExists) {
+
+      // First, get the current audio description
+      const existingAudioDescription = await MongoAudio_Descriptions_Model.findById(audioDescriptionId);
+      if (!existingAudioDescription) {
         throw new HttpException(404, 'No audioDescriptionId Found');
       }
 
+      // Preserve the prev_audio_description field
       const audioDescription = await MongoAudio_Descriptions_Model.findByIdAndUpdate(audioDescriptionId, {
         status: 'published',
         updated_at: nowUtc(),
         collaborative_editing: enrolled_in_collaborative_editing,
         user: user_id,
+        // Explicitly maintain the prev_audio_description field
+        prev_audio_description: existingAudioDescription.prev_audio_description,
       });
+
       const result = await MongoVideosModel.findByIdAndUpdate(videoIdStatus._id, {
         $push: { audio_descriptions: audioDescriptionId },
       });
