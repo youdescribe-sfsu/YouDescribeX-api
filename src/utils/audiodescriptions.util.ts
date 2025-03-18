@@ -160,15 +160,15 @@ class ContributionService {
     }
 
     try {
-      const prevText = await ContributionService.getConcatenatedAudioClips(audioDescription.prev_audio_description);
-      const newText = await ContributionService.getConcatenatedAudioClips(audioDescriptionId);
+      const prevText = await this.getConcatenatedAudioClips(audioDescription.prev_audio_description);
+      const newText = await this.getConcatenatedAudioClips(audioDescriptionId);
 
       // Ensure userId is a valid ObjectId
       if (!mongoose.Types.ObjectId.isValid(userId)) {
         throw new HttpException(400, 'Invalid user ID format');
       }
 
-      calculateContributions(contributions, prevText, userId, newText);
+      await calculateContributions(contributions, prevText, userId, newText);
 
       audioDescription.contributions = contributions;
       await audioDescription.save();
@@ -178,7 +178,7 @@ class ContributionService {
     }
   }
 
-  static async getConcatenatedAudioClips(audioDescriptionId: string): Promise<string> {
+  private static async getConcatenatedAudioClips(audioDescriptionId: string): Promise<string> {
     if (!mongoose.Types.ObjectId.isValid(audioDescriptionId)) {
       throw new HttpException(400, `Invalid audio description ID: ${audioDescriptionId}`);
     }
@@ -345,12 +345,12 @@ class AutoClipsService {
 
 export { AudioDescriptionProcessingService, PopulationService, ContributionService, AIAudioDescriptionService, AutoClipsService };
 
+// Export functions for backward compatibility
 export const deepCopyAudioDescriptionWithoutNewClips = AutoClipsService.deepCopyAudioDescriptionWithoutNewClips;
 export const updateAutoClips = AutoClipsService.updateAutoClips;
 export const newAIAudioDescription = AIAudioDescriptionService.createNewDescription;
 export const processAllClipsInDBSession = AudioDescriptionProcessingService.processAllClips;
 export const updateContributions = ContributionService.updateContributions;
-export const getConcatenatedAudioClips = ContributionService.getConcatenatedAudioClips;
 
 // Export types
 export type { ProcessedClip, PopulatedAudioDescription, DescriptionText };
