@@ -15,7 +15,6 @@ import { logger } from './logger';
 import { getYouTubeVideoStatus, isEmpty, nowUtc, calculateContributions } from './util';
 import { generateMp3forDescriptionText, nudgeStartTimeIfZero, processCurrentClip, TextToSpeechResponse, ProcessClipResponse } from './audioClips.util';
 import { isVideoAvailable } from './videos.util';
-import mongoose from 'mongoose';
 
 // Types and Interfaces
 interface ProcessedClip {
@@ -153,50 +152,40 @@ class ContributionService {
       throw new HttpException(404, 'Audio Description not found');
     }
 
-    const contributions = audioDescription.contributions || new Map<string, number>();
-
-    if (!audioDescription.prev_audio_description) {
-      throw new HttpException(404, 'Previous audio description not found');
+    const contributions = audioDescription.contributions;
+    if (!contributions) {
+      throw new HttpException(404, 'Previous contributions not found');
     }
 
-    try {
-      const prevText = await this.getConcatenatedAudioClips(audioDescription.prev_audio_description);
-      const newText = await this.getConcatenatedAudioClips(audioDescriptionId);
+    const prevText = await this.getConcatenatedAudioClips(audioDescription.prev_audio_description);
+    const newText = await this.getConcatenatedAudioClips(audioDescriptionId);
 
-      // Ensure userId is a valid ObjectId
-      if (!mongoose.Types.ObjectId.isValid(userId)) {
-        throw new HttpException(400, 'Invalid user ID format');
-      }
+    await calculateContributions(contributions, prevText, userId, newText);
 
-      await calculateContributions(contributions, prevText, userId, newText);
-
-      audioDescription.contributions = contributions;
-      await audioDescription.save();
-    } catch (error) {
-      logger.error('Error updating contributions:', error);
-      throw new HttpException(500, 'Failed to update contributions: ' + error.message);
-    }
+    audioDescription.contributions = contributions;
+    await audioDescription.save();
   }
 
   private static async getConcatenatedAudioClips(audioDescriptionId: string): Promise<string> {
-    if (!mongoose.Types.ObjectId.isValid(audioDescriptionId)) {
-      throw new HttpException(400, `Invalid audio description ID: ${audioDescriptionId}`);
-    }
+    try {
+      const audioClips = await MongoAudioClipsModel.find({
+        audio_description: audioDescriptionId,
+      });
 
-    const audioClips = await MongoAudioClipsModel.find({
-      audio_description: audioDescriptionId,
-    });
-
-    if (!audioClips?.length) {
-      throw new HttpException(404, 'No audio clips found');
-    }
-
-    return audioClips.reduce((text, clip) => {
-      if (clip.description_text) {
-        return text + clip.description_text;
+      if (!audioClips?.length) {
+        return ''; // Return empty string instead of throwing error
       }
-      return text + clip.transcript.reduce((transcriptText, t) => transcriptText + t.sentence, '');
-    }, '');
+
+      return audioClips.reduce((text, clip) => {
+        if (clip.description_text) {
+          return text + clip.description_text;
+        }
+        return text + (clip.transcript?.reduce((transcriptText, t) => transcriptText + t.sentence, '') || '');
+      }, '');
+    } catch (error) {
+      logger.error('Error getting concatenated audio clips:', error);
+      return ''; // Return empty string on error
+    }
   }
 }
 
