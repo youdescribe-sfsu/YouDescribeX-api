@@ -108,24 +108,27 @@ export const utcToLongInt = (timestampUtc: number): number => {
 
 export const nowUtc = () => moment().utc().format('YYYYMMDDHHmmss') as unknown as number;
 
-export const calculateContributions = (contributions: Map<string, number>, origin: string, userId: string, revision: string) => {
+export const calculateContributions = (contributions, origin, userId, revision) => {
   const edittingDistance = calculateEdittingDistance(origin, revision);
   const oldLength = origin.length;
   const newContribution = edittingDistance / (oldLength + edittingDistance);
   const oldContributionSum = 1 - newContribution;
 
   let userFound = false;
-  contributions.forEach((value: number, key: string) => {
-    contributions.set(key, value * oldContributionSum);
+
+  // Apply scaling to existing contributions
+  Object.keys(contributions).forEach(key => {
+    contributions[key] = contributions[key] * oldContributionSum;
     if (key === userId) {
       userFound = true;
     }
   });
 
+  // Add contribution for current user
   if (userFound) {
-    contributions.set(userId, contributions.get(userId) + newContribution);
+    contributions[userId] += newContribution;
   } else {
-    contributions.set(userId, newContribution);
+    contributions[userId] = newContribution;
   }
 };
 

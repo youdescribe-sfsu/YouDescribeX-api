@@ -1,6 +1,5 @@
-import { ClientSession, Types } from 'mongoose';
+import { Types } from 'mongoose';
 import { NewAiDescriptionDto } from '../dtos/audioDescriptions.dto';
-import { CreateUserAudioDescriptionDto } from '../dtos/users.dto';
 import { HttpException } from '../exceptions/HttpException';
 import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
 import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
@@ -147,37 +146,46 @@ class PopulationService {
 // Contribution Service
 class ContributionService {
   static async updateContributions(audioDescriptionId: string, userId: string): Promise<void> {
-    const audioDescription = await MongoAudio_Descriptions_Model.findById(audioDescriptionId);
-    if (!audioDescription) {
-      throw new HttpException(404, 'Audio Description not found');
-    }
+    try {
+      const audioDescription = await MongoAudio_Descriptions_Model.findById(audioDescriptionId);
+      if (!audioDescription) {
+        throw new HttpException(404, 'Audio Description not found');
+      }
 
-    // Initialize contributions map if it doesn't exist or is empty
-    if (!audioDescription.contributions || !(audioDescription.contributions instanceof Map) || audioDescription.contributions.size === 0) {
-      audioDescription.contributions = new Map<string, number>();
+      // Initialize contributions as an object if it doesn't exist
+      if (!audioDescription.contributions || typeof audioDescription.contributions !== 'object') {
+        audioDescription.contributions = {};
+      }
 
-      if (audioDescription.prev_audio_description) {
+      // If contributions is empty and there's a previous audio description, copy from there
+      if (Object.keys(audioDescription.contributions).length === 0 && audioDescription.prev_audio_description) {
         const prevAudioDescription = await MongoAudio_Descriptions_Model.findById(audioDescription.prev_audio_description);
 
-        if (prevAudioDescription && prevAudioDescription.contributions instanceof Map && prevAudioDescription.contributions.size > 0) {
-          prevAudioDescription.contributions.forEach((value, key) => {
-            audioDescription.contributions.set(key, value);
-          });
+        if (prevAudioDescription && prevAudioDescription.contributions) {
+          audioDescription.contributions = { ...prevAudioDescription.contributions };
         } else {
-          // Create new contributions map with original owner
-          audioDescription.contributions.set(audioDescription.user.toString(), 1);
+          // Create new contributions object with original owner
+          const originalUser = prevAudioDescription?.user?.toString() || audioDescription.user.toString();
+          audioDescription.contributions = { [originalUser]: 1 };
         }
-      } else {
-        // Not a collaborative edit, initialize with current user
-        audioDescription.contributions.set(audioDescription.user.toString(), 1);
+      } else if (Object.keys(audioDescription.contributions).length === 0) {
+        // Not a collaborative edit or empty contributions, initialize with current user
+        audioDescription.contributions = { [audioDescription.user.toString()]: 1 };
       }
+
+      // Get text content for comparison
+      const prevText = await this.getConcatenatedAudioClips(audioDescription.prev_audio_description);
+      const newText = await this.getConcatenatedAudioClips(audioDescriptionId);
+
+      // Apply the contribution calculation
+      calculateContributions(audioDescription.contributions, prevText, userId, newText);
+
+      // Save the updated document
+      await audioDescription.save();
+    } catch (error) {
+      logger.error(`Error updating contributions: ${error.message}`);
+      throw error;
     }
-
-    const prevText = await ContributionService.getConcatenatedAudioClips(audioDescription.prev_audio_description);
-    const newText = await ContributionService.getConcatenatedAudioClips(audioDescriptionId);
-
-    calculateContributions(audioDescription.contributions, prevText, userId, newText);
-    await audioDescription.save();
   }
 
   private static async getConcatenatedAudioClips(audioDescriptionId: string): Promise<string> {
@@ -321,17 +329,15 @@ class AutoClipsService {
         return null;
       }
 
-      // Initialize contributions map
-      const initialContributions = new Map<string, number>();
+      // Initialize contributions as a plain JavaScript object
+      let initialContributions = {};
 
-      if (audioDescription.contributions && audioDescription.contributions instanceof Map && audioDescription.contributions.size > 0) {
-        // Clone the existing Map
-        audioDescription.contributions.forEach((value, key) => {
-          initialContributions.set(key, value);
-        });
+      if (audioDescription.contributions && typeof audioDescription.contributions === 'object') {
+        // Clone the existing contributions object
+        initialContributions = { ...audioDescription.contributions };
       } else {
         // Start with original user having 100% contribution
-        initialContributions.set(audioDescription.user.toString(), 1);
+        initialContributions[audioDescription.user.toString()] = 1;
       }
 
       const newAudioDescription = new MongoAudio_Descriptions_Model({
@@ -344,10 +350,10 @@ class AutoClipsService {
         updated_at: nowUtc(),
         video: audioDescription.video,
         user: toUserId,
-        collaborative_editing: true, // Keep collaborative editing enabled
+        collaborative_editing: true,
         contributions: initialContributions,
         prev_audio_description: audioDescriptionId,
-        depth: audioDescription.depth ? audioDescription.depth + 1 : 1,
+        depth: (audioDescription.depth || 0) + 1,
       });
 
       await newAudioDescription.save();
