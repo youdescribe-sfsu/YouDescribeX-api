@@ -17,7 +17,7 @@ interface IAudioDescription extends Document {
   video: string;
   views: number;
   collaborative_editing: boolean;
-  contributions: Map<string, number>;
+  contributions: Record<string, number>;
   prev_audio_description: string;
   depth: number;
 }
@@ -88,10 +88,8 @@ const AudioDescriptionSchema: Schema = new Schema(
       default: false,
     },
     contributions: {
-      type: Map,
-      of: {
-        type: Number,
-      },
+      type: Object, // Change from Map
+      default: {},
     },
     prev_audio_description: {
       type: String,

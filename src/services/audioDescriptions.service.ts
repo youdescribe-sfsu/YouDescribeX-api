@@ -363,9 +363,18 @@ class AudioDescriptionsService {
         { new: true }, // Return the updated document
       );
 
-      const result = await MongoVideosModel.findByIdAndUpdate(videoIdStatus._id, {
-        $push: { audio_descriptions: audioDescriptionId },
+      // Check if this audio description is already in the video's array to prevent duplicates
+      const videoWithAD = await MongoVideosModel.findOne({
+        _id: videoIdStatus._id,
+        audio_descriptions: audioDescriptionId,
       });
+
+      // Only add the audio description if it's not already in the array
+      if (!videoWithAD) {
+        await MongoVideosModel.findByIdAndUpdate(videoIdStatus._id, {
+          $addToSet: { audio_descriptions: audioDescriptionId }, // Use $addToSet instead of $push
+        });
+      }
 
       return audioDescription._id.toString();
     } catch (error) {
