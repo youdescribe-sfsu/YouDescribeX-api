@@ -157,10 +157,10 @@ class ContributionService {
       throw new HttpException(404, 'Previous contributions not found');
     }
 
-    const prevText = await this.getConcatenatedAudioClips(audioDescription.prev_audio_description);
-    const newText = await this.getConcatenatedAudioClips(audioDescriptionId);
+    const prevText = await ContributionService.getConcatenatedAudioClips(audioDescription.prev_audio_description);
+    const newText = await ContributionService.getConcatenatedAudioClips(audioDescriptionId);
 
-    await calculateContributions(contributions, prevText, userId, newText);
+    calculateContributions(contributions, prevText, userId, newText);
 
     audioDescription.contributions = contributions;
     await audioDescription.save();
