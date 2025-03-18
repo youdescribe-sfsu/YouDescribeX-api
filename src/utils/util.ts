@@ -109,10 +109,16 @@ export const utcToLongInt = (timestampUtc: number): number => {
 export const nowUtc = () => moment().utc().format('YYYYMMDDHHmmss') as unknown as number;
 
 export const calculateContributions = (contributions, origin, userId, revision) => {
-  const edittingDistance = calculateEdittingDistance(origin, revision);
-  const oldLength = origin.length;
-  const newContribution = edittingDistance / (oldLength + edittingDistance);
+  const editingDistance = calculateEdittingDistance(origin, revision);
+  const oldLength = Math.max(1, origin.length); // Avoid division by zero
+  const newContribution = editingDistance / (oldLength + editingDistance);
   const oldContributionSum = 1 - newContribution;
+
+  // Initialize if empty
+  if (Object.keys(contributions).length === 0) {
+    contributions[userId] = 1;
+    return;
+  }
 
   let userFound = false;
 

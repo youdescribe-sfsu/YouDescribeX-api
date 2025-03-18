@@ -153,29 +153,43 @@ class ContributionService {
       }
 
       // Initialize contributions as an object if it doesn't exist
-      if (!audioDescription.contributions || typeof audioDescription.contributions !== 'object') {
+      if (!audioDescription.contributions) {
         audioDescription.contributions = {};
       }
 
-      // If contributions is empty and there's a previous audio description, copy from there
-      if (Object.keys(audioDescription.contributions).length === 0 && audioDescription.prev_audio_description) {
-        const prevAudioDescription = await MongoAudio_Descriptions_Model.findById(audioDescription.prev_audio_description);
-
-        if (prevAudioDescription && prevAudioDescription.contributions) {
-          audioDescription.contributions = { ...prevAudioDescription.contributions };
-        } else {
-          // Create new contributions object with original owner
-          const originalUser = prevAudioDescription?.user?.toString() || audioDescription.user.toString();
-          audioDescription.contributions = { [originalUser]: 1 };
-        }
-      } else if (Object.keys(audioDescription.contributions).length === 0) {
-        // Not a collaborative edit or empty contributions, initialize with current user
-        audioDescription.contributions = { [audioDescription.user.toString()]: 1 };
+      // If no previous version, set single user with 100% contribution
+      if (!audioDescription.prev_audio_description) {
+        audioDescription.contributions = { [userId]: 1 };
+        await audioDescription.save();
+        return;
       }
 
       // Get text content for comparison
-      const prevText = await this.getConcatenatedAudioClips(audioDescription.prev_audio_description);
-      const newText = await this.getConcatenatedAudioClips(audioDescriptionId);
+      const prevText = await ContributionService.getConcatenatedAudioClips(audioDescription.prev_audio_description);
+      const newText = await ContributionService.getConcatenatedAudioClips(audioDescriptionId);
+
+      // If previous doc exists but no content to compare, initialize with original user
+      if (!prevText) {
+        const prevAudioDescription = await MongoAudio_Descriptions_Model.findById(audioDescription.prev_audio_description);
+
+        if (prevAudioDescription) {
+          // Copy previous contributions if they exist
+          if (prevAudioDescription.contributions) {
+            audioDescription.contributions = { ...prevAudioDescription.contributions };
+          } else {
+            // Start with original user having 100% contribution
+            audioDescription.contributions = {
+              [prevAudioDescription.user.toString()]: 1,
+            };
+          }
+        } else {
+          // Fallback if previous document not found
+          audioDescription.contributions = { [userId]: 1 };
+        }
+
+        await audioDescription.save();
+        return;
+      }
 
       // Apply the contribution calculation
       calculateContributions(audioDescription.contributions, prevText, userId, newText);
@@ -188,14 +202,18 @@ class ContributionService {
     }
   }
 
-  private static async getConcatenatedAudioClips(audioDescriptionId: string): Promise<string> {
+  static async getConcatenatedAudioClips(audioDescriptionId: string): Promise<string> {
     try {
+      if (!audioDescriptionId) {
+        return ''; // Handle null/undefined case gracefully
+      }
+
       const audioClips = await MongoAudioClipsModel.find({
         audio_description: audioDescriptionId,
       });
 
       if (!audioClips?.length) {
-        return ''; // Return empty string instead of throwing error
+        return ''; // Return empty string for no clips
       }
 
       return audioClips.reduce((text, clip) => {
@@ -340,24 +358,31 @@ class AutoClipsService {
         initialContributions[audioDescription.user.toString()] = 1;
       }
 
+      // Create new audio description with proper collaborative chain references
       const newAudioDescription = new MongoAudio_Descriptions_Model({
         admin_review: audioDescription.admin_review,
-        audio_clips: [],
+        audio_clips: [], // Start with empty, will be copied later
         created_at: nowUtc(),
         language: audioDescription.language,
-        legacy_notes: '',
-        status: 'draft',
+        legacy_notes: audioDescription.legacy_notes || '',
+        status: 'draft', // Always start as draft
         updated_at: nowUtc(),
         video: audioDescription.video,
         user: toUserId,
         collaborative_editing: true,
         contributions: initialContributions,
         prev_audio_description: audioDescriptionId,
-        depth: (audioDescription.depth || 0) + 1,
+        depth: (audioDescription.depth || 1) + 1,
       });
 
       await newAudioDescription.save();
-      return newAudioDescription._id;
+
+      // Add to video's audio_descriptions array with addToSet to prevent duplicates
+      await MongoVideosModel.findByIdAndUpdate(audioDescription.video, {
+        $addToSet: { audio_descriptions: newAudioDescription._id },
+      });
+
+      return newAudioDescription._id.toString();
     } catch (error) {
       logger.error('Deep copy error:', error);
       return null;
