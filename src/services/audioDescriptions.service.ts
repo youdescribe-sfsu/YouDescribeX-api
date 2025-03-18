@@ -338,10 +338,12 @@ class AudioDescriptionsService {
       if (!videoIdStatus) {
         throw new HttpException(400, 'No videoIdStatus provided');
       }
+
       const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
         video: videoIdStatus._id,
         _id: audioDescriptionId,
       });
+
       if (!checkIfAudioDescriptionExists) {
         throw new HttpException(404, 'No audioDescriptionId Found');
       }
