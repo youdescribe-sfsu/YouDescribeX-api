@@ -146,11 +146,17 @@ class PopulationService {
 // Contribution Service
 class ContributionService {
   static async updateContributions(audioDescriptionId: string, userId: string): Promise<void> {
+    console.log(`[COLLAB] Starting contribution update for audio description ${audioDescriptionId} by user ${userId}`);
+
     try {
       const audioDescription = await MongoAudio_Descriptions_Model.findById(audioDescriptionId);
       if (!audioDescription) {
+        console.log(`[COLLAB] Audio Description ${audioDescriptionId} not found`);
         throw new HttpException(404, 'Audio Description not found');
       }
+
+      logger.info(`[COLLAB] Found audio description: ${audioDescriptionId}, user: ${audioDescription.user}, depth: ${audioDescription.depth || 1}`);
+      logger.debug(`[COLLAB] Initial contributions state: ${JSON.stringify(audioDescription.contributions || {})}`);
 
       // Initialize contributions as an object if it doesn't exist
       if (!audioDescription.contributions) {
@@ -193,38 +199,48 @@ class ContributionService {
 
       // Apply the contribution calculation
       calculateContributions(audioDescription.contributions, prevText, userId, newText);
+      logger.info(`[COLLAB] Successfully updated contributions for ${audioDescriptionId}`);
 
       // Save the updated document
       await audioDescription.save();
     } catch (error) {
-      logger.error(`Error updating contributions: ${error.message}`);
+      logger.error(`[COLLAB] Error updating contributions for ${audioDescriptionId}: ${error.message}`);
+      logger.error(`[COLLAB] Error stack: ${error.stack}`);
       throw error;
     }
   }
 
   static async getConcatenatedAudioClips(audioDescriptionId: string): Promise<string> {
+    logger.info(`[COLLAB] Getting concatenated audio clips for ${audioDescriptionId}`);
+
     try {
       if (!audioDescriptionId) {
-        return ''; // Handle null/undefined case gracefully
+        logger.warn(`[COLLAB] Empty audioDescriptionId passed to getConcatenatedAudioClips`);
+        return '';
       }
+
+      // Log method caller information if possible
+      const stack = new Error().stack;
+      logger.debug(`[COLLAB] getConcatenatedAudioClips called from: ${stack?.split('\n')[2]?.trim() || 'unknown'}`);
 
       const audioClips = await MongoAudioClipsModel.find({
         audio_description: audioDescriptionId,
       });
 
-      if (!audioClips?.length) {
-        return ''; // Return empty string for no clips
-      }
+      logger.info(`[COLLAB] Found ${audioClips?.length || 0} audio clips for ${audioDescriptionId}`);
 
-      return audioClips.reduce((text, clip) => {
-        if (clip.description_text) {
-          return text + clip.description_text;
-        }
-        return text + (clip.transcript?.reduce((transcriptText, t) => transcriptText + t.sentence, '') || '');
+      const result = audioClips.reduce((text, clip) => {
+        const clipText = clip.description_text || clip.transcript?.reduce((transcriptText, t) => transcriptText + t.sentence, '') || '';
+        logger.debug(`[COLLAB] Adding clip ${clip._id}, text length: ${clipText.length} chars`);
+        return text + clipText;
       }, '');
+
+      logger.info(`[COLLAB] Concatenated text length: ${result.length} chars for ${audioDescriptionId}`);
+      return result;
     } catch (error) {
-      logger.error('Error getting concatenated audio clips:', error);
-      return ''; // Return empty string on error
+      logger.error(`[COLLAB] Error getting concatenated audio clips for ${audioDescriptionId}: ${error.message}`);
+      logger.error(`[COLLAB] Stack trace: ${error.stack}`);
+      return '';
     }
   }
 }
@@ -340,12 +356,17 @@ class AutoClipsService {
   }
 
   static async deepCopyAudioDescriptionWithoutNewClips(audioDescriptionId: string, toUserId: string): Promise<string | null> {
+    logger.info(`[COLLAB] Starting deep copy of audio description ${audioDescriptionId} for user ${toUserId}`);
+
     try {
       const audioDescription = await MongoAudio_Descriptions_Model.findById(audioDescriptionId);
       if (!audioDescription) {
-        logger.error('Audio Description not found');
+        logger.error(`[COLLAB] Audio Description ${audioDescriptionId} not found for copying`);
         return null;
       }
+
+      logger.info(`[COLLAB] Original audio description: user ${audioDescription.user}, depth ${audioDescription.depth || 1}`);
+      logger.debug(`[COLLAB] Original contributions: ${JSON.stringify(audioDescription.contributions || {})}`);
 
       // Initialize contributions as a plain JavaScript object
       let initialContributions = {};
@@ -381,10 +402,11 @@ class AutoClipsService {
       await MongoVideosModel.findByIdAndUpdate(audioDescription.video, {
         $addToSet: { audio_descriptions: newAudioDescription._id },
       });
-
+      logger.info(`[COLLAB] Created new audio description ${newAudioDescription._id} with depth ${newAudioDescription.depth}`);
       return newAudioDescription._id.toString();
     } catch (error) {
-      logger.error('Deep copy error:', error);
+      logger.error(`[COLLAB] Error in deep copy: ${error.message}`);
+      logger.error(`[COLLAB] Error stack: ${error.stack}`);
       return null;
     }
   }
