@@ -332,6 +332,8 @@ class AudioDescriptionsService {
     user_id: string,
     enrolled_in_collaborative_editing: boolean,
   ): Promise<string> => {
+    logger.info(`[COLLAB] Publishing audio description ${audioDescriptionId} for video ${youtube_id} by user ${user_id}`);
+    logger.info(`[COLLAB] Collaborative editing enabled: ${enrolled_in_collaborative_editing}`);
     try {
       const videoIdStatus = await getYouTubeVideoStatus(youtube_id);
 
@@ -378,9 +380,12 @@ class AudioDescriptionsService {
         });
       }
 
+      logger.info(`[COLLAB] Audio description ${audioDescriptionId} published successfully`);
+
       return audioDescription._id.toString();
     } catch (error) {
-      logger.error(error);
+      logger.error(`[COLLAB] Error publishing audio description: ${error.message}`);
+      logger.error(`[COLLAB] Error stack: ${error.stack}`);
       throw error;
     }
   };
