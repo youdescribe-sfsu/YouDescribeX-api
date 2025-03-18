@@ -261,6 +261,7 @@ class VideosService {
           for (const [key, value] of Object.entries(ad.contributions)) {
             try {
               if (!mongoose.Types.ObjectId.isValid(key)) {
+                // If the key isn't a valid ObjectId, just use it as is for display
                 ad.displayContributions[key] = value;
                 continue;
               }
@@ -268,14 +269,14 @@ class VideosService {
               const user = await MongoUsersModel.findOne({ _id: key });
               if (!user) {
                 logger.warn(`User not found for ID: ${key}, skipping contribution mapping`);
-                ad.displayContributions[key] = value;
+                ad.displayContributions[key] = value; // Use the key as fallback
                 continue;
               }
               const name = user.user_type === 'AI' ? 'AI Description Draft' : user.name;
               ad.displayContributions[name] = value;
             } catch (error) {
               logger.error(`Error processing contribution for key ${key}:`, error);
-              ad.displayContributions[key] = value;
+              ad.displayContributions[key] = value; // Use the key as fallback
               continue;
             }
           }
