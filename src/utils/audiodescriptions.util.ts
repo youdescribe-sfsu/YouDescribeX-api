@@ -156,33 +156,10 @@ class ContributionService {
     const contributions = audioDescription.contributions || new Map<string, number>();
 
     if (!audioDescription.prev_audio_description) {
-      logger.error(`Missing prev_audio_description field for audio description ${audioDescriptionId}`);
-
-      // Fallback: If we can't find the previous audio description,
-      // we can default to giving full credit to the current user
-      contributions.clear();
-      contributions.set(userId, 1);
-      audioDescription.contributions = contributions;
-      await audioDescription.save();
-
-      return; // Exit without throwing exception
+      throw new HttpException(404, 'Previous audio description not found');
     }
 
     try {
-      // Check if previous audio description exists
-      const prevAudioDescription = await MongoAudio_Descriptions_Model.findById(audioDescription.prev_audio_description);
-      if (!prevAudioDescription) {
-        logger.error(`Referenced prev_audio_description ${audioDescription.prev_audio_description} not found in database`);
-
-        // Same fallback as above
-        contributions.clear();
-        contributions.set(userId, 1);
-        audioDescription.contributions = contributions;
-        await audioDescription.save();
-
-        return; // Exit without throwing exception
-      }
-
       const prevText = await ContributionService.getConcatenatedAudioClips(audioDescription.prev_audio_description);
       const newText = await ContributionService.getConcatenatedAudioClips(audioDescriptionId);
 
