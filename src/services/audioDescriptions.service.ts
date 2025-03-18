@@ -346,12 +346,23 @@ class AudioDescriptionsService {
         throw new HttpException(404, 'No audioDescriptionId Found');
       }
 
-      const audioDescription = await MongoAudio_Descriptions_Model.findByIdAndUpdate(audioDescriptionId, {
+      const updateFields: any = {
         status: 'published',
         updated_at: nowUtc(),
         collaborative_editing: enrolled_in_collaborative_editing,
-        user: user_id,
-      });
+      };
+
+      // Only update user if this is NOT a collaborative edit
+      if (!checkIfAudioDescriptionExists.prev_audio_description) {
+        updateFields.user = user_id;
+      }
+
+      const audioDescription = await MongoAudio_Descriptions_Model.findByIdAndUpdate(
+        audioDescriptionId,
+        updateFields,
+        { new: true }, // Return the updated document
+      );
+
       const result = await MongoVideosModel.findByIdAndUpdate(videoIdStatus._id, {
         $push: { audio_descriptions: audioDescriptionId },
       });
