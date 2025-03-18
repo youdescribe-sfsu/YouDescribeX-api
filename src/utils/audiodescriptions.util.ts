@@ -165,8 +165,8 @@ class ContributionService {
       }
 
       // Get text content for comparison
-      const prevText = await ContributionService.getConcatenatedAudioClips(audioDescription.prev_audio_description);
-      const newText = await ContributionService.getConcatenatedAudioClips(audioDescriptionId);
+      const prevText = await this.getConcatenatedAudioClips(audioDescription.prev_audio_description);
+      const newText = await this.getConcatenatedAudioClips(audioDescriptionId);
 
       // If previous doc exists but no content to compare, initialize with original user
       if (!prevText) {
