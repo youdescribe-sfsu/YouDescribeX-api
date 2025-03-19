@@ -382,6 +382,9 @@ class AudioDescriptionsService {
 
       logger.info(`[COLLAB] Audio description ${audioDescriptionId} published successfully`);
 
+      await cacheService.invalidateByPrefix('home_videos');
+      logger.info(`[COLLAB] Home page cache invalidated after publishing audio description ${audioDescriptionId}`);
+
       return audioDescription._id.toString();
     } catch (error) {
       logger.error(`[COLLAB] Error publishing audio description: ${error.message}`);
