@@ -11,8 +11,8 @@ import {
   MongoVideosModel,
 } from '../models/mongodb/init-models.mongo';
 import { logger } from './logger';
-import { getYouTubeVideoStatus, isEmpty, nowUtc, calculateContributions } from './util';
-import { generateMp3forDescriptionText, nudgeStartTimeIfZero, processCurrentClip, TextToSpeechResponse, ProcessClipResponse } from './audioClips.util';
+import { getYouTubeVideoStatus, isEmpty, nowUtc, calculateEdittingDistance } from './util';
+import { generateMp3forDescriptionText, nudgeStartTimeIfZero, processCurrentClip } from './audioClips.util';
 import { isVideoAvailable } from './videos.util';
 
 // Types and Interfaces
@@ -197,12 +197,55 @@ class ContributionService {
         return;
       }
 
-      // Apply the contribution calculation
-      calculateContributions(audioDescription.contributions, prevText, userId, newText);
-      logger.info(`[COLLAB] Successfully updated contributions for ${audioDescriptionId}`);
+      // Log the contributions BEFORE calculation
+      logger.info(`[COLLAB] Contributions BEFORE update: ${JSON.stringify(audioDescription.contributions || {})}`);
 
-      // Save the updated document
-      await audioDescription.save();
+      // Create a completely new contributions object
+      const newContributions = {};
+      const oldContributions = audioDescription.contributions || {};
+
+      // Calculate edit distance and contribution percentages
+      const editingDistance = calculateEdittingDistance(prevText, newText);
+      logger.info(`[COLLAB] Editing distance: ${editingDistance}`);
+
+      const oldLength = Math.max(1, prevText.length); // Avoid division by zero
+      const newContribution = editingDistance / (oldLength + editingDistance);
+      const oldContributionSum = 1 - newContribution;
+
+      logger.info(
+        `[COLLAB] New contribution percentage: ${(newContribution * 100).toFixed(2)}%, Old contributions scaled to: ${(oldContributionSum * 100).toFixed(2)}%`,
+      );
+
+      // Copy old contributions with proper scaling
+      Object.keys(oldContributions).forEach(key => {
+        newContributions[key] = oldContributions[key] * oldContributionSum;
+        logger.info(`[COLLAB] Scaled user ${key} contribution to ${newContributions[key]}`);
+      });
+
+      // Add new contribution
+      if (newContributions[userId]) {
+        newContributions[userId] += newContribution;
+        logger.info(`[COLLAB] Updated existing user ${userId} contribution to ${newContributions[userId]}`);
+      } else {
+        newContributions[userId] = newContribution;
+        logger.info(`[COLLAB] Added new user ${userId} contribution: ${newContribution}`);
+      }
+
+      // Explicitly set the new contributions object
+      audioDescription.contributions = newContributions;
+
+      // Log final contributions before saving
+      logger.info(`[COLLAB] Final contributions to save: ${JSON.stringify(newContributions)}`);
+
+      // Save using findByIdAndUpdate to ensure it persists
+      const updateResult = await MongoAudio_Descriptions_Model.findByIdAndUpdate(
+        audioDescriptionId,
+        { $set: { contributions: newContributions } },
+        { new: true },
+      );
+
+      logger.info(`[COLLAB] Update result: ${updateResult ? 'Success' : 'Failed'}`);
+      logger.info(`[COLLAB] Successfully updated contributions for ${audioDescriptionId}`);
     } catch (error) {
       logger.error(`[COLLAB] Error updating contributions for ${audioDescriptionId}: ${error.message}`);
       logger.error(`[COLLAB] Error stack: ${error.stack}`);
