@@ -216,11 +216,22 @@ class ContributionService {
         `[COLLAB] New contribution percentage: ${(newContribution * 100).toFixed(2)}%, Old contributions scaled to: ${(oldContributionSum * 100).toFixed(2)}%`,
       );
 
-      // Copy old contributions with proper scaling
-      Object.keys(oldContributions).forEach(key => {
-        newContributions[key] = oldContributions[key] * oldContributionSum;
-        logger.info(`[COLLAB] Scaled user ${key} contribution to ${newContributions[key]}`);
-      });
+      // KEY CHANGE: Check if oldContributions is empty, and if so, add the original author
+      if (Object.keys(oldContributions).length === 0) {
+        // Get the previous audio description to find the original author
+        const prevAudioDescription = await MongoAudio_Descriptions_Model.findById(audioDescription.prev_audio_description);
+        if (prevAudioDescription) {
+          const originalAuthorId = prevAudioDescription.user.toString();
+          newContributions[originalAuthorId] = oldContributionSum;
+          logger.info(`[COLLAB] Added original author ${originalAuthorId} with contribution ${oldContributionSum}`);
+        }
+      } else {
+        // Scale existing contributions as before
+        Object.keys(oldContributions).forEach(key => {
+          newContributions[key] = oldContributions[key] * oldContributionSum;
+          logger.info(`[COLLAB] Scaled user ${key} contribution to ${newContributions[key]}`);
+        });
+      }
 
       // Add new contribution
       if (newContributions[userId]) {
