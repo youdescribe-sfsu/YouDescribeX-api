@@ -563,7 +563,7 @@ class AudioDescriptionsService {
             overall_rating_votes_sum: 1,
           },
         },
-        { $sort: { updatedAt: -1 } },
+        { $sort: { createdAt: -1 } },
         {
           $facet: {
             totalCount: [{ $count: 'count' }],
@@ -628,7 +628,7 @@ class AudioDescriptionsService {
             overall_rating_votes_sum: 1,
           },
         },
-        { $sort: { updatedAt: -1 } },
+        { $sort: { createdAt: -1 } },
         {
           $facet: {
             totalCount: [{ $count: 'count' }],
