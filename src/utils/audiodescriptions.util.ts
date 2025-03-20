@@ -466,6 +466,16 @@ class AutoClipsService {
   }
 }
 
+export const updateAudioDescription = async (id: string, updateData: any) => {
+  // Always include the updated_at field
+  const updatedData = {
+    ...updateData,
+    updated_at: nowUtc(),
+  };
+
+  return await MongoAudio_Descriptions_Model.findByIdAndUpdate(id, updatedData, { new: true });
+};
+
 export { AudioDescriptionProcessingService, PopulationService, ContributionService, AIAudioDescriptionService, AutoClipsService };
 
 // Export functions for backward compatibility
