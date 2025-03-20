@@ -103,5 +103,15 @@ const AudioDescriptionSchema: Schema = new Schema(
   { collection: 'audio_descriptions' },
 );
 
+AudioDescriptionSchema.pre('updateOne', function (next) {
+  this.set({ updated_at: nowUtc() });
+  next();
+});
+
+AudioDescriptionSchema.pre('findOneAndUpdate', function (next) {
+  this.set({ updated_at: nowUtc() });
+  next();
+});
+
 export default AudioDescriptionSchema;
 export { IAudioDescription };
