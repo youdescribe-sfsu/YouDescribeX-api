@@ -49,22 +49,19 @@ class WishListService {
     let sortOptions: any = { created_at: -1 }; // Default sort by created_at in descending order
     if (sort && sortField) {
       if (sortField === 'aiRequested') {
-        // Handle sorting for the "AI Descriptions" column
         sortOptions = {
           aiRequested: sort === 'asc' ? 1 : -1,
-          created_at: -1, // Secondary sort by created_at in descending order
+          created_at: -1, // Secondary sort
         };
       } else if (sortField === 'category') {
-        // Handle case-insensitive sorting for the "Category" column
         sortOptions = {
           lowercaseCategory: sort === 'asc' ? 1 : -1,
-          created_at: -1, // Secondary sort by created_at in descending order
+          created_at: -1, // Secondary sort
         };
       } else {
-        // Handle sorting for other columns
         sortOptions = {
           [sortField]: sort === 'asc' ? 1 : -1,
-          created_at: -1, // Secondary sort by created_at in descending order
+          created_at: -1, // Secondary sort
         };
       }
     }
@@ -79,62 +76,25 @@ class WishListService {
       categoryRegex = category.join('|');
     }
 
-    let wishListItems: Array<IWishListResponse> = [];
+    // Basic match criteria used in multiple places
+    const baseMatchCriteria = {
+      $and: [
+        { status: 'queued' }, // Rely on this being set to 'fulfilled' when published
+        { youtube_status: 'available' },
+        { tags: { $regex: search, $options: 'i' } },
+        { category: { $regex: categoryRegex, $options: 'i' } },
+      ],
+    };
+
     try {
       if (search === '') {
-        wishListItems = await MongoWishListModel.aggregate().facet({
+        // Non-search case
+        const wishListItems = await MongoWishListModel.aggregate().facet({
           items: [
             {
-              $match: {
-                $and: [
-                  { status: 'queued' },
-                  { youtube_status: 'available' },
-                  { tags: { $regex: search, $options: 'i' } },
-                  { category: { $regex: categoryRegex, $options: 'i' } },
-                ],
-              },
+              $match: baseMatchCriteria,
             },
-            // First, handle records that might not have video reference yet (backward compatibility)
-            {
-              $lookup: {
-                from: 'videos',
-                localField: 'youtube_id',
-                foreignField: 'youtube_id',
-                as: 'videoRef',
-              },
-            },
-            // Then lookup published audio descriptions
-            {
-              $lookup: {
-                from: 'audio_descriptions',
-                let: {
-                  videoId: { $ifNull: ['$video', { $arrayElemAt: ['$videoRef._id', 0] }] },
-                  youtubeId: '$youtube_id',
-                },
-                pipeline: [
-                  {
-                    $match: {
-                      $expr: {
-                        $and: [
-                          {
-                            $or: [{ $eq: ['$video', '$$videoId'] }, { $and: [{ $eq: ['$$videoId', null] }, { $in: ['$$youtubeId', '$youtube_id'] }] }],
-                          },
-                          { $eq: ['$status', 'published'] },
-                        ],
-                      },
-                    },
-                  },
-                ],
-                as: 'publishedDescriptions',
-              },
-            },
-            // Filter out videos with published descriptions
-            {
-              $match: {
-                publishedDescriptions: { $size: 0 },
-              },
-            },
-            // Rest of existing pipeline for AI caption requests
+            // Keep only the AI caption request lookup for aiRequested field
             {
               $lookup: {
                 from: 'AICaptionRequests',
@@ -165,58 +125,8 @@ class WishListService {
             { $skip: skip },
             { $limit: pageSize },
           ],
-          // Count pipeline needs the same filtering
-          count: [
-            {
-              $match: {
-                $and: [
-                  { status: 'queued' },
-                  { youtube_status: 'available' },
-                  { tags: { $regex: search, $options: 'i' } },
-                  { category: { $regex: categoryRegex, $options: 'i' } },
-                ],
-              },
-            },
-            // Same lookups for counting
-            {
-              $lookup: {
-                from: 'videos',
-                localField: 'youtube_id',
-                foreignField: 'youtube_id',
-                as: 'videoRef',
-              },
-            },
-            {
-              $lookup: {
-                from: 'audio_descriptions',
-                let: {
-                  videoId: { $ifNull: ['$video', { $arrayElemAt: ['$videoRef._id', 0] }] },
-                  youtubeId: '$youtube_id',
-                },
-                pipeline: [
-                  {
-                    $match: {
-                      $expr: {
-                        $and: [
-                          {
-                            $or: [{ $eq: ['$video', '$$videoId'] }, { $and: [{ $eq: ['$$videoId', null] }, { $in: ['$$youtubeId', '$youtube_id'] }] }],
-                          },
-                          { $eq: ['$status', 'published'] },
-                        ],
-                      },
-                    },
-                  },
-                ],
-                as: 'publishedDescriptions',
-              },
-            },
-            {
-              $match: {
-                publishedDescriptions: { $size: 0 },
-              },
-            },
-            { $count: 'count' },
-          ],
+          // Simplified count pipeline
+          count: [{ $match: baseMatchCriteria }, { $count: 'count' }],
         });
 
         if (wishListItems.length === 0 || !wishListItems[0].count || wishListItems[0].count.length === 0) {
@@ -235,6 +145,7 @@ class WishListService {
           data: wishListItems[0].items,
         };
       } else {
+        // Search case
         const cacheKey = `${categoryRegex ? `${categoryRegex}-` : ''}${search}`;
         let cacheData = this.cache.get(cacheKey);
 
@@ -244,54 +155,10 @@ class WishListService {
         if (!cacheData) {
           const keywordVideos = await KeywordVideosModel.findOne({ keyword: cacheKey });
           if (!keywordVideos) {
-            wishListItems = await MongoWishListModel.aggregate().facet({
+            const wishListItems = await MongoWishListModel.aggregate().facet({
               items: [
                 {
-                  $match: {
-                    $and: [
-                      { status: 'queued' },
-                      { youtube_status: 'available' },
-                      { tags: { $regex: search, $options: 'i' } },
-                      { category: { $regex: categoryRegex, $options: 'i' } },
-                    ],
-                  },
-                },
-                {
-                  $lookup: {
-                    from: 'videos',
-                    localField: 'youtube_id',
-                    foreignField: 'youtube_id',
-                    as: 'videoRef',
-                  },
-                },
-                {
-                  $lookup: {
-                    from: 'audio_descriptions',
-                    let: {
-                      videoId: { $ifNull: ['$video', { $arrayElemAt: ['$videoRef._id', 0] }] },
-                      youtubeId: '$youtube_id',
-                    },
-                    pipeline: [
-                      {
-                        $match: {
-                          $expr: {
-                            $and: [
-                              {
-                                $or: [{ $eq: ['$video', '$$videoId'] }, { $and: [{ $eq: ['$$videoId', null] }, { $in: ['$$youtubeId', '$youtube_id'] }] }],
-                              },
-                              { $eq: ['$status', 'published'] },
-                            ],
-                          },
-                        },
-                      },
-                    ],
-                    as: 'publishedDescriptions',
-                  },
-                },
-                {
-                  $match: {
-                    publishedDescriptions: { $size: 0 },
-                  },
+                  $match: baseMatchCriteria,
                 },
                 {
                   $lookup: {
@@ -321,26 +188,19 @@ class WishListService {
                 },
                 { $sort: sortOptions },
               ],
-              count: [
-                {
-                  $match: {
-                    $and: [
-                      { status: 'queued' },
-                      { youtube_status: 'available' },
-                      { tags: { $regex: search, $options: 'i' } },
-                      { category: { $regex: categoryRegex, $options: 'i' } },
-                    ],
-                  },
-                },
-                { $count: 'count' },
-              ],
+              count: [{ $match: baseMatchCriteria }, { $count: 'count' }],
             });
+
             const rankedItems = await getRelevanceScores(wishListItems[0].items, search, categoryRegex);
             if (rankedItems.length > 0) {
               cacheData = rankedItems;
             }
           } else {
             cacheData = JSON.parse(keywordVideos.data);
+
+            // Filter cached data to ensure only queued items remain
+            // This ensures cached data respects status changes
+            cacheData = cacheData.filter(item => item.status === 'queued');
           }
           this.cache.set(cacheKey, cacheData);
         }
