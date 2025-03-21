@@ -94,6 +94,47 @@ class WishListService {
                 ],
               },
             },
+            // First, handle records that might not have video reference yet (backward compatibility)
+            {
+              $lookup: {
+                from: 'videos',
+                localField: 'youtube_id',
+                foreignField: 'youtube_id',
+                as: 'videoRef',
+              },
+            },
+            // Then lookup published audio descriptions
+            {
+              $lookup: {
+                from: 'audio_descriptions',
+                let: {
+                  videoId: { $ifNull: ['$video', { $arrayElemAt: ['$videoRef._id', 0] }] },
+                  youtubeId: '$youtube_id',
+                },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: {
+                        $and: [
+                          {
+                            $or: [{ $eq: ['$video', '$$videoId'] }, { $and: [{ $eq: ['$$videoId', null] }, { $in: ['$$youtubeId', '$youtube_id'] }] }],
+                          },
+                          { $eq: ['$status', 'published'] },
+                        ],
+                      },
+                    },
+                  },
+                ],
+                as: 'publishedDescriptions',
+              },
+            },
+            // Filter out videos with published descriptions
+            {
+              $match: {
+                publishedDescriptions: { $size: 0 },
+              },
+            },
+            // Rest of existing pipeline for AI caption requests
             {
               $lookup: {
                 from: 'AICaptionRequests',
@@ -117,13 +158,14 @@ class WishListService {
                     else: false,
                   },
                 },
-                lowercaseCategory: { $toLower: '$category' }, // Add a new field with lowercase category
+                lowercaseCategory: { $toLower: '$category' },
               },
             },
             { $sort: sortOptions },
             { $skip: skip },
             { $limit: pageSize },
           ],
+          // Count pipeline needs the same filtering
           count: [
             {
               $match: {
@@ -133,6 +175,44 @@ class WishListService {
                   { tags: { $regex: search, $options: 'i' } },
                   { category: { $regex: categoryRegex, $options: 'i' } },
                 ],
+              },
+            },
+            // Same lookups for counting
+            {
+              $lookup: {
+                from: 'videos',
+                localField: 'youtube_id',
+                foreignField: 'youtube_id',
+                as: 'videoRef',
+              },
+            },
+            {
+              $lookup: {
+                from: 'audio_descriptions',
+                let: {
+                  videoId: { $ifNull: ['$video', { $arrayElemAt: ['$videoRef._id', 0] }] },
+                  youtubeId: '$youtube_id',
+                },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: {
+                        $and: [
+                          {
+                            $or: [{ $eq: ['$video', '$$videoId'] }, { $and: [{ $eq: ['$$videoId', null] }, { $in: ['$$youtubeId', '$youtube_id'] }] }],
+                          },
+                          { $eq: ['$status', 'published'] },
+                        ],
+                      },
+                    },
+                  },
+                ],
+                as: 'publishedDescriptions',
+              },
+            },
+            {
+              $match: {
+                publishedDescriptions: { $size: 0 },
               },
             },
             { $count: 'count' },
@@ -174,6 +254,43 @@ class WishListService {
                       { tags: { $regex: search, $options: 'i' } },
                       { category: { $regex: categoryRegex, $options: 'i' } },
                     ],
+                  },
+                },
+                {
+                  $lookup: {
+                    from: 'videos',
+                    localField: 'youtube_id',
+                    foreignField: 'youtube_id',
+                    as: 'videoRef',
+                  },
+                },
+                {
+                  $lookup: {
+                    from: 'audio_descriptions',
+                    let: {
+                      videoId: { $ifNull: ['$video', { $arrayElemAt: ['$videoRef._id', 0] }] },
+                      youtubeId: '$youtube_id',
+                    },
+                    pipeline: [
+                      {
+                        $match: {
+                          $expr: {
+                            $and: [
+                              {
+                                $or: [{ $eq: ['$video', '$$videoId'] }, { $and: [{ $eq: ['$$videoId', null] }, { $in: ['$$youtubeId', '$youtube_id'] }] }],
+                              },
+                              { $eq: ['$status', 'published'] },
+                            ],
+                          },
+                        },
+                      },
+                    ],
+                    as: 'publishedDescriptions',
+                  },
+                },
+                {
+                  $match: {
+                    publishedDescriptions: { $size: 0 },
                   },
                 },
                 {

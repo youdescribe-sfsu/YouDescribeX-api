@@ -1,8 +1,10 @@
-import { Document, Schema, model } from 'mongoose';
+import { Document, Schema } from 'mongoose';
 import { nowUtc } from '../../utils/util';
+import { MongoVideosModel } from './init-models.mongo';
 
 interface IWishList extends Document {
   youtube_id: string;
+  video: string;
   category: string;
   category_id: number;
   created_at: number;
@@ -20,6 +22,11 @@ const WishlistSchema = new Schema<IWishList>(
       type: String,
       required: true,
     },
+    video: {
+      type: Schema.Types.ObjectId,
+      ref: 'Video',
+      index: true,
+    } as any,
     category: {
       type: String,
       required: true,
@@ -55,6 +62,16 @@ const WishlistSchema = new Schema<IWishList>(
   },
   { collection: 'wish_list' },
 );
+
+WishlistSchema.pre('save', async function (next) {
+  if (this.isNew || this.isModified('youtube_id')) {
+    const video = await MongoVideosModel.findOne({ youtube_id: this.youtube_id });
+    if (video) {
+      this.video = video._id;
+    }
+  }
+  next();
+});
 
 export default WishlistSchema;
 export { IWishList };

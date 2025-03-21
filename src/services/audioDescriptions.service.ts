@@ -11,6 +11,7 @@ import {
   MongoUsersModel,
   MongoVideosModel,
   MongoAICaptionRequestModel,
+  MongoWishListModel,
 } from '../models/mongodb/init-models.mongo';
 import {
   Audio_DescriptionsAttributes,
@@ -379,6 +380,8 @@ class AudioDescriptionsService {
           $addToSet: { audio_descriptions: audioDescriptionId }, // Use $addToSet instead of $push
         });
       }
+
+      await MongoWishListModel.updateOne({ youtube_id: youtube_id, status: 'queued' }, { $set: { status: 'fulfilled' } });
 
       logger.info(`[COLLAB] Audio description ${audioDescriptionId} published successfully`);
 
