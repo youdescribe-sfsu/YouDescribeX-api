@@ -3,6 +3,7 @@ import { logger } from '../utils/logger';
 import { AddNewAudioClipDto, UpdateAudioClipDescriptionDto, UpdateAudioClipStartTimeDto, UpdateClipAudioPathDto } from '../dtos/audioClips.dto';
 import AudioClipsService from '../services/audioClips.service';
 import { IUser } from '../models/mongodb/User.mongo';
+import { MongoAudioClipsModel } from '../models/mongodb/init-models.mongo';
 
 export class AudioClipsController {
   public audioClipsService = new AudioClipsService();
@@ -23,6 +24,24 @@ export class AudioClipsController {
       const adTitle: string = req.body.adTitle;
       const processedAudioClips = await this.audioClipsService.updateAudioClipTitle(clipId, adTitle);
       res.status(200).json(processedAudioClips);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public getAudioClipPlaybackType = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const clipId: string = req.params.clipId;
+      const clip = await MongoAudioClipsModel.findById(clipId);
+
+      if (!clip) {
+        return res.status(404).json({ message: 'Audio clip not found' });
+      }
+
+      res.status(200).json({
+        playback_type: clip.playback_type,
+        message: 'Success',
+      });
     } catch (error) {
       next(error);
     }
