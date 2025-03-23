@@ -13,6 +13,7 @@ import YouTubeCacheService from '../services/youtube-cache.service';
 import { markVideoUnavailable } from '../utils/video-status.utils';
 import { YOUTUBE_API_KEY } from '../config';
 import { logger } from '../utils/logger';
+import { getVideoDataByYoutubeId } from '../utils/videos.util';
 
 interface IWishListResponse {
   items: IWishList[];
@@ -349,16 +350,25 @@ class WishListService {
         return { status: 200, message: 'Vote added successfully' };
       }
 
+      // Get video metadata from YouTube API if needed
+      let videoData;
+      try {
+        videoData = await getVideoDataByYoutubeId(youtube_id);
+      } catch (error) {
+        console.error('Error fetching video data:', error);
+        videoData = null;
+      }
+
       const newWishList = new MongoWishListModel({
         youtube_id: youtube_id,
         status: 'queued',
         votes: 1,
         created_at: currentDate,
         updated_at: currentDate,
-        youtube_status: video.youtube_status,
-        duration: video.duration,
-        category_id: video.category_id,
-        category: video.category,
+        youtube_status: video.youtube_status || 'unknown',
+        duration: video.duration || (videoData ? videoData.duration : 0),
+        category_id: video.category_id || (videoData ? videoData.category_id : 0),
+        category: video.category || (videoData ? videoData.category : 'Uncategorized'),
       });
 
       try {
