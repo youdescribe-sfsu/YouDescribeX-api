@@ -25,6 +25,7 @@ import { VideoNotFoundError, AIProcessingError } from '../utils/customErrors';
 import moment from 'moment';
 import { PipelineFailureDto } from '../dtos/pipelineFailure.dto';
 import cacheService from '../utils/cacheService';
+import { InfoBotRequestDto } from '../dtos/infoBotRequest.dto';
 
 class UserService {
   private videoProcessingQueue: Array<{
@@ -1352,6 +1353,30 @@ class UserService {
     } catch (error) {
       logger.error('Error fetching video history:', error);
       throw error;
+    }
+  }
+
+  public async infoBotGenerateAnswer(infoBotRequest: InfoBotRequestDto) {
+    try {
+      const { youtubeVideoId, question, timeStamp } = infoBotRequest;
+      console.log(typeof timeStamp);
+
+      const requestBody = {
+        video_id: youtubeVideoId,
+        question,
+        current_time: timeStamp.toString(),
+      };
+
+      const response = await axios.post('http://0.0.0.0:8000/api/info-bot', requestBody);
+      if (response?.data?.status === 'success') {
+        return response.data.response;
+      } else {
+        return 'Not Found Description or Answer';
+      }
+    } catch (error) {
+      console.log('Error in infoBotGenerateAnswer:', error);
+
+      throw new HttpException(500, 'Request for AI answer failed');
     }
   }
 }
