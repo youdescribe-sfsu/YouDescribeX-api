@@ -519,6 +519,7 @@ class VideosService {
             youtube_status: 1,
             __v: 1,
             _id: 1,
+            latest_audio_description_updated_at: 1,
           },
         },
         {
