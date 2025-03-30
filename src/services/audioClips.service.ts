@@ -366,6 +366,7 @@ class AudioClipsService {
       if (videoIdStatus.data === null) throw new HttpException(409, videoIdStatus.message);
       const clipEndTime = Number(parseFloat(Number(parseFloat(clipStartTime) + audioClip.clip_duration).toFixed(2)));
       const videoId = videoIdStatus.data;
+      const currentPlaybackType = audioClip.playback_type as 'extended' | 'inline';
       const playbackTypeStatus = await analyzePlaybackType(
         Number(clipStartTime),
         clipEndTime,
@@ -373,6 +374,7 @@ class AudioClipsService {
         audioDescriptionId,
         clipId,
         false, // passing false, as this is a single clip process
+        currentPlaybackType,
       );
 
       if (playbackTypeStatus.data === null) throw new HttpException(500, playbackTypeStatus.message);
@@ -421,6 +423,10 @@ class AudioClipsService {
     const clipStartTime = getClipStartTimeStatus.data;
     const updatedAudioDuration = clipDurationStatus.data;
     const updatedClipEndTime = Number((parseFloat(clipStartTime) + parseFloat(updatedAudioDuration)).toFixed(2));
+    const audioClip = await MongoAudioClipsModel.findById(clipId);
+    if (!audioClip) throw new HttpException(409, 'Audio clip not found');
+
+    const currentPlaybackType = audioClip.playback_type as 'extended' | 'inline';
     const playbackTypeStatus = await analyzePlaybackType(
       Number(clipStartTime),
       updatedClipEndTime,
@@ -428,6 +434,7 @@ class AudioClipsService {
       audioDescriptionId,
       clipId,
       false, // passing false, as this is a single clip process
+      currentPlaybackType,
     );
     if (playbackTypeStatus.data === null) throw new HttpException(409, playbackTypeStatus.message);
     const playbackType = playbackTypeStatus.data;
@@ -504,6 +511,10 @@ class AudioClipsService {
     const videoIdStatus = await getVideoFromYoutubeId(youtubeVideoId);
     if (videoIdStatus.data === null) throw new HttpException(409, videoIdStatus.message);
     const videoId = videoIdStatus.data;
+    const audioClip = await MongoAudioClipsModel.findById(clipId);
+    if (!audioClip) throw new HttpException(409, 'Audio clip not found');
+
+    const currentPlaybackType = audioClip.playback_type as 'extended' | 'inline';
     const playbackTypeStatus = await analyzePlaybackType(
       Number(clipStartTime),
       newClipEndTime,
@@ -511,6 +522,7 @@ class AudioClipsService {
       audioDescriptionId,
       clipId,
       false, // passing false, as this is a single clip process
+      currentPlaybackType, // Add this parameter
     );
     if (playbackTypeStatus.data === null) throw new HttpException(409, playbackTypeStatus.message);
     const oldAudioFilePathStatus = await getOldAudioFilePath(clipId);

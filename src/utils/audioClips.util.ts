@@ -13,6 +13,7 @@ import { Audio_Clips, Dialog_Timestamps, Videos } from '../models/postgres/init-
 import { logger } from './logger';
 import { getYouTubeVideoStatus, nowUtc } from './util';
 import path from 'path';
+import { HttpException } from '../exceptions/HttpException';
 
 // Types and Interfaces
 interface TextToSpeechResponse {
@@ -414,7 +415,20 @@ class ClipProcessingService {
         },
       );
 
-      const playbackType = await AudioClipService.analyzePlaybackType(clipStartTime, clipEndTime, data.video_id, data.ad_id, data.clip_id, true);
+      const audioClip = await MongoAudioClipsModel.findById(data.clip_id);
+      if (!audioClip) throw new HttpException(409, 'Audio clip not found');
+
+      const currentPlaybackType = audioClip.playback_type as 'extended' | 'inline';
+
+      const playbackType = await AudioClipService.analyzePlaybackType(
+        clipStartTime,
+        clipEndTime,
+        data.video_id,
+        data.ad_id,
+        data.clip_id,
+        true,
+        currentPlaybackType,
+      );
 
       if (!playbackType.data) {
         return {
