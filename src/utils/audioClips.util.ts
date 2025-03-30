@@ -195,10 +195,16 @@ class AudioClipService {
     requestedPlaybackType?: 'extended' | 'inline',
   ): Promise<PlaybackAnalysisResponse> {
     try {
-      if (requestedPlaybackType === 'extended') {
-        return { message: 'Success - using requested extended type', data: 'extended' };
+      // ALWAYS respect any explicitly requested type (whether extended or inline)
+      if (requestedPlaybackType) {
+        logger.info(`Preserving user-selected playback type: ${requestedPlaybackType}`);
+        return {
+          message: `Success - preserving user selection: ${requestedPlaybackType}`,
+          data: requestedPlaybackType,
+        };
       }
 
+      // Only execute calculation logic if no requested type is specified
       const overlappingDialogs = await MongoDialog_Timestamps_Model.find({
         video: videoId,
         $and: [{ dialog_start_time: { $lte: endTime } }, { dialog_end_time: { $gte: startTime } }],

@@ -332,6 +332,7 @@ class AudioClipsService {
       if (videoIdStatus.data === null) throw new HttpException(409, videoIdStatus.message);
       const clipEndTime = Number(parseFloat(Number(parseFloat(clipStartTime) + audioClip.duration).toFixed(2)));
       const videoId = videoIdStatus.data;
+      const currentPlaybackType = audioClip.playback_type as 'extended' | 'inline';
       const playbackTypeStatus = await analyzePlaybackType(
         Number(clipStartTime),
         clipEndTime,
@@ -339,6 +340,7 @@ class AudioClipsService {
         audioDescriptionId,
         clipId,
         false, // passing false, as this is a single clip process
+        currentPlaybackType,
       );
 
       if (playbackTypeStatus.data === null) throw new HttpException(500, playbackTypeStatus.message);
