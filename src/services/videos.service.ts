@@ -213,67 +213,84 @@ class VideosService {
     }
   }
 
-  // Modified getVideoById in videos.service.ts
-  public async getVideoById(video_id: string, userId: string | null = null) {
+  public async getVideoById(video_id: string) {
     if (!video_id) {
       throw new HttpException(400, 'video_id is empty');
     }
 
     try {
-      const video = await MongoVideosModel.findOne({ youtube_id: video_id });
+      const video = await MongoVideosModel.findOne({ youtube_id: video_id }).populate({
+        path: 'audio_descriptions',
+        populate: [{ path: 'audio_clips' }, { path: 'user' }],
+      });
 
       if (!video) {
         const newVideo = await getYouTubeVideoStatus(video_id);
         return { result: newVideo };
       }
 
-      // Create match conditions for audio descriptions
-      const matchConditions = [];
+      const newVideo = video.toJSON();
 
-      // Always include published descriptions
-      matchConditions.push({ status: 'published' });
+      const audioDescriptions = newVideo.audio_descriptions.slice();
+      newVideo.audio_descriptions = [];
 
-      // Include drafts only if they belong to current user
-      if (userId) {
-        matchConditions.push({
-          status: 'draft',
-          user: new mongoose.Types.ObjectId(userId),
-        });
+      async function processAudioDescription(ad) {
+        const audioDescriptionRating = await MongoAudioDescriptionRatingModel.find({
+          audio_description_id: ad._id,
+        }).exec();
+
+        ad.feedbacks = {} as { [key: string]: number };
+
+        if (audioDescriptionRating && audioDescriptionRating.length > 0) {
+          audioDescriptionRating.forEach(adr => {
+            if (adr.feedback && adr.feedback.length > 0) {
+              adr.feedback.forEach(item => {
+                if (!ad.feedbacks.hasOwnProperty(item)) {
+                  ad.feedbacks[item] = 0;
+                }
+                ad.feedbacks[item] += 1;
+              });
+            }
+          });
+        }
+
+        if (ad.contributions) {
+          const nameContributions = new Map<string, number>();
+          for (const [key, value] of Object.entries(ad.contributions)) {
+            try {
+              if (!mongoose.Types.ObjectId.isValid(key)) {
+                nameContributions[key] = value;
+                continue;
+              }
+
+              const user = await MongoUsersModel.findOne({ _id: key });
+              if (!user) {
+                logger.warn(`User not found for ID: ${key}, skipping contribution mapping`);
+                continue;
+              }
+              const name = user.user_type === 'AI' ? 'AI Description Draft' : user.name;
+              nameContributions[name] = value;
+            } catch (error) {
+              logger.error(`Error processing contribution for key ${key}:`, error);
+              continue;
+            }
+          }
+          ad.contributions = nameContributions;
+        }
+        return ad;
       }
 
-      const pipeline = [
-        {
-          $match: { _id: { $in: video.audio_descriptions } },
-        },
-        {
-          $match: { $or: matchConditions },
-        },
-        {
-          $lookup: {
-            from: 'audio_clips',
-            localField: 'audio_clips',
-            foreignField: '_id',
-            as: 'audio_clips',
-          },
-        },
-        {
-          $lookup: {
-            from: 'users',
-            localField: 'user',
-            foreignField: '_id',
-            as: 'user',
-          },
-        },
-        {
-          $unwind: '$user',
-        },
-      ];
+      const processedDescriptions = await Promise.all(audioDescriptions.map(processAudioDescription));
 
-      const audioDescriptions = await MongoAudio_Descriptions_Model.aggregate(pipeline);
-
-      // Associate the processed descriptions with the video
-      const newVideo = video.toJSON();
-      newVideo.audio_descriptions = audioDescriptions;
+      // Sort the descriptions so AI drafts appear at the end
+      newVideo.audio_descriptions = processedDescriptions.sort((a, b) => {
+        // If a is an AI draft and b is not, a should come after b
+        if (a.user?.user_type === 'AI' && b.user?.user_type !== 'AI') return 1;
+        // If b is an AI draft and a is not, b should come after a
+        if (a.user?.user_type !== 'AI' && b.user?.user_type === 'AI') return -1;
+        // If both are the same type, maintain their original order
+        return 0;
+      });
 
       return { result: newVideo };
     } catch (error) {

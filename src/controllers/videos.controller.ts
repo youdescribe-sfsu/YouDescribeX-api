@@ -2,7 +2,6 @@ import { NextFunction, Request, Response } from 'express';
 import { IVideos } from '../interfaces/videos.interface';
 import VideosService from '../services/videos.service';
 import { VideosAttributes } from '../models/postgres/Videos';
-import { IUser } from '../models/mongodb/User.mongo';
 
 class VideosController {
   public videosService = new VideosService();
@@ -110,18 +109,15 @@ class VideosController {
     }
   };
 
-  public async getVideoById(req: Request, res: Response, next: NextFunction) {
+  public getVideoById = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const videoId: string = req.params.videoId;
-      const userData = req.user as unknown as IUser;
-      const userId = userData ? userData._id.toString() : null;
-
-      const videoByYoutubeID = await this.videosService.getVideoById(videoId, userId);
+      const videoByYoutubeID = await this.videosService.getVideoById(videoId);
       res.status(200).json(videoByYoutubeID);
     } catch (error) {
       next(error);
     }
-  }
+  };
 
   public getAllVideos = async (req: Request, res: Response, next: NextFunction) => {
     try {
