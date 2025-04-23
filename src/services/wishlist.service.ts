@@ -5,12 +5,15 @@ import { MongoAICaptionRequestModel, MongoUserVotesModel, MongoWishListModel } f
 import { IUser } from '../models/mongodb/User.mongo';
 import { formattedDate, getYouTubeVideoStatus } from '../utils/util';
 import axios from 'axios';
-import * as conf from '../utils/youtube_utils';
 import { PipelineStage } from 'mongoose';
-import { Types } from 'mongoose';
 import getRelevanceScores from '../utils/openAPI.util';
 import { LRUCache } from 'lru-cache';
 import KeywordVideosModel from '../models/mongodb/KeywordVideos.mongo';
+import YouTubeCacheService from '../services/youtube-cache.service';
+import { markVideoUnavailable } from '../utils/video-status.utils';
+import { YOUTUBE_API_KEY } from '../config';
+import { logger } from '../utils/logger';
+import { getVideoDataByYoutubeId } from '../utils/videos.util';
 
 interface IWishListResponse {
   items: IWishList[];
@@ -47,22 +50,19 @@ class WishListService {
     let sortOptions: any = { created_at: -1 }; // Default sort by created_at in descending order
     if (sort && sortField) {
       if (sortField === 'aiRequested') {
-        // Handle sorting for the "AI Descriptions" column
         sortOptions = {
           aiRequested: sort === 'asc' ? 1 : -1,
-          created_at: -1, // Secondary sort by created_at in descending order
+          created_at: -1, // Secondary sort
         };
       } else if (sortField === 'category') {
-        // Handle case-insensitive sorting for the "Category" column
         sortOptions = {
           lowercaseCategory: sort === 'asc' ? 1 : -1,
-          created_at: -1, // Secondary sort by created_at in descending order
+          created_at: -1, // Secondary sort
         };
       } else {
-        // Handle sorting for other columns
         sortOptions = {
           [sortField]: sort === 'asc' ? 1 : -1,
-          created_at: -1, // Secondary sort by created_at in descending order
+          created_at: -1, // Secondary sort
         };
       }
     }
@@ -77,21 +77,25 @@ class WishListService {
       categoryRegex = category.join('|');
     }
 
-    let wishListItems: Array<IWishListResponse> = [];
+    // Basic match criteria used in multiple places
+    const baseMatchCriteria = {
+      $and: [
+        { status: 'queued' }, // Rely on this being set to 'fulfilled' when published
+        { youtube_status: 'available' },
+        { tags: { $regex: search, $options: 'i' } },
+        { category: { $regex: categoryRegex, $options: 'i' } },
+      ],
+    };
+
     try {
       if (search === '') {
-        wishListItems = await MongoWishListModel.aggregate().facet({
+        // Non-search case
+        const wishListItems = await MongoWishListModel.aggregate().facet({
           items: [
             {
-              $match: {
-                $and: [
-                  { status: 'queued' },
-                  { youtube_status: 'available' },
-                  { tags: { $regex: search, $options: 'i' } },
-                  { category: { $regex: categoryRegex, $options: 'i' } },
-                ],
-              },
+              $match: baseMatchCriteria,
             },
+            // Keep only the AI caption request lookup for aiRequested field
             {
               $lookup: {
                 from: 'AICaptionRequests',
@@ -115,26 +119,15 @@ class WishListService {
                     else: false,
                   },
                 },
-                lowercaseCategory: { $toLower: '$category' }, // Add a new field with lowercase category
+                lowercaseCategory: { $toLower: '$category' },
               },
             },
             { $sort: sortOptions },
             { $skip: skip },
             { $limit: pageSize },
           ],
-          count: [
-            {
-              $match: {
-                $and: [
-                  { status: 'queued' },
-                  { youtube_status: 'available' },
-                  { tags: { $regex: search, $options: 'i' } },
-                  { category: { $regex: categoryRegex, $options: 'i' } },
-                ],
-              },
-            },
-            { $count: 'count' },
-          ],
+          // Simplified count pipeline
+          count: [{ $match: baseMatchCriteria }, { $count: 'count' }],
         });
 
         if (wishListItems.length === 0 || !wishListItems[0].count || wishListItems[0].count.length === 0) {
@@ -153,27 +146,20 @@ class WishListService {
           data: wishListItems[0].items,
         };
       } else {
+        // Search case
         const cacheKey = `${categoryRegex ? `${categoryRegex}-` : ''}${search}`;
         let cacheData = this.cache.get(cacheKey);
 
         const startIndex = (pageNumber - 1) * pageSize;
         const endIndex = startIndex + pageSize;
 
-        if (!cacheData || cacheData.length === 0) {
+        if (!cacheData) {
           const keywordVideos = await KeywordVideosModel.findOne({ keyword: cacheKey });
-
-          if (!keywordVideos || keywordVideos.data.length === 0) {
-            wishListItems = await MongoWishListModel.aggregate().facet({
+          if (!keywordVideos) {
+            const wishListItems = await MongoWishListModel.aggregate().facet({
               items: [
                 {
-                  $match: {
-                    $and: [
-                      { status: 'queued' },
-                      { youtube_status: 'available' },
-                      { tags: { $regex: search, $options: 'i' } },
-                      { category: { $regex: categoryRegex, $options: 'i' } },
-                    ],
-                  },
+                  $match: baseMatchCriteria,
                 },
                 {
                   $lookup: {
@@ -203,42 +189,21 @@ class WishListService {
                 },
                 { $sort: sortOptions },
               ],
-              count: [
-                {
-                  $match: {
-                    $and: [
-                      { status: 'queued' },
-                      { youtube_status: 'available' },
-                      { tags: { $regex: search, $options: 'i' } },
-                      { category: { $regex: categoryRegex, $options: 'i' } },
-                    ],
-                  },
-                },
-                { $count: 'count' },
-              ],
+              count: [{ $match: baseMatchCriteria }, { $count: 'count' }],
             });
+
             const rankedItems = await getRelevanceScores(wishListItems[0].items, search, categoryRegex);
             if (rankedItems.length > 0) {
               cacheData = rankedItems;
             }
           } else {
             cacheData = JSON.parse(keywordVideos.data);
+
+            // Filter cached data to ensure only queued items remain
+            // This ensures cached data respects status changes
+            cacheData = cacheData.filter(item => item.status === 'queued');
           }
-
-          await this.cache.set(cacheKey, cacheData);
-          await KeywordVideosModel.findOneAndDelete({ keyword: cacheKey });
-        }
-
-        if (sort && sortField) {
-          cacheData.sort((a: any, b: any) => {
-            if (sortField === 'aiRequested') {
-              return sort === 'asc' ? a.aiRequested - b.aiRequested : b.aiRequested - a.aiRequested;
-            } else if (sortField === 'category') {
-              return sort === 'asc' ? a.lowercaseCategory.localeCompare(b.lowercaseCategory) : b.lowercaseCategory.localeCompare(a.lowercaseCategory);
-            } else {
-              return sort === 'asc' ? a[sortField] - b[sortField] : b[sortField] - a[sortField];
-            }
-          });
+          this.cache.set(cacheKey, cacheData);
         }
 
         return {
@@ -254,8 +219,9 @@ class WishListService {
     }
   }
 
-  public async getTopWishlist(user_id: string) {
+  getTopWishlist = async (user_id: string | undefined) => {
     try {
+      // Initial fetch of more items than we need (e.g., 8 instead of 5)
       const pipeline: PipelineStage[] = [
         {
           $match: {
@@ -270,44 +236,35 @@ class WishListService {
           },
         },
         {
-          $limit: 5,
-        },
-        {
-          $lookup: {
-            from: 'user_votes',
-            let: { youtube_id: '$youtube_id' },
-            pipeline: [
-              {
-                $match: {
-                  $expr: {
-                    $and: [{ $eq: ['$youtube_id', '$$youtube_id'] }, { $eq: ['$user', new Types.ObjectId(user_id)] }],
-                  },
-                },
-              },
-            ],
-            as: 'userVote',
-          },
-        },
-        {
-          $addFields: {
-            voted: { $gt: [{ $size: '$userVote' }, 0] },
-          },
-        },
-        {
-          $project: {
-            userVote: 0,
-          },
+          $limit: 8, // Fetch extra items to account for potentially unavailable videos
         },
       ];
 
       const topWishlist = await MongoWishListModel.aggregate(pipeline);
 
-      return topWishlist;
+      // Filter out unavailable videos and get the first 5 available ones
+      const availableVideos = [];
+      for (const video of topWishlist) {
+        try {
+          const response = await YouTubeCacheService.getVideoData([video.youtube_id]);
+          if (response?.items?.length > 0) {
+            availableVideos.push(video);
+            if (availableVideos.length === 5) break; // Stop once we have 5 videos
+          } else {
+            // Mark video as unavailable in background
+            markVideoUnavailable(video.youtube_id);
+          }
+        } catch (error) {
+          console.warn(`Video ${video.youtube_id} unavailable:`, error);
+        }
+      }
+
+      return availableVideos;
     } catch (error) {
       console.error('Error in getTopWishlist:', error);
-      throw new Error('Failed to retrieve top wishlist items');
+      return [];
     }
-  }
+  };
 
   public async getUserWishlist(user_id: string | undefined, pageNumber: string) {
     try {
@@ -390,7 +347,16 @@ class WishListService {
         wishListItem.updated_at = Number(currentDate);
 
         await wishListItem.save();
-        return { status: 200, message: 'The requested video is already in the wish list' };
+        return { status: 200, message: 'Vote added successfully' };
+      }
+
+      // Get video metadata from YouTube API if needed
+      let videoData;
+      try {
+        videoData = await getVideoDataByYoutubeId(youtube_id);
+      } catch (error) {
+        console.error('Error fetching video data:', error);
+        videoData = null;
       }
 
       const newWishList = new MongoWishListModel({
@@ -399,10 +365,10 @@ class WishListService {
         votes: 1,
         created_at: currentDate,
         updated_at: currentDate,
-        youtube_status: video.youtube_status,
-        duration: video.duration,
-        category_id: video.category_id,
-        category: video.category,
+        youtube_status: video.youtube_status || 'unknown',
+        duration: video.duration || (videoData ? videoData.duration : 0),
+        category_id: video.category_id || (videoData ? videoData.category_id : 0),
+        category: video.category || (videoData ? videoData.category : 'Uncategorized'),
       });
 
       try {
@@ -439,20 +405,23 @@ class WishListService {
 
   private async updateWishListItem(wishListItemSaved: IWishList) {
     try {
-      const videoResponse = await axios.get(
-        `${conf.youTubeApiUrl}/videos?id=${wishListItemSaved.youtube_id}&part=contentDetails,snippet,statistics&forUsername=iamOTHER&key=${conf.youTubeApiKey}`,
-      );
+      // Use the YouTubeCacheService to get video data
+      const videoResponse = await YouTubeCacheService.getVideoData([wishListItemSaved.youtube_id]);
 
-      const jsonObj = videoResponse.data;
+      if (videoResponse.items && videoResponse.items.length > 0) {
+        const videoItem = videoResponse.items[0];
+        const duration = this.convertISO8601ToSeconds(videoItem.contentDetails.duration);
+        const tags = videoItem.snippet.tags || [];
+        const categoryId = videoItem.snippet.categoryId;
 
-      if (jsonObj.items.length > 0) {
-        const duration = this.convertISO8601ToSeconds(jsonObj.items[0].contentDetails.duration);
-        const tags = jsonObj.items[0].snippet.tags || [];
-        const categoryId = jsonObj.items[0].snippet.categoryId;
-
-        const categoryResponse = await axios.get(
-          `${conf.youTubeApiUrl}/videoCategories?id=${categoryId}&part=snippet&forUsername=iamOTHER&key=${conf.youTubeApiKey}`,
-        );
+        // Get category data
+        const categoryResponse = await axios.get(`https://www.googleapis.com/youtube/v3/videoCategories`, {
+          params: {
+            id: categoryId,
+            part: 'snippet',
+            key: YOUTUBE_API_KEY,
+          },
+        });
 
         const categoryJsonObj = categoryResponse.data;
         let category = '';
@@ -483,6 +452,7 @@ class WishListService {
     } catch (error) {
       // Handle errors
       console.error(error);
+      logger.error(`Error updating wishlist item: ${error.message}`);
     }
   }
 

@@ -1,3 +1,4 @@
+import { google } from '@google-cloud/text-to-speech/build/protos/protos';
 import { CreateUserAudioDescriptionDto, CreateUserDto, NewUserDto } from '../dtos/users.dto';
 import { HttpException } from '../exceptions/HttpException';
 import { getYouTubeVideoStatus, isEmpty, nowUtc } from '../utils/util';
@@ -15,7 +16,7 @@ import { IUser } from '../models/mongodb/User.mongo';
 import { logger } from '../utils/logger';
 import { getVideoDataByYoutubeId, isVideoAvailable } from '../utils/videos.util';
 import axios from 'axios';
-import mongoose from 'mongoose';
+import mongoose, { PipelineStage } from 'mongoose';
 import AudioClipsService from './audioClips.service';
 import { ObjectId } from 'mongodb';
 import sendEmail from '../utils/emailService';
@@ -23,54 +24,17 @@ import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
 import { VideoNotFoundError, AIProcessingError } from '../utils/customErrors';
 import moment from 'moment';
 import { PipelineFailureDto } from '../dtos/pipelineFailure.dto';
-
-interface ProcessingProgress {
-  stage: string;
-  progress: number;
-  startTime: Date;
-  estimatedCompletion: Date;
-}
-
-interface ProcessingMetrics {
-  requestCount: number;
-  averageProcessingTime: number;
-  successRate: number;
-  failureRate: number;
-}
+import cacheService from '../utils/cacheService';
 
 class UserService {
+  private videoProcessingQueue: Array<{
+    youtubeId: string;
+    userId: string;
+    aiUserId: string;
+    ydx_app_host: string;
+  }> = [];
+  private isProcessingQueue = false;
   public audioClipsService = new AudioClipsService();
-
-  private processingMetrics = new Map<string, ProcessingMetrics>();
-  private activeProcessing = new Map<string, ProcessingProgress>();
-
-  constructor() {
-    this.setupAutomaticCleanup();
-
-    logger.info('UserService initialized with enhanced progress tracking');
-  }
-
-  private calculateEstimatedTime(videoDuration: number): string {
-    const estimatedMinutes = 5 + Math.ceil(videoDuration / 60);
-    return `${estimatedMinutes} minutes`;
-  }
-
-  private setupAutomaticCleanup(): void {
-    setInterval(() => {
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-
-      this.activeProcessing.forEach((progress, youtube_id) => {
-        if (progress.stage === 'completed' || progress.stage === 'failed') {
-          if (progress.estimatedCompletion < oneHourAgo) {
-            this.cleanupProcessingData(youtube_id);
-          }
-        }
-      });
-
-      // Log cleanup activity
-      logger.info('Performed automatic processing data cleanup');
-    }, 60 * 60 * 1000); // Run every hour
-  }
 
   public async findAllUser(): Promise<IUser[] | UsersAttributes[]> {
     if (CURRENT_DATABASE == 'mongodb') {
@@ -128,71 +92,22 @@ class UserService {
     if (!aiUserId) throw new HttpException(400, 'aiUserId is empty');
 
     const videoIdStatus = await getYouTubeVideoStatus(youtubeVideoId);
-    // console.log(`videoIdStatus :: ${JSON.stringify(videoIdStatus._id)}`);
     const userIdObject = await MongoUsersModel.findById(user_id);
-    // console.log(`userIdObject :: ${JSON.stringify(userIdObject._id)}`);
-    const aiUserObjectId = new ObjectId(aiUserId);
 
-    const aiUser = await MongoUsersModel.findById(aiUserObjectId);
-
+    // Check if user already has an audio description for this video
     const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
       video: videoIdStatus._id,
       user: userIdObject._id,
     });
+
     if (checkIfAudioDescriptionExists) {
       return {
         audioDescriptionId: checkIfAudioDescriptionExists._id,
       };
     }
 
-    // Search for AI Audio Description for specified YouTube Video ID
-    const aiAudioDescriptions = await MongoVideosModel.aggregate([
-      {
-        $match: {
-          youtube_id: youtubeVideoId,
-        },
-      },
-      {
-        $unwind: {
-          path: '$audio_descriptions',
-          preserveNullAndEmptyArrays: false,
-        },
-      },
-      {
-        $lookup: {
-          from: 'audio_descriptions',
-          localField: 'audio_descriptions',
-          foreignField: '_id',
-          as: 'video_ad',
-        },
-      },
-      {
-        $unwind: {
-          path: '$video_ad',
-        },
-      },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'video_ad.user',
-          foreignField: '_id',
-          as: 'video_ad_user',
-        },
-      },
-      {
-        $unwind: {
-          path: '$video_ad_user',
-        },
-      },
-      {
-        $match: {
-          'video_ad_user.user_type': 'AI',
-          'video_ad_user._id': aiUser._id,
-        },
-      },
-    ]);
-
-    // console.log(`aiAudioDescriptions :: ${JSON.stringify(aiAudioDescriptions)}`);
+    // CHANGED: No longer search for AI descriptions or copy clips
+    // Create a new empty audio description for the user
 
     const createNewAudioDescription = new MongoAudio_Descriptions_Model({
       admin_review: false,
@@ -205,47 +120,10 @@ class UserService {
       user: userIdObject._id,
     });
 
-    // console.log(`createNewAudioDescription :: ${JSON.stringify(createNewAudioDescription)}`);
-
-    logger.info(`createNewAudioDescription :: ${JSON.stringify(createNewAudioDescription)}`);
-    const audioClipArray = [];
-
-    for (let i = 0; i < aiAudioDescriptions[0].video_ad.audio_clips.length; i++) {
-      const clipId = aiAudioDescriptions[0].video_ad.audio_clips[i];
-      const clip = await MongoAudioClipsModel.findById(clipId);
-      // console.log(`Clip :: ${JSON.stringify(clip)}`);
-      const createNewAudioClip = new MongoAudioClipsModel({
-        audio_description: createNewAudioDescription._id,
-        created_at: nowUtc(),
-        description_type: clip.description_type,
-        description_text: clip.description_text,
-        duration: clip.duration,
-        end_time: clip.end_time,
-        file_mime_type: clip.file_mime_type,
-        file_name: clip.file_name,
-        file_path: clip.file_path,
-        file_size_bytes: clip.file_size_bytes,
-        label: clip.label,
-        playback_type: clip.playback_type,
-        start_time: clip.start_time,
-        transcript: [],
-        updated_at: nowUtc(),
-        user: userIdObject._id,
-        video: videoIdStatus._id,
-        is_recorded: false,
-      });
-      if (!createNewAudioClip) throw new HttpException(409, "Audio Clip couldn't be created");
-      audioClipArray.push(createNewAudioClip);
-    }
-
-    const createNewAudioClips = await MongoAudioClipsModel.insertMany(audioClipArray);
-    if (!createNewAudioClips) throw new HttpException(409, "Audio Clips couldn't be created");
-    createNewAudioClips.forEach(async clip => createNewAudioDescription.audio_clips.push(clip));
-    createNewAudioClips.forEach(async clip => clip.save());
-    createNewAudioDescription.save();
+    await createNewAudioDescription.save();
     if (!createNewAudioDescription) throw new HttpException(409, "Audio Description couldn't be created");
 
-    // Add Audio Description to Video Audio Description Array for consistency with old MongodB and YD Classic logic
+    // Add Audio Description to Video's audio_descriptions array
     await MongoVideosModel.findByIdAndUpdate(videoIdStatus._id, {
       $push: {
         audio_descriptions: {
@@ -257,196 +135,26 @@ class UserService {
       throw new HttpException(409, "Video couldn't be updated.");
     });
 
-    logger.info('Successfully created new Audio Description for existing Video that has an AI Audio Description');
+    await cacheService.invalidateByPrefix(`ai_requests_${user_id}`);
+    logger.info(`Invalidated cache for user ${user_id} after generating audio description`);
+
     return {
       audioDescriptionId: createNewAudioDescription._id,
-      fromAI: true,
+      fromAI: false,
     };
   }
 
-  // Add this method to parse estimated minutes from the string format
-  private parseEstimatedMinutes(videoDuration: number): number {
-    // Get raw minutes from calculateEstimatedTime and convert to number
-    const estimatedTimeString = this.calculateEstimatedTime(videoDuration);
-    return parseInt(estimatedTimeString.split(' ')[0]);
-  }
-
-  // Add the method to update processing progress
-  private async updateProcessingProgress(youtube_id: string, progress: ProcessingProgress): Promise<void> {
-    try {
-      // Update our local tracking
-      this.activeProcessing.set(youtube_id, progress);
-
-      // Update in database
-      await MongoAICaptionRequestModel.findOneAndUpdate(
-        { youtube_id },
-        {
-          $set: {
-            processing_stage: progress.stage,
-            progress_percentage: progress.progress,
-            estimated_completion: progress.estimatedCompletion,
-            updated_at: new Date(),
-          },
-        },
-        { new: true },
-      );
-
-      logger.info(`Updated progress for ${youtube_id}:`, progress);
-    } catch (error) {
-      logger.error(`Error updating progress for ${youtube_id}:`, error);
-    }
-  }
-
-  // Add the retry handling method
-  private async handleProcessingRetry(youtube_id: string, userData: IUser, attempt = 1, maxAttempts = 3): Promise<void> {
-    try {
-      if (attempt > maxAttempts) {
-        logger.error(`Max retry attempts (${maxAttempts}) reached for ${youtube_id}`);
-        await this.updateProcessingProgress(youtube_id, {
-          stage: 'failed',
-          progress: 0,
-          startTime: this.activeProcessing.get(youtube_id)?.startTime || new Date(),
-          estimatedCompletion: new Date(),
-        });
-        return;
-      }
-
-      logger.info(`Attempting retry ${attempt} for ${youtube_id}`);
-
-      // Exponential backoff
-      const delayMs = Math.min(1000 * Math.pow(2, attempt), 30000);
-      await new Promise(resolve => setTimeout(resolve, delayMs));
-
-      // Update database with retry attempt
-      await MongoAICaptionRequestModel.findOneAndUpdate(
-        { youtube_id },
-        {
-          $set: {
-            status: 'pending',
-            retry_count: attempt,
-            last_retry: new Date(),
-          },
-        },
-      );
-
-      // Attempt to process again
-      const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
-      if (youtubeVideoData) {
-        await this.processAiDescriptionRequest(userData, youtube_id, this.activeProcessing.get(youtube_id)?.stage || 'retry', youtubeVideoData);
-      }
-    } catch (error) {
-      logger.error(`Retry attempt ${attempt} failed for ${youtube_id}:`, error);
-      // Try next retry
-      await this.handleProcessingRetry(youtube_id, userData, attempt + 1, maxAttempts);
-    }
-  }
-
-  // Add the metrics tracking method
-  private async trackProcessingMetrics(youtube_id: string): Promise<ProcessingMetrics> {
-    try {
-      const timeWindow = new Date(Date.now() - 24 * 60 * 60 * 1000); // Last 24 hours
-
-      const metrics = await MongoAICaptionRequestModel.aggregate([
-        {
-          $match: {
-            created_at: { $gte: timeWindow },
-          },
-        },
-        {
-          $group: {
-            _id: null,
-            total: { $sum: 1 },
-            completed: {
-              $sum: {
-                $cond: [{ $eq: ['$status', 'completed'] }, 1, 0],
-              },
-            },
-            failed: {
-              $sum: {
-                $cond: [{ $eq: ['$status', 'failed'] }, 1, 0],
-              },
-            },
-            totalTime: {
-              $sum: {
-                $cond: [{ $eq: ['$status', 'completed'] }, { $subtract: ['$completed_at', '$created_at'] }, 0],
-              },
-            },
-          },
-        },
-      ]);
-
-      if (!metrics.length) {
-        return {
-          requestCount: 0,
-          averageProcessingTime: 0,
-          successRate: 0,
-          failureRate: 0,
-        };
-      }
-
-      const result = metrics[0];
-      const processingMetrics: ProcessingMetrics = {
-        requestCount: result.total,
-        averageProcessingTime: result.completed ? result.totalTime / result.completed : 0,
-        successRate: result.total ? (result.completed / result.total) * 100 : 0,
-        failureRate: result.total ? (result.failed / result.total) * 100 : 0,
-      };
-
-      // Update our local metrics cache
-      this.processingMetrics.set(youtube_id, processingMetrics);
-
-      return processingMetrics;
-    } catch (error) {
-      logger.error(`Error tracking metrics for ${youtube_id}:`, error);
-      throw error;
-    }
-  }
-
-  private async cleanupProcessingData(youtube_id: string): Promise<void> {
-    try {
-      // Remove from active processing map
-      this.activeProcessing.delete(youtube_id);
-
-      // Store final metrics before cleanup
-      const finalMetrics = this.processingMetrics.get(youtube_id);
-      if (finalMetrics) {
-        await MongoAICaptionRequestModel.findOneAndUpdate(
-          { youtube_id },
-          {
-            $set: {
-              final_processing_metrics: finalMetrics,
-              cleanup_time: new Date(),
-            },
-          },
-        );
-      }
-
-      // Remove from metrics map
-      this.processingMetrics.delete(youtube_id);
-
-      logger.info(`Cleaned up processing data for ${youtube_id}`);
-    } catch (error) {
-      logger.error(`Error cleaning up processing data for ${youtube_id}:`, error);
-    }
-  }
-
   public async createNewUserAudioDescription(newUserAudioDescription: CreateUserAudioDescriptionDto, expressUser: Express.User) {
-    const { youtubeVideoId, aiUserId } = newUserAudioDescription;
+    const { youtubeVideoId } = newUserAudioDescription;
     if (isEmpty(expressUser)) throw new HttpException(403, 'User not logged in');
     if (isEmpty(youtubeVideoId)) throw new HttpException(400, 'youtubeVideoId is empty');
 
     const youtubeVideoData = await isVideoAvailable(youtubeVideoId);
-
     if (!youtubeVideoData) {
       throw new HttpException(400, 'No youtubeVideoData provided');
     }
-    let user: IUser | null = null;
 
-    const aiUserObjectId = new ObjectId(aiUserId);
-
-    const aiUser = await MongoUsersModel.findById(aiUserObjectId);
-    if (aiUser) user = aiUser;
-    else user = expressUser as IUser;
+    const user = expressUser as IUser;
 
     if (CURRENT_DATABASE == 'mongodb') {
       const videoIdStatus = await getYouTubeVideoStatus(youtubeVideoId);
@@ -495,61 +203,21 @@ class UserService {
           throw new HttpException(409, 'Something went wrong creating audio description.');
         }
       }
+
+      // Check if the user already has an audio description for this video
       const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
         video: videoIdStatus._id,
         user: user._id,
       });
+
       if (checkIfAudioDescriptionExists) {
         return {
           audioDescriptionId: checkIfAudioDescriptionExists._id,
         };
       }
 
-      // Search for AI Audio Description for specified YouTube Video ID
-      const aiAudioDescriptions = await MongoVideosModel.aggregate([
-        {
-          $match: {
-            youtube_id: youtubeVideoId,
-          },
-        },
-        {
-          $unwind: {
-            path: '$audio_descriptions',
-            preserveNullAndEmptyArrays: false,
-          },
-        },
-        {
-          $lookup: {
-            from: 'audio_descriptions',
-            localField: 'audio_descriptions',
-            foreignField: '_id',
-            as: 'video_ad',
-          },
-        },
-        {
-          $unwind: {
-            path: '$video_ad',
-          },
-        },
-        {
-          $lookup: {
-            from: 'users',
-            localField: 'video_ad.user',
-            foreignField: '_id',
-            as: 'video_ad_user',
-          },
-        },
-        {
-          $unwind: {
-            path: '$video_ad_user',
-          },
-        },
-        {
-          $match: {
-            'video_ad_user.user_type': 'AI',
-          },
-        },
-      ]);
+      // CHANGED: No longer search for AI descriptions or copy clips
+      // Simply create a new empty audio description for the user
 
       const createNewAudioDescription = new MongoAudio_Descriptions_Model({
         admin_review: false,
@@ -562,133 +230,30 @@ class UserService {
         user: user._id,
       });
 
-      if (!aiUser && aiAudioDescriptions.length <= 0) {
-        // No AI Audio Description exists, just create regular empty Audio Description
-        createNewAudioDescription.save();
-        if (!createNewAudioDescription) throw new HttpException(409, 'Something went wrong when creating audio description.');
+      await createNewAudioDescription.save();
+      if (!createNewAudioDescription) throw new HttpException(409, "Audio Description couldn't be created");
 
-        logger.info('Successfully created new Audio Description for existing Video that has no AI Audio Description');
-        return {
-          audioDescriptionId: createNewAudioDescription._id,
-          fromAI: false,
-        };
-      } else {
-        const audioClipArray = [];
-
-        for (let i = 0; i < aiAudioDescriptions[0].video_ad.audio_clips.length; i++) {
-          const clip = await MongoAudioClipsModel.findById(aiAudioDescriptions[0].video_ad.audio_clips[i]);
-          const createNewAudioClip = new MongoAudioClipsModel({
-            audio_description: createNewAudioDescription._id,
-            created_at: nowUtc(),
-            description_type: clip.description_type,
-            description_text: clip.description_text,
-            duration: clip.duration,
-            end_time: clip.end_time,
-            file_mime_type: clip.file_mime_type,
-            file_name: clip.file_name,
-            file_path: clip.file_path,
-            file_size_bytes: clip.file_size_bytes,
-            label: clip.label,
-            playback_type: clip.playback_type,
-            start_time: clip.start_time,
-            transcript: [],
-            updated_at: nowUtc(),
-            user: user._id,
-            video: videoIdStatus._id,
-            is_recorded: false,
-          });
-          if (!createNewAudioClip) throw new HttpException(409, "Audio Clip couldn't be created");
-          audioClipArray.push(createNewAudioClip);
-        }
-
-        const createNewAudioClips = await MongoAudioClipsModel.insertMany(audioClipArray);
-        if (!createNewAudioClips) throw new HttpException(409, "Audio Clips couldn't be created");
-        createNewAudioClips.forEach(async clip => createNewAudioDescription.audio_clips.push(clip));
-        createNewAudioClips.forEach(async clip => clip.save());
-        createNewAudioDescription.save();
-        if (!createNewAudioDescription) throw new HttpException(409, "Audio Description couldn't be created");
-
-        // Add Audio Description to Video Audio Description Array for consistency with old MongodB and YD Classic logic
-        await MongoVideosModel.findByIdAndUpdate(videoIdStatus._id, {
-          $push: {
-            audio_descriptions: {
-              $each: [{ _id: createNewAudioDescription._id }],
-            },
+      // Add Audio Description to Video's audio_descriptions array
+      await MongoVideosModel.findByIdAndUpdate(videoIdStatus._id, {
+        $push: {
+          audio_descriptions: {
+            $each: [{ _id: createNewAudioDescription._id }],
           },
-        }).catch(err => {
-          logger.error(err);
-          throw new HttpException(409, "Video couldn't be updated.");
-        });
+        },
+      }).catch(err => {
+        logger.error(err);
+        throw new HttpException(409, "Video couldn't be updated.");
+      });
 
-        logger.info('Successfully created new Audio Description for existing Video that has an AI Audio Description');
-        return {
-          audioDescriptionId: createNewAudioDescription._id,
-          fromAI: true,
-        };
-      }
+      logger.info('Successfully created new empty Audio Description for user');
+      return {
+        audioDescriptionId: createNewAudioDescription._id,
+        fromAI: false,
+      };
     } else {
-      // TODO: Need to update PostgreSQL version to search for AI Audio Description for specified YouTube Video ID
+      // PostgreSQL implementation...
       logger.error('PostgreSQL Version for CreateNewUserAudioDescription() Not Implemented');
       throw new HttpException(500, `Not Implemented Error`);
-      // // Check if Video exists
-      // const videoIdStatus = await PostGres_Videos.findOne({
-      //   where: { youtube_video_id: youtubeVideoId },
-      // });
-      // if (!videoIdStatus) throw new HttpException(409, "Video doesn't exist");
-
-      // // Check if AUDIO DESCRIPTION already exists
-      // const checkIfAudioDescriptionExists = await PostGres_Audio_Descriptions.findOne({
-      //   where: { VideoVideoId: videoIdStatus.video_id, UserUserId: userId },
-      // });
-      // if (checkIfAudioDescriptionExists) throw new HttpException(409, 'Audio Description already exists');
-
-      // // Check if AI USER exists
-      // const checkIfAIUserExists = await PostGres_Users.findOne({
-      //   where: { user_id: aiUserId },
-      // });
-      // if (!checkIfAIUserExists) throw new HttpException(409, "AI User doesn't exist");
-
-      // // Check if AI Descriptions exists
-      // const checkIfAIDescriptionsExists = await PostGres_Audio_Descriptions.findOne({
-      //   where: { VideoVideoId: videoIdStatus.video_id, UserUserId: aiUserId },
-      //   include: [
-      //     {
-      //       model: PostGres_Audio_Clips,
-      //       separate: true,
-      //       order: ['clip_start_time'],
-      //       as: 'Audio_Clips',
-      //     },
-      //   ],
-      // });
-      // if (!checkIfAIDescriptionsExists) throw new HttpException(409, "AI Descriptions doesn't exist");
-      // // Create new Audio Description
-      // const createNewAudioDescription = await PostGres_Audio_Descriptions.create({
-      //   VideoVideoId: videoIdStatus.video_id,
-      //   UserUserId: userId,
-      //   is_published: false,
-      // });
-      // if (!createNewAudioDescription) throw new HttpException(409, "Audio Description couldn't be created");
-      // // Create new Audio Clips
-      // const createNewAudioClips = await PostGres_Audio_Clips.bulkCreate(
-      //   checkIfAIDescriptionsExists.Audio_Clips.map(clip => {
-      //     return {
-      //       clip_title: clip.clip_title,
-      //       description_type: clip.description_type,
-      //       description_text: clip.description_text,
-      //       playback_type: clip.playback_type,
-      //       clip_start_time: clip.clip_start_time,
-      //       is_recorded: false,
-      //     };
-      //   }),
-      // );
-      // if (!createNewAudioClips) throw new HttpException(409, "Audio Clips couldn't be created");
-      // createNewAudioClips.forEach(async clip => {
-      //   createNewAudioDescription.addAudio_Clip(clip);
-      // });
-      // return {
-      //   audioDescriptionId: createNewAudioDescription.ad_id,
-      //   fromAI: true,
-      // };
     }
   }
 
@@ -696,43 +261,82 @@ class UserService {
     if (!newUserData) {
       throw new HttpException(400, 'No data provided');
     }
-    const { email, name, given_name, picture, locale, google_user_id, token, opt_in, admin_level, user_type } = newUserData;
-
+    const { email, name, given_name, picture, locale, apple_user_id, google_user_id, token, opt_in, admin_level, user_type } = newUserData;
     try {
       if (CURRENT_DATABASE === 'mongodb') {
-        const user = await MongoUsersModel.findOne({
-          google_user_id: google_user_id,
-        });
-
-        if (user) {
-          const updateduser = await MongoUsersModel.findOneAndUpdate(
-            { google_user_id: google_user_id },
-            {
-              $set: {
-                last_login: moment().utc().format('YYYYMMDDHHmmss'),
-                updated_at: moment().utc().format('YYYYMMDDHHmmss'),
-                token: token,
-              },
-            },
-            { new: true },
-          );
-          return updateduser;
-        } else {
-          const newUser = await MongoUsersModel.create({
-            email,
-            name,
-            given_name,
-            picture,
-            locale,
-            google_user_id,
-            token,
-            opt_in,
-            admin_level,
-            user_type,
-            last_login: moment().utc().format('YYYYMMDDHHmmss'),
+        if (google_user_id) {
+          const user = await MongoUsersModel.findOne({
+            google_user_id: google_user_id,
           });
 
-          return newUser;
+          if (user) {
+            const updateduser = await MongoUsersModel.findOneAndUpdate(
+              { google_user_id: google_user_id },
+              {
+                $set: {
+                  last_login: moment().utc().format('YYYYMMDDHHmmss'),
+                  updated_at: moment().utc().format('YYYYMMDDHHmmss'),
+                  token: token,
+                },
+              },
+              { new: true },
+            );
+            return updateduser;
+          } else {
+            const newUser = await MongoUsersModel.create({
+              email,
+              name,
+              given_name,
+              picture,
+              locale,
+              google_user_id,
+              apple_user_id: '',
+              token,
+              opt_in,
+              admin_level,
+              user_type,
+              last_login: moment().utc().format('YYYYMMDDHHmmss'),
+            });
+
+            return newUser;
+          }
+        } else if (apple_user_id) {
+          console.log('apple_user_id :: ', apple_user_id);
+          const user = await MongoUsersModel.findOne({
+            apple_user_id: apple_user_id,
+          });
+
+          if (user) {
+            const updateduser = await MongoUsersModel.findOneAndUpdate(
+              { apple_user_id: apple_user_id },
+              {
+                $set: {
+                  last_login: moment().utc().format('YYYYMMDDHHmmss'),
+                  updated_at: moment().utc().format('YYYYMMDDHHmmss'),
+                  token: token,
+                },
+              },
+              { new: true },
+            );
+            return updateduser;
+          } else {
+            const newUser = await MongoUsersModel.create({
+              email,
+              name,
+              given_name,
+              picture,
+              locale,
+              apple_user_id,
+              google_user_id: '',
+              token,
+              opt_in,
+              admin_level,
+              user_type,
+              last_login: moment().utc().format('YYYYMMDDHHmmss'),
+            });
+
+            return newUser;
+          }
         }
       } else {
         const newUser = await PostGres_Users.create({
@@ -759,6 +363,14 @@ class UserService {
 
     // Log the failure
     console.error(`Pipeline failed for video ${youtube_id}: ${error_message}`);
+
+    const captionRequest = await MongoAICaptionRequestModel.findOne({ youtube_id, ai_user_id });
+    if (captionRequest && captionRequest.caption_requests) {
+      for (const userId of captionRequest.caption_requests) {
+        await cacheService.invalidateByPrefix(`ai_requests_${userId}`);
+        logger.info(`Invalidated cache for user ${userId} after pipeline failure`);
+      }
+    }
 
     console.log('Pipeline failure handling completed.');
   }
@@ -875,136 +487,60 @@ class UserService {
   `;
   }
 
-  private async processAiDescriptionRequest(userData: IUser, youtube_id: string, ydx_app_host: string, youtubeVideoData: any) {
-    try {
-      // Update progress for initialization
-      await this.updateProcessingProgress(youtube_id, {
-        stage: 'checking_existing_description',
-        progress: 10,
-        startTime: this.activeProcessing.get(youtube_id)?.startTime || new Date(),
-        estimatedCompletion: this.activeProcessing.get(youtube_id)?.estimatedCompletion || new Date(),
-      });
-
-      const aiAudioDescriptions = await this.checkIfVideoHasAudioDescription(youtube_id, AI_USER_ID, userData._id);
-
-      if (aiAudioDescriptions) {
-        // Update progress for existing description
-        await this.updateProcessingProgress(youtube_id, {
-          stage: 'processing_existing_description',
-          progress: 50,
-          startTime: this.activeProcessing.get(youtube_id)?.startTime || new Date(),
-          estimatedCompletion: this.activeProcessing.get(youtube_id)?.estimatedCompletion || new Date(),
-        });
-
-        await this.handleExistingAudioDescription(userData, youtube_id, ydx_app_host, youtubeVideoData, aiAudioDescriptions);
-      } else {
-        // Update progress for new description
-        await this.updateProcessingProgress(youtube_id, {
-          stage: 'creating_new_description',
-          progress: 30,
-          startTime: this.activeProcessing.get(youtube_id)?.startTime || new Date(),
-          estimatedCompletion: this.activeProcessing.get(youtube_id)?.estimatedCompletion || new Date(),
-        });
-
-        await this.initiateNewAudioDescription(userData, youtube_id, ydx_app_host, youtubeVideoData);
-      }
-
-      // Final progress update
-      await this.updateProcessingProgress(youtube_id, {
-        stage: 'completed',
-        progress: 100,
-        startTime: this.activeProcessing.get(youtube_id)?.startTime || new Date(),
-        estimatedCompletion: new Date(),
-      });
-    } catch (error) {
-      logger.error(`Error in processAiDescriptionRequest: ${error.message}`, {
-        userId: userData._id,
-        youtubeId: youtube_id,
-        error: error,
-      });
-      await this.handleProcessingRetry(youtube_id, userData);
-    }
-  }
-
   public async checkAIServiceAvailability() {
-    try {
-      if (!GPU_URL) {
-        return { available: false, reason: 'GPU service not configured' };
-      }
-
-      const response = await axios.get(`${GPU_URL}/health_check`, { timeout: 5000 });
-      return {
-        available: response.status === 200,
-        reason: response.status === 200 ? 'Service available' : 'Service unavailable',
-      };
-    } catch (error) {
-      logger.error('AI service health check failed:', error);
-      return { available: false, reason: 'Service unavailable' };
-    }
+    return {
+      available: true,
+      reason: 'Queuing system available',
+      queueSize: this.videoProcessingQueue.length,
+    };
+    // try {
+    //   if (!GPU_URL) {
+    //     return { available: false, reason: 'GPU service not configured' };
+    //   }
+    //
+    //   const response = await axios.get(`${GPU_URL}/health_check`, { timeout: 5000 });
+    //   return {
+    //     available: response.status === 200,
+    //     reason: response.status === 200 ? 'Service available' : 'Service unavailable',
+    //   };
+    // } catch (error) {
+    //   logger.error('AI service health check failed:', error);
+    //   return { available: false, reason: 'Service unavailable' };
+    // }
   }
 
   public async requestAiDescriptionsWithGpu(userData: IUser, youtube_id: string, ydx_app_host: string) {
     try {
       logger.info(`Starting AI description request for video ${youtube_id}`, { userId: userData._id });
 
-      // First check service availability as you currently do
-      const serviceStatus = await this.checkAIServiceAvailability();
-      if (!serviceStatus.available) {
-        throw new HttpException(503, 'AI service is currently unavailable');
-      }
-
-      // Get video data with additional validation
+      // Validate the YouTube video exists
       const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
       if (!youtubeVideoData) {
         throw new VideoNotFoundError(`No data found for YouTube ID: ${youtube_id}`);
       }
 
-      // Add duration check
-      if (youtubeVideoData.duration > 600) {
-        throw new HttpException(400, 'Video exceeds maximum duration of 10 minutes');
+      logger.info(`Video data retrieved for ${youtube_id}`, { videoTitle: youtubeVideoData.title });
+
+      await cacheService.invalidateByPrefix(`ai_requests_${userData._id}`);
+      logger.info(`Invalidated cache for user ${userData._id} after requesting AI description`);
+
+      // Check if we already have an AI description for this video
+      const aiAudioDescriptions = await this.checkIfVideoHasAudioDescription(youtube_id, AI_USER_ID, userData._id);
+      if (aiAudioDescriptions) {
+        // Handle existing description case
+        logger.info(`Existing AI description found for ${youtube_id}`);
+        return await this.handleExistingAudioDescription(userData, youtube_id, ydx_app_host, youtubeVideoData, aiAudioDescriptions);
       }
 
-      // Initialize progress tracking
-      const progress: ProcessingProgress = {
-        stage: 'initialized',
-        progress: 0,
-        startTime: new Date(),
-        estimatedCompletion: new Date(Date.now() + this.parseEstimatedMinutes(youtubeVideoData.duration) * 60000),
-      };
-
-      this.activeProcessing.set(youtube_id, progress);
-
-      // Create enhanced response
-      const response = {
-        message: 'Your request has been received and is being processed.',
-        status: 'pending',
-        estimatedTime: this.calculateEstimatedTime(youtubeVideoData.duration),
-        progress: {
-          stage: progress.stage,
-          percentage: progress.progress,
-          estimatedCompletion: progress.estimatedCompletion,
-        },
-      };
-
-      // Process in background with enhanced error handling
-      this.processAiDescriptionRequest(userData, youtube_id, ydx_app_host, youtubeVideoData).catch(async error => {
-        logger.error('Background processing failed:', error);
-        await this.handleProcessingRetry(youtube_id, userData);
-      });
-
-      return response;
+      // Queue the video for processing instead of sending directly
+      return await this.queueVideoForProcessing(userData, youtube_id, ydx_app_host, youtubeVideoData);
     } catch (error) {
-      // Enhanced error handling
       logger.error(`Error in requestAiDescriptionsWithGpu: ${error.message}`, {
         userId: userData._id,
         youtubeId: youtube_id,
         error: error,
       });
 
-      // Track failure in metrics
-      await this.trackProcessingMetrics(youtube_id);
-
-      // Throw appropriate error
       if (error instanceof VideoNotFoundError) {
         throw new HttpException(404, error.message);
       } else if (error instanceof AIProcessingError) {
@@ -1014,6 +550,150 @@ class UserService {
       } else {
         throw new HttpException(500, 'An unexpected error occurred');
       }
+    }
+  }
+
+  // Add this method after requestAiDescriptionsWithGpu
+  private async queueVideoForProcessing(userData: IUser, youtube_id: string, ydx_app_host: string, youtubeVideoData: any): Promise<any> {
+    try {
+      logger.info(`Adding video ${youtube_id} to processing queue for user ${userData._id}`);
+
+      // First perform all immediate operations (database, email notification)
+      await this.performImmediateOperations(userData, youtube_id, ydx_app_host, youtubeVideoData);
+
+      // Add to queue
+      this.videoProcessingQueue.push({
+        youtubeId: youtube_id,
+        userId: userData._id.toString(),
+        aiUserId: AI_USER_ID,
+        ydx_app_host,
+      });
+
+      // Start processing the queue if not already processing
+      if (!this.isProcessingQueue) {
+        this.processNextInQueue();
+      }
+
+      return {
+        message: 'Your request has been queued and will be processed in order',
+        status: 'pending',
+        queuePosition: this.videoProcessingQueue.length,
+      };
+    } catch (error) {
+      logger.error(`Error queuing video ${youtube_id}: ${error.message}`, {
+        userId: userData._id,
+        error: error,
+      });
+      throw error;
+    }
+  }
+
+  // Add this method after queueVideoForProcessing
+  private async performImmediateOperations(userData: IUser, youtube_id: string, ydx_app_host: string, youtubeVideoData: any): Promise<void> {
+    try {
+      // Increment counter in database
+      await this.increaseRequestCount(youtube_id, userData._id.toString(), AI_USER_ID);
+
+      // Send initial notification email to user
+      await sendEmail(
+        userData.email,
+        `🎬 AI Description for "${youtubeVideoData.title}" is in the Works!`,
+        this.getNewAudioDescriptionEmailBody(userData.name, youtubeVideoData.title),
+      );
+
+      logger.info(`Immediate operations completed for video ${youtube_id}, user ${userData._id}`);
+    } catch (error) {
+      logger.error(`Error in immediate operations for ${youtube_id}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  // Add this method after performImmediateOperations
+  private async processNextInQueue() {
+    if (this.videoProcessingQueue.length === 0) {
+      this.isProcessingQueue = false;
+      logger.info('Queue processing completed - no more items in queue');
+      return;
+    }
+
+    this.isProcessingQueue = true;
+    const nextItem = this.videoProcessingQueue[0]; // Peek without removing yet
+
+    try {
+      logger.info(`Processing queue item for video ${nextItem.youtubeId}`);
+
+      // Check if GPU service is actually reachable before sending
+      let gpuServiceAvailable = false;
+      try {
+        if (GPU_URL) {
+          const response = await axios.get(`${GPU_URL}/health_check`, { timeout: 5000 });
+          gpuServiceAvailable = response.status === 200;
+        }
+      } catch (error) {
+        logger.error(`GPU service health check failed: ${error.message}`);
+        gpuServiceAvailable = false;
+      }
+
+      if (gpuServiceAvailable) {
+        // Remove from queue now that we're about to process it
+        this.videoProcessingQueue.shift();
+
+        // Fetch necessary data
+        const user = await MongoUsersModel.findById(nextItem.userId);
+        const youtubeVideoData = await getVideoDataByYoutubeId(nextItem.youtubeId);
+
+        if (!user || !youtubeVideoData) {
+          throw new Error('User or video data not found');
+        }
+
+        // Send to GPU service for processing
+        await this.sendToGpuService(user, nextItem.youtubeId, nextItem.ydx_app_host, nextItem.aiUserId);
+
+        logger.info(`Successfully sent video ${nextItem.youtubeId} to GPU service`);
+      } else {
+        logger.warn(`GPU service unavailable, will retry processing ${nextItem.youtubeId} later`);
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, 30000)); // 30 second wait
+      }
+    } catch (error) {
+      // Remove failed item from queue to prevent blocking
+      this.videoProcessingQueue.shift();
+
+      logger.error(`Error processing queue item for ${nextItem.youtubeId}: ${error.message}`);
+      try {
+        // Attempt to notify user of failure
+        const user = await MongoUsersModel.findById(nextItem.userId);
+        if (user) {
+          const youtubeVideoData = await getVideoDataByYoutubeId(nextItem.youtubeId);
+          const videoTitle = youtubeVideoData?.title || 'Unknown Video';
+          await this.sendErrorNotificationEmail(user, nextItem.youtubeId, videoTitle);
+        }
+      } catch (notifyError) {
+        logger.error(`Failed to send error notification: ${notifyError.message}`);
+      }
+    }
+
+    // Process next item regardless of success/failure of this one
+    // Small timeout to prevent immediate retries
+    setTimeout(() => this.processNextInQueue(), 1000);
+  }
+
+  // Add this method after processNextInQueue
+  private async sendToGpuService(user: IUser, youtube_id: string, ydx_app_host: string, aiUserId: string): Promise<void> {
+    try {
+      // Direct call to the GPU service API
+      const response = await axios.post(`${GPU_URL}/generate_ai_caption`, {
+        youtube_id: youtube_id,
+        user_id: user._id,
+        ydx_app_host,
+        ydx_server: CURRENT_YDX_HOST,
+        AI_USER_ID: aiUserId,
+      });
+
+      logger.info(`GPU service response for ${youtube_id}: ${JSON.stringify(response.data)}`);
+    } catch (error) {
+      logger.error(`Error sending to GPU service: ${error.message}`);
+      throw error;
     }
   }
 
@@ -1043,54 +723,12 @@ class UserService {
     };
   }
 
-  private async initiateNewAudioDescription(userData: IUser, youtube_id: string, ydx_app_host: string, youtubeVideoData: any) {
-    logger.info(`Initiating new audio description for ${youtube_id}`);
-
-    if (!GPU_URL) throw new AIProcessingError('GPU_URL is not defined');
-
-    const response = await axios.post(`${GPU_URL}/generate_ai_caption`, {
-      youtube_id: youtube_id,
-      user_id: userData._id,
-      ydx_app_host,
-      ydx_server: CURRENT_YDX_HOST,
-      AI_USER_ID: AI_USER_ID,
-    });
-
-    const counterIncrement = await this.increaseRequestCount(youtube_id, userData._id, AI_USER_ID);
-
-    if (!counterIncrement) {
-      throw new AIProcessingError('Error incrementing counter');
-    }
-
-    await sendEmail(
-      userData.email,
-      `🎬 AI Description for "${youtubeVideoData.title}" is in the Works!`,
-      this.getNewAudioDescriptionEmailBody(userData.name, youtubeVideoData.title),
-    );
-
-    return response.data;
-  }
-
-  private async handleError(userData: IUser, youtube_id: string, videoTitle: string) {
-    await this.sendErrorNotificationEmail(userData, youtube_id, videoTitle);
-    await this.cleanupDatabaseEntry(youtube_id, AI_USER_ID);
-  }
-
   private async sendErrorNotificationEmail(userData: IUser, youtube_id: string, videoTitle: string) {
     const emailSubject = `Video Processing Error - We're Working on It!`;
     const emailBody = this.getErrorNotificationEmailBody(userData.name, videoTitle, youtube_id);
 
     await sendEmail(userData.email, emailSubject, emailBody);
     logger.info(`Error notification email sent to ${userData.email}`);
-  }
-
-  private async cleanupDatabaseEntry(youtube_id: string, AI_USER_ID: string) {
-    try {
-      await MongoAICaptionRequestModel.deleteOne({ youtube_id, AI_USER_ID });
-      logger.info(`Database entry cleaned up for YouTube ID: ${youtube_id}`);
-    } catch (dbError) {
-      logger.error(`Error cleaning up database entry: ${dbError.message}`);
-    }
   }
 
   private getExistingAudioDescriptionEmailBody(userName: string, videoTitle: string, url: string) {
@@ -1289,37 +927,10 @@ class UserService {
     }
   }
 
-  public async aiDescriptionStatus(
-    user_id: string,
-    youtube_id: string,
-  ): Promise<{
-    status: string;
-    requested: boolean;
-    url?: string;
-    progress?: {
-      stage: string;
-      percentage: number;
-      estimatedCompletion: Date;
-    };
-  }> {
+  public async aiDescriptionStatus(user_id: string, youtube_id: string): Promise<{ status: string; requested: boolean; url?: string }> {
     try {
-      // Get active processing status if available
-      const activeProgress = this.activeProcessing.get(youtube_id);
-
-      // Get base status from database
-      const baseStatus = await this.aiDescriptionStatusUtil(user_id, youtube_id, AI_USER_ID);
-
-      // Enhance response with progress information if available
-      return {
-        ...baseStatus,
-        progress: activeProgress
-          ? {
-              stage: activeProgress.stage,
-              percentage: activeProgress.progress,
-              estimatedCompletion: activeProgress.estimatedCompletion,
-            }
-          : undefined,
-      };
+      const response = await this.aiDescriptionStatusUtil(user_id, youtube_id, AI_USER_ID);
+      return response;
     } catch (error) {
       logger.error(`Error in aiDescriptionStatus: ${error.message}`);
       throw error;
@@ -1446,10 +1057,25 @@ class UserService {
     try {
       const page = parseInt(pageNumber, 10) || 1;
       const perPage = paginate ? 4 : 20;
+
+      // Generate a cache key based on method parameters
+      const cacheKey = `ai_requests_${user_id}_${page}_${perPage}`;
+
+      // Try to get from cache first
+      const cachedResult = await cacheService.get(cacheKey);
+      if (cachedResult) {
+        logger.info(`Cache hit for AI description requests: ${cacheKey}`);
+        return cachedResult;
+      }
+
+      logger.info(`Cache miss for AI description requests: ${cacheKey}`);
       const skipCount = Math.max((page - 1) * perPage, 0);
 
-      const pipeline: any[] = [
+      const pipeline: PipelineStage[] = [
+        // First stage: quick filter by user_id (indexed field)
         { $match: { caption_requests: new ObjectId(user_id) } },
+
+        // Join with videos collection
         {
           $lookup: {
             from: 'videos',
@@ -1458,7 +1084,14 @@ class UserService {
             as: 'video',
           },
         },
+
+        // Filter out records without video data
+        { $match: { 'video.0': { $exists: true } } },
+
+        // Unwind the video array
         { $unwind: '$video' },
+
+        // Group by ID to deduplicate
         {
           $group: {
             _id: '$_id',
@@ -1467,6 +1100,8 @@ class UserService {
             video: { $first: '$video' },
           },
         },
+
+        // Project the fields we need
         {
           $project: {
             _id: 1,
@@ -1478,18 +1113,21 @@ class UserService {
             video_length: '$video.duration',
             createdAt: '$video.created_at',
             updatedAt: '$video.updated_at',
-            overall_rating_votes_average: 1,
-            overall_rating_votes_counter: 1,
-            overall_rating_votes_sum: 1,
           },
         },
-        { $sort: { _id: -1 } },
+
+        // Sort by most recent first
+        { $sort: { createdAt: -1 } },
+
+        // Use facet for pagination
         {
           $facet: {
             totalCount: [{ $count: 'count' }],
             paginatedResults: [{ $skip: skipCount }, { $limit: perPage }],
           },
         },
+
+        // Project final result
         {
           $project: {
             total: { $arrayElemAt: ['$totalCount.count', 0] },
@@ -1500,19 +1138,49 @@ class UserService {
 
       const result = await MongoAICaptionRequestModel.aggregate(pipeline).exec();
 
-      return {
+      const response = {
         total: result[0]?.total || 0,
         videos: result[0]?.videos || [],
       };
+
+      // Cache the result (5 minutes TTL)
+      await cacheService.set(cacheKey, response, 5 * 60 * 1000);
+
+      return response;
     } catch (error) {
       logger.error('Error retrieving user AI description requests:', error);
       throw new HttpException(500, 'Internal server error');
     }
   }
 
+  // Helper method to ensure indexes exist
+  private async ensureIndexes() {
+    try {
+      // Check if indexes exist and create them if they don't
+      const aiRequestsIndexes = await MongoAICaptionRequestModel.collection.indexInformation();
+      if (!aiRequestsIndexes.caption_requests_1) {
+        await MongoAICaptionRequestModel.collection.createIndex({ caption_requests: 1 });
+        logger.info('Created index on caption_requests for AICaptionRequests');
+      }
+
+      if (!aiRequestsIndexes.youtube_id_1) {
+        await MongoAICaptionRequestModel.collection.createIndex({ youtube_id: 1 });
+        logger.info('Created index on youtube_id for AICaptionRequests');
+      }
+
+      const videosIndexes = await MongoVideosModel.collection.indexInformation();
+      if (!videosIndexes.youtube_id_1) {
+        await MongoVideosModel.collection.createIndex({ youtube_id: 1 });
+        logger.info('Created index on youtube_id for Videos');
+      }
+    } catch (error) {
+      logger.error('Error ensuring indexes:', error);
+    }
+  }
+
   // Add these methods to your UserService class
 
-  public async saveVisitedVideosHistory(user_id: string, youtube_id: string) {
+  public async saveVisitedVideosHistory(user_id: string, youtube_id: string, invalidate_cache: boolean) {
     try {
       if (!user_id || !youtube_id) {
         throw new HttpException(400, 'Missing required parameters');
@@ -1542,6 +1210,10 @@ class UserService {
           { new: true },
         );
 
+        if (invalidate_cache) {
+          await cacheService.invalidateByPrefix(`history_${user_id}`);
+        }
+
         return { success: true, visited_videos: updatedVideos };
       } else {
         // Create new history document
@@ -1568,6 +1240,15 @@ class UserService {
       if (!user_id) {
         throw new HttpException(400, 'User ID is required');
       }
+
+      const cacheKey = `history_${user_id}_${pageNumber}_${paginate}`;
+      const cachedResult = await cacheService.get(cacheKey);
+      if (cachedResult) {
+        logger.info(`Cache hit for visited videos history: ${cacheKey}`);
+        return cachedResult;
+      }
+
+      logger.info(`Cache miss for visited videos history: ${cacheKey}`);
 
       const page = parseInt(pageNumber, 10);
       const perPage = 4;
@@ -1654,6 +1335,15 @@ class UserService {
 
       // Filter out null entries (failed videos)
       const validVideos = enrichedVideos.filter((video): video is NonNullable<typeof video> => video !== null);
+
+      await cacheService.set(
+        cacheKey,
+        {
+          videos: validVideos,
+          total: Math.max(0, total - (enrichedVideos.length - validVideos.length)),
+        },
+        5 * 60 * 1000,
+      );
 
       return {
         videos: validVideos,

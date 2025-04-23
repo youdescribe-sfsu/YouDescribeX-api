@@ -54,7 +54,11 @@ const UserSchema: Schema = new Schema(
     },
     google_user_id: {
       type: String,
-      required: true,
+      required: false,
+    },
+    apple_user_id: {
+      type: String,
+      required: false,
     },
     last_login: {
       type: Number,
@@ -66,7 +70,7 @@ const UserSchema: Schema = new Schema(
     },
     name: {
       type: String,
-      required: true,
+      required: false,
     },
     opt_in: {
       type: Boolean,

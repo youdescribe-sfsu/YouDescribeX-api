@@ -1,5 +1,8 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import { nowUtc } from '../../utils/util';
+import { MongoAudio_Descriptions_Model, MongoAudioClipsModel } from './init-models.mongo';
+import cacheService from '../../utils/cacheService';
+import { logger } from '../../utils/logger';
 
 interface ITranscript {
   _id: string;
@@ -129,6 +132,52 @@ const AudioClipSchema: Schema = new Schema(
   },
   { collection: 'audio_clips' },
 );
+
+// Add these hooks to AudioClips.mongo.ts
+AudioClipSchema.pre('updateOne', async function (next) {
+  // Update this clip's timestamp
+  this.set({ updated_at: nowUtc() });
+
+  // Get the clip being updated to find its parent
+  const query = this.getQuery();
+  if (query._id) {
+    try {
+      // Find the audio clip to get its parent audio description
+      const clip = await MongoAudioClipsModel.findById(query._id);
+      if (clip && clip.audio_description) {
+        // Update the parent audio description's timestamp
+        await MongoAudio_Descriptions_Model.findByIdAndUpdate(clip.audio_description, { updated_at: nowUtc() }, { new: true });
+
+        // Invalidate the cache
+        await cacheService.invalidateByPrefix('home_videos');
+      }
+    } catch (error) {
+      logger.error(`Error updating parent from pre-save hook: ${error.message}`);
+    }
+  }
+  next();
+});
+
+// Similar hook for findOneAndUpdate
+AudioClipSchema.pre('findOneAndUpdate', async function (next) {
+  // Same implementation as above
+  this.set({ updated_at: nowUtc() });
+
+  const query = this.getQuery();
+  if (query._id) {
+    try {
+      const clip = await MongoAudioClipsModel.findById(query._id);
+      if (clip && clip.audio_description) {
+        await MongoAudio_Descriptions_Model.findByIdAndUpdate(clip.audio_description, { updated_at: nowUtc() }, { new: true });
+
+        await cacheService.invalidateByPrefix('home_videos');
+      }
+    } catch (error) {
+      logger.error(`Error updating parent from pre-save hook: ${error.message}`);
+    }
+  }
+  next();
+});
 
 export default AudioClipSchema;
 export { IAudioClip };

@@ -22,6 +22,7 @@ class AudioClipsRoute implements Routes {
     this.router.post(`${this.path}/add-new-clip/:adId`, upload.single('file'), this.audioClipController.addNewAudioClip);
     this.router.delete(`${this.path}/delete-clip/:clipId`, this.audioClipController.deleteAudioClip);
     this.router.post(`${this.path}/undo-last-deleted`, this.audioClipController.undoDeletedAudioClip);
+    this.router.get(`${this.path}/get-playback-type/:clipId`, this.audioClipController.getAudioClipPlaybackType);
   }
 }
 

@@ -12,6 +12,8 @@ import { MongoAudioClipsModel, MongoDialog_Timestamps_Model } from '../models/mo
 import { Audio_Clips, Dialog_Timestamps, Videos } from '../models/postgres/init-models';
 import { logger } from './logger';
 import { getYouTubeVideoStatus, nowUtc } from './util';
+import path from 'path';
+import { HttpException } from '../exceptions/HttpException';
 
 // Types and Interfaces
 interface TextToSpeechResponse {
@@ -80,10 +82,20 @@ class FileManagementService {
   }
 
   static deleteFile(filepath: string): boolean {
-    const newPath = CONFIG.app.audioDirectory + filepath.replace('.', '');
     try {
-      fs.unlinkSync(newPath);
-      logger.info('File deleted successfully:', newPath);
+      const normalizedPath = filepath.startsWith('.') ? filepath.substring(1) : filepath;
+
+      const fullPath = `${CONFIG.app.audioDirectory}${normalizedPath}`;
+
+      const finalPath = fullPath.endsWith('.mp3') ? fullPath : `${fullPath}.mp3`;
+
+      if (!fs.existsSync(finalPath)) {
+        logger.error(`File does not exist: ${finalPath}`);
+        return false;
+      }
+
+      fs.unlinkSync(finalPath);
+      logger.info('File deleted successfully:', finalPath);
       return true;
     } catch (err) {
       logger.error('File deletion error:', err);
@@ -92,7 +104,8 @@ class FileManagementService {
   }
 
   static copyFile(oldPath: string, youtubeVideoId: string, fileName: string, adId: string): string {
-    const oldAbsPath = `${CONFIG.app.audioDirectory}${oldPath.replace('.', '')}/${fileName}`;
+    const normalizedPath = oldPath.replace(/^\./, '');
+    const oldAbsPath = `${CONFIG.app.audioDirectory}${normalizedPath}/${fileName}`;
 
     if (!fs.existsSync(oldAbsPath)) {
       logger.error(`File does not exist: ${oldAbsPath}`);
@@ -101,8 +114,11 @@ class FileManagementService {
 
     const newPath = `${CONFIG.app.audioDirectory}/audio/${youtubeVideoId}/${adId}/${fileName}`;
     try {
-      fs.copyFileSync(oldPath, newPath);
-      return `./audio/${youtubeVideoId}/${adId}`;
+      const targetDir = path.dirname(newPath);
+      fs.mkdirSync(targetDir, { recursive: true });
+
+      fs.copyFileSync(oldAbsPath, newPath);
+      return `/audio/${youtubeVideoId}/${adId}`;
     } catch (err) {
       logger.error('File copy error:', err);
       return oldPath;
@@ -176,8 +192,19 @@ class AudioClipService {
     adId: string,
     clipId: string | null,
     processingAllClips: boolean,
+    requestedPlaybackType?: 'extended' | 'inline',
   ): Promise<PlaybackAnalysisResponse> {
     try {
+      // ALWAYS respect any explicitly requested type (whether extended or inline)
+      if (requestedPlaybackType) {
+        logger.info(`Preserving user-selected playback type: ${requestedPlaybackType}`);
+        return {
+          message: `Success - preserving user selection: ${requestedPlaybackType}`,
+          data: requestedPlaybackType,
+        };
+      }
+
+      // Only execute calculation logic if no requested type is specified
       const overlappingDialogs = await MongoDialog_Timestamps_Model.find({
         video: videoId,
         $and: [{ dialog_start_time: { $lte: endTime } }, { dialog_end_time: { $gte: startTime } }],
@@ -297,9 +324,24 @@ class DatabaseService {
   static async getOldAudioPath(clipId: string): Promise<AudioPathResponse> {
     try {
       const clip = await MongoAudioClipsModel.findById(clipId);
+      if (!clip) {
+        return {
+          message: 'Clip not found',
+          data: null,
+        };
+      }
+
+      // Ensure proper path construction with file extension
+      let filePath = clip.file_name ? `${clip.file_path}/${clip.file_name}` : clip.file_path;
+
+      // Validate the file extension
+      if (clip.file_name && !clip.file_name.endsWith('.mp3')) {
+        filePath = filePath + '.mp3';
+      }
+
       return {
         message: 'Success',
-        data: clip.file_name ? `${clip.file_path}/${clip.file_name}` : clip.file_path,
+        data: filePath,
       };
     } catch (err) {
       logger.error('Get old audio path error:', err);
@@ -379,7 +421,20 @@ class ClipProcessingService {
         },
       );
 
-      const playbackType = await AudioClipService.analyzePlaybackType(clipStartTime, clipEndTime, data.video_id, data.ad_id, data.clip_id, true);
+      const audioClip = await MongoAudioClipsModel.findById(data.clip_id);
+      if (!audioClip) throw new HttpException(409, 'Audio clip not found');
+
+      const currentPlaybackType = audioClip.playback_type as 'extended' | 'inline';
+
+      const playbackType = await AudioClipService.analyzePlaybackType(
+        clipStartTime,
+        clipEndTime,
+        data.video_id,
+        data.ad_id,
+        data.clip_id,
+        true,
+        currentPlaybackType,
+      );
 
       if (!playbackType.data) {
         return {
@@ -489,8 +544,9 @@ export const analyzePlaybackType = async (
   adId: string,
   clipId: string | null,
   processingAllClips: boolean,
+  requestedPlaybackType?: 'extended' | 'inline',
 ): Promise<PlaybackAnalysisResponse> => {
-  return AudioClipService.analyzePlaybackType(currentClipStartTime, currentClipEndTime, videoId, adId, clipId, processingAllClips);
+  return AudioClipService.analyzePlaybackType(currentClipStartTime, currentClipEndTime, videoId, adId, clipId, processingAllClips, requestedPlaybackType);
 };
 
 export const getAudioDuration = async (filepath: string): Promise<{ message: string; data: string | null }> => {

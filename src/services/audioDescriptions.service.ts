@@ -11,6 +11,7 @@ import {
   MongoUsersModel,
   MongoVideosModel,
   MongoAICaptionRequestModel,
+  MongoWishListModel,
 } from '../models/mongodb/init-models.mongo';
 import {
   Audio_DescriptionsAttributes,
@@ -23,6 +24,7 @@ import {
 import { logger } from '../utils/logger';
 import { getYouTubeVideoStatus, isEmpty, nowUtc } from '../utils/util';
 import { isVideoAvailable } from '../utils/videos.util';
+import cacheService from '../utils/cacheService';
 
 const fs = require('fs');
 
@@ -331,33 +333,65 @@ class AudioDescriptionsService {
     user_id: string,
     enrolled_in_collaborative_editing: boolean,
   ): Promise<string> => {
+    logger.info(`[COLLAB] Publishing audio description ${audioDescriptionId} for video ${youtube_id} by user ${user_id}`);
+    logger.info(`[COLLAB] Collaborative editing enabled: ${enrolled_in_collaborative_editing}`);
     try {
       const videoIdStatus = await getYouTubeVideoStatus(youtube_id);
 
       if (!videoIdStatus) {
         throw new HttpException(400, 'No videoIdStatus provided');
       }
+
       const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
         video: videoIdStatus._id,
         _id: audioDescriptionId,
       });
+
       if (!checkIfAudioDescriptionExists) {
         throw new HttpException(404, 'No audioDescriptionId Found');
       }
 
-      const audioDescription = await MongoAudio_Descriptions_Model.findByIdAndUpdate(audioDescriptionId, {
+      const updateFields: any = {
         status: 'published',
         updated_at: nowUtc(),
         collaborative_editing: enrolled_in_collaborative_editing,
-        user: user_id,
+      };
+
+      // Only update user if this is NOT a collaborative edit
+      if (!checkIfAudioDescriptionExists.prev_audio_description) {
+        updateFields.user = user_id;
+      }
+
+      const audioDescription = await MongoAudio_Descriptions_Model.findByIdAndUpdate(
+        audioDescriptionId,
+        updateFields,
+        { new: true }, // Return the updated document
+      );
+
+      // Check if this audio description is already in the video's array to prevent duplicates
+      const videoWithAD = await MongoVideosModel.findOne({
+        _id: videoIdStatus._id,
+        audio_descriptions: audioDescriptionId,
       });
-      const result = await MongoVideosModel.findByIdAndUpdate(videoIdStatus._id, {
-        $push: { audio_descriptions: audioDescriptionId },
-      });
+
+      // Only add the audio description if it's not already in the array
+      if (!videoWithAD) {
+        await MongoVideosModel.findByIdAndUpdate(videoIdStatus._id, {
+          $addToSet: { audio_descriptions: audioDescriptionId }, // Use $addToSet instead of $push
+        });
+      }
+
+      await MongoWishListModel.updateOne({ youtube_id: youtube_id, status: 'queued' }, { $set: { status: 'fulfilled' } });
+
+      logger.info(`[COLLAB] Audio description ${audioDescriptionId} published successfully`);
+
+      await cacheService.invalidateByPrefix('home_videos');
+      logger.info(`[COLLAB] Home page cache invalidated after publishing audio description ${audioDescriptionId}`);
 
       return audioDescription._id.toString();
     } catch (error) {
-      logger.error(error);
+      logger.error(`[COLLAB] Error publishing audio description: ${error.message}`);
+      logger.error(`[COLLAB] Error stack: ${error.stack}`);
       throw error;
     }
   };
@@ -494,6 +528,14 @@ class AudioDescriptionsService {
     }
 
     try {
+      const cacheKey = `my_descriptions_${user_id}_${pageNumber}_${paginate}`;
+      const cachedResult = await cacheService.get(cacheKey);
+      if (cachedResult) {
+        logger.info(`Cache hit for my descriptions: ${cacheKey}`);
+        return cachedResult;
+      }
+
+      logger.info(`Cache miss for my descriptions: ${cacheKey}`);
       const page = parseInt(pageNumber, 10) || 1;
       const videosPerPage = paginate ? 4 : 20; // Set videos per page to 4 if paginate is true, otherwise 20
       const skipCount = (page - 1) * videosPerPage;
@@ -524,6 +566,7 @@ class AudioDescriptionsService {
             overall_rating_votes_sum: 1,
           },
         },
+        { $sort: { createdAt: -1 } },
         {
           $facet: {
             totalCount: [{ $count: 'count' }],
@@ -539,6 +582,8 @@ class AudioDescriptionsService {
       ];
 
       const result = await MongoAudio_Descriptions_Model.aggregate(pipeline).exec();
+
+      await cacheService.set(cacheKey, result, 5 * 60 * 1000);
 
       return {
         total: result[0]?.total || 0,
@@ -586,6 +631,7 @@ class AudioDescriptionsService {
             overall_rating_votes_sum: 1,
           },
         },
+        { $sort: { createdAt: -1 } },
         {
           $facet: {
             totalCount: [{ $count: 'count' }],

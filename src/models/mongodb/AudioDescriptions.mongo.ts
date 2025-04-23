@@ -17,9 +17,9 @@ interface IAudioDescription extends Document {
   video: string;
   views: number;
   collaborative_editing: boolean;
-  contributions: Map<string, number>;
-  prev_audio_description: string;
-  depth: number;
+  contributions?: Record<string, number>;
+  prev_audio_description?: string;
+  depth?: number;
 }
 
 const AudioDescriptionSchema: Schema = new Schema(
@@ -88,13 +88,12 @@ const AudioDescriptionSchema: Schema = new Schema(
       default: false,
     },
     contributions: {
-      type: Map,
-      of: {
-        type: Number,
-      },
+      type: Object, // Change from Map
+      default: {},
     },
     prev_audio_description: {
-      type: String,
+      type: Schema.Types.ObjectId,
+      ref: 'AudioDescription',
     },
     depth: {
       type: Number,
@@ -103,6 +102,16 @@ const AudioDescriptionSchema: Schema = new Schema(
   },
   { collection: 'audio_descriptions' },
 );
+
+AudioDescriptionSchema.pre('updateOne', function (next) {
+  this.set({ updated_at: nowUtc() });
+  next();
+});
+
+AudioDescriptionSchema.pre('findOneAndUpdate', function (next) {
+  this.set({ updated_at: nowUtc() });
+  next();
+});
 
 export default AudioDescriptionSchema;
 export { IAudioDescription };

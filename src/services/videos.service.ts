@@ -21,11 +21,12 @@ import {
 import { IVideo } from '../models/mongodb/Videos.mongo';
 import { logger } from '../utils/logger';
 import { getVideoDataByYoutubeId } from '../utils/videos.util';
-import cache from 'memory-cache';
 import moment from 'moment';
 import axios from 'axios';
-import App from '../app';
 import stringSimilarity from 'string-similarity';
+import mongoose from 'mongoose';
+import cacheService from '../utils/cacheService';
+import YoutubeCacheService from './youtube-cache.service';
 
 class VideosService {
   public async getVideobyYoutubeId(youtubeId: string): Promise<any> {
@@ -256,9 +257,23 @@ class VideosService {
         if (ad.contributions) {
           const nameContributions = new Map<string, number>();
           for (const [key, value] of Object.entries(ad.contributions)) {
-            const user = await MongoUsersModel.findOne({ _id: key });
-            const name = user.user_type !== 'AI' ? user.name : 'AI Description Draft';
-            nameContributions[name] = value;
+            try {
+              if (!mongoose.Types.ObjectId.isValid(key)) {
+                nameContributions[key] = value;
+                continue;
+              }
+
+              const user = await MongoUsersModel.findOne({ _id: key });
+              if (!user) {
+                logger.warn(`User not found for ID: ${key}, skipping contribution mapping`);
+                continue;
+              }
+              const name = user.user_type === 'AI' ? 'AI Description Draft' : user.name;
+              nameContributions[name] = value;
+            } catch (error) {
+              logger.error(`Error processing contribution for key ${key}:`, error);
+              continue;
+            }
           }
           ad.contributions = nameContributions;
         }
@@ -504,6 +519,7 @@ class VideosService {
             youtube_status: 1,
             __v: 1,
             _id: 1,
+            latest_audio_description_updated_at: 1,
           },
         },
         {
@@ -550,18 +566,12 @@ class VideosService {
                 duration: duration,
                 youtube_status: 'available',
               };
-
-              const updatedVideo = await MongoVideosModel.findOneAndUpdate({ youtube_id: video.youtube_id }, { $set: toUpdate }, { new: true }).exec();
-
-              // console.log(updatedVideo?.youtube_id + '; available');
+              await MongoVideosModel.findOneAndUpdate({ youtube_id: video.youtube_id }, { $set: toUpdate }, { new: true }).exec();
             } else {
               const toUpdate = {
                 youtube_status: 'unavailable',
               };
-
-              const updatedVideo = await MongoVideosModel.findOneAndUpdate({ youtube_id: video.youtube_id }, { $set: toUpdate }, { new: true }).exec();
-
-              // console.log(updatedVideo?.youtube_id + '; unavailable');
+              await MongoVideosModel.findOneAndUpdate({ youtube_id: video.youtube_id }, { $set: toUpdate }, { new: true }).exec();
             }
             Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
           }
@@ -618,35 +628,59 @@ class VideosService {
     }
   }
 
-  public async getYoutubeDataFromCache(youtubeIds: string, key: string) {
-    const youtubeIdsCacheKey = key + 'YoutubeIds';
-    const youtubeDataCacheKey = key + 'YoutubeData';
+  public async getHomePageVideos(page: string) {
+    try {
+      const cacheKey = `home_videos_page_${page}`;
+      const cachedResult = await cacheService.get(cacheKey);
 
-    if (youtubeIds === cache.get(youtubeIdsCacheKey)) {
-      // console.log(`loading ${key} from cache`);
-      const ret = { status: 200, result: undefined };
-      ret.result = cache.get(youtubeDataCacheKey);
-      return ret;
-    } else {
-      cache.put(youtubeIdsCacheKey, youtubeIds);
-
-      try {
-        const response = await axios.get(
-          `${process.env.YOUTUBE_API_URL}/videos?id=${youtubeIds}&part=contentDetails,snippet,statistics&key=${process.env.YOUTUBE_API_KEY}`,
-        );
-
-        // console.log(`loading ${key} from youtube`);
-        App.numOfVideosFromYoutube += youtubeIds.split(',').length;
-        cache.put(youtubeDataCacheKey, response.data);
-        const ret = { status: 200, result: undefined };
-        ret.result = response.data;
-        return ret;
-      } catch (error) {
-        console.error('Error fetching data from YouTube API:', error.message);
-        throw error;
+      if (cachedResult) {
+        logger.info(`Cache hit for home page videos: ${cacheKey}`);
+        return cachedResult;
       }
+
+      logger.info(`Cache miss for home page videos: ${cacheKey}`);
+
+      // Get videos for the page
+      const pgNumber = Number(page);
+      const videos = await this.getAllVideos(page);
+
+      // Extract YouTube IDs for these videos
+      const youtubeIds = videos.map(video => video.youtube_id).join(',');
+
+      // Get YouTube data for these IDs
+      const youtubeData = await this.getYoutubeDataFromCache(youtubeIds, `home-${page}`);
+
+      // Create combined response
+      const combinedResponse = {
+        videos: videos,
+        youtubeData: youtubeData.result,
+      };
+
+      // Cache the combined response (5 minute TTL)
+      await cacheService.set(cacheKey, combinedResponse, 5 * 60 * 1000);
+
+      return combinedResponse;
+    } catch (error) {
+      logger.error(`Error fetching home page videos: ${error}`);
+      throw error;
     }
   }
+
+  public async getYoutubeDataFromCache(youtubeIds: string, key: string) {
+    try {
+      const videoIdsArray = youtubeIds.split(',');
+      const videoData = await YoutubeCacheService.getVideoData(videoIdsArray);
+
+      return {
+        status: 200,
+        result: videoData,
+      };
+    } catch (error) {
+      logger.error('Error fetching data from YouTube API:', error.message);
+      throw error;
+    }
+  }
+
   public async startMidnightVideoProcessing(): Promise<void> {
     const now = moment();
     const midnight = moment().startOf('day');

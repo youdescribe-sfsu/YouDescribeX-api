@@ -3,21 +3,18 @@ version: '3'
 services:
   backend:
     container_name: youdescribex-backend
-    image: '${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:latest'
-    restart: always
+    image: "${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:latest"
     ports:
-      - '${PORT}:${PORT}'
-      - '${GPU_PIPELINE_PORT}:${GPU_PIPELINE_PORT}'
+      - "${PORT}:${PORT}"
+      - "${GPU_PIPELINE_PORT}:${GPU_PIPELINE_PORT}"
     extra_hosts:
-      - 'host.docker.internal:host-gateway'
+      - "host.docker.internal:host-gateway"
     network_mode: host
     volumes:
       - /home/ubuntu/ydx_data/logs:/app/logs
       - /mnt/ebs/audio-descriptions-files:/app/public
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GOOGLE_CRED_FILE=${GOOGLE_CRED_FILE}
-      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
       - PORT=${PORT}
       - NODE_ENV=${NODE_ENV}
       - HOST=${HOST}
@@ -60,7 +57,7 @@ services:
       - APPLE_TEAM_ID=${APPLE_TEAM_ID}
       - APPLE_KEY_ID=${APPLE_KEY_ID}
     logging:
-      driver: 'json-file'
+      driver: "json-file"
       options:
-        max-size: '200k'
-        max-file: '10'
+        max-size: "200k"
+        max-file: "10"

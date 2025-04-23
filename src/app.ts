@@ -2,7 +2,6 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import cookieSession from 'cookie-session';
 import passport from 'passport';
-import cors from 'cors';
 import express, { Application } from 'express';
 import { NODE_ENV, PORT, CURRENT_DATABASE, AUDIO_DIRECTORY } from './config';
 import { testDataBaseConnection } from './databases';
@@ -14,9 +13,10 @@ import swaggerUi from 'swagger-ui-express';
 import options from './swaggerOptions';
 import yaml from 'js-yaml';
 import fs from 'fs';
-import { initPassport } from './models/mongodb/init-models.mongo';
-import { checkAndNotify, gpuStatusCronJob } from './utils/cron.utils';
+import { initPassport, MongoAICaptionRequestModel, MongoVideosModel } from './models/mongodb/init-models.mongo';
+import { checkAndNotify, gpuStatusCronJob, videoStatusCheckJob } from './utils/cron.utils';
 import moment from 'moment';
+import YouTubeProxyRoute from './routes/youtube-proxy.route';
 
 class App {
   public static numOfVideosFromYoutube = 0;
@@ -57,7 +57,7 @@ class App {
     testDataBaseConnection();
   }
 
-  private initializeMiddlewares() {
+  private async initializeMiddlewares() {
     this.app.use(compression());
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
@@ -78,6 +78,23 @@ class App {
     this.app.options('*', (req, res) => {
       res.sendStatus(200);
     });
+
+    await this.createIndexes();
+  }
+
+  private async createIndexes() {
+    try {
+      const aiRequestsCollection = MongoAICaptionRequestModel.collection;
+      const videosCollection = MongoVideosModel.collection;
+
+      await aiRequestsCollection.createIndex({ caption_requests: 1 });
+      await aiRequestsCollection.createIndex({ youtube_id: 1 });
+      await videosCollection.createIndex({ youtube_id: 1 });
+
+      logger.info('Database indexes created successfully');
+    } catch (error) {
+      logger.error('Error creating database indexes:', error);
+    }
   }
 
   private initializeRoutes(routes: Routes[]) {
@@ -107,6 +124,7 @@ class App {
     this.resetNumOfVideos();
     checkAndNotify();
     gpuStatusCronJob.start();
+    videoStatusCheckJob.start();
     this.setupVideoCountIntervals();
   }
 

@@ -19,6 +19,7 @@ import { MongoAudio_Descriptions_Model, MongoAudioClipsModel, MongoVideosModel }
 import { IAudioClip } from '../models/mongodb/AudioClips.mongo';
 import { isVideoAvailable } from '../utils/videos.util';
 import { Document } from 'mongoose';
+import cacheService from '../utils/cacheService';
 
 type AudioClipDocument = IAudioClip & Document;
 
@@ -72,6 +73,21 @@ interface PopulatedAudioDescription extends IAudioClip {
 interface IProcessedClips {
   message: string;
 }
+
+async function updateParentAudioDescription(clipId: string): Promise<void> {
+  try {
+    const clip = await MongoAudioClipsModel.findById(clipId);
+    if (clip && clip.audio_description) {
+      await MongoAudio_Descriptions_Model.findByIdAndUpdate(clip.audio_description, { updated_at: nowUtc() }, { new: true });
+
+      // Invalidate cache
+      await cacheService.invalidateByPrefix('home_videos');
+    }
+  } catch (error) {
+    logger.error(`Error updating parent audio description: ${error.message}`);
+  }
+}
+
 class AudioClipsService {
   public async processAllClipsInDB(audioDescriptionAdId: string): Promise<IProcessedClips[]> {
     if (isEmpty(audioDescriptionAdId)) throw new HttpException(400, 'Audio Description ID is empty');
@@ -250,6 +266,7 @@ class AudioClipsService {
           $set: { label: adTitle },
         },
       );
+      await updateParentAudioDescription(clipId);
       if (!updatedClipId) throw new HttpException(409, "Audio Description couldn't be updated");
       return [updatedClipId.matchedCount, updatedClipId.modifiedCount, updatedClipId.upsertedCount];
     } else {
@@ -281,6 +298,7 @@ class AudioClipsService {
           $set: { playback_type: clipPlaybackType },
         },
       );
+      await updateParentAudioDescription(clipId);
       if (!updatedAudioClipType) throw new HttpException(409, "Audio Description couldn't be updated");
       return [updatedAudioClipType.matchedCount, updatedAudioClipType.modifiedCount, updatedAudioClipType.upsertedCount];
     } else {
@@ -314,6 +332,7 @@ class AudioClipsService {
       if (videoIdStatus.data === null) throw new HttpException(409, videoIdStatus.message);
       const clipEndTime = Number(parseFloat(Number(parseFloat(clipStartTime) + audioClip.duration).toFixed(2)));
       const videoId = videoIdStatus.data;
+      const currentPlaybackType = audioClip.playback_type as 'extended' | 'inline';
       const playbackTypeStatus = await analyzePlaybackType(
         Number(clipStartTime),
         clipEndTime,
@@ -321,6 +340,7 @@ class AudioClipsService {
         audioDescriptionId,
         clipId,
         false, // passing false, as this is a single clip process
+        currentPlaybackType,
       );
 
       if (playbackTypeStatus.data === null) throw new HttpException(500, playbackTypeStatus.message);
@@ -333,6 +353,7 @@ class AudioClipsService {
           $set: { start_time: clipStartTime, playback_type: playbackType, end_time: clipEndTime },
         },
       );
+      await updateParentAudioDescription(clipId);
       if (!updatedAudioClipStartTime) throw new HttpException(409, "Audio Description couldn't be updated");
       return [updatedAudioClipStartTime.matchedCount, updatedAudioClipStartTime.modifiedCount, updatedAudioClipStartTime.upsertedCount];
     } else {
@@ -347,6 +368,7 @@ class AudioClipsService {
       if (videoIdStatus.data === null) throw new HttpException(409, videoIdStatus.message);
       const clipEndTime = Number(parseFloat(Number(parseFloat(clipStartTime) + audioClip.clip_duration).toFixed(2)));
       const videoId = videoIdStatus.data;
+      const currentPlaybackType = audioClip.playback_type as 'extended' | 'inline';
       const playbackTypeStatus = await analyzePlaybackType(
         Number(clipStartTime),
         clipEndTime,
@@ -354,6 +376,7 @@ class AudioClipsService {
         audioDescriptionId,
         clipId,
         false, // passing false, as this is a single clip process
+        currentPlaybackType,
       );
 
       if (playbackTypeStatus.data === null) throw new HttpException(500, playbackTypeStatus.message);
@@ -402,6 +425,10 @@ class AudioClipsService {
     const clipStartTime = getClipStartTimeStatus.data;
     const updatedAudioDuration = clipDurationStatus.data;
     const updatedClipEndTime = Number((parseFloat(clipStartTime) + parseFloat(updatedAudioDuration)).toFixed(2));
+    const audioClip = await MongoAudioClipsModel.findById(clipId);
+    if (!audioClip) throw new HttpException(409, 'Audio clip not found');
+
+    const currentPlaybackType = audioClip.playback_type as 'extended' | 'inline';
     const playbackTypeStatus = await analyzePlaybackType(
       Number(clipStartTime),
       updatedClipEndTime,
@@ -409,6 +436,7 @@ class AudioClipsService {
       audioDescriptionId,
       clipId,
       false, // passing false, as this is a single clip process
+      currentPlaybackType,
     );
     if (playbackTypeStatus.data === null) throw new HttpException(409, playbackTypeStatus.message);
     const playbackType = playbackTypeStatus.data;
@@ -436,6 +464,7 @@ class AudioClipsService {
       if (!updatedAudioClip) throw new HttpException(409, "Audio Description couldn't be updated");
       const deletedFile = await deleteOldAudioFile(oldAudioFilePath);
       if (!deletedFile) throw new HttpException(409, "Old Audio File couldn't be deleted");
+      await updateParentAudioDescription(clipId);
       return [updatedAudioClip.matchedCount, updatedAudioClip.modifiedCount, updatedAudioClip.upsertedCount];
     } else {
       const updatedAudioClip = await PostGres_Audio_Clips.update(
@@ -484,6 +513,10 @@ class AudioClipsService {
     const videoIdStatus = await getVideoFromYoutubeId(youtubeVideoId);
     if (videoIdStatus.data === null) throw new HttpException(409, videoIdStatus.message);
     const videoId = videoIdStatus.data;
+    const audioClip = await MongoAudioClipsModel.findById(clipId);
+    if (!audioClip) throw new HttpException(409, 'Audio clip not found');
+
+    const currentPlaybackType = audioClip.playback_type as 'extended' | 'inline';
     const playbackTypeStatus = await analyzePlaybackType(
       Number(clipStartTime),
       newClipEndTime,
@@ -491,6 +524,7 @@ class AudioClipsService {
       audioDescriptionId,
       clipId,
       false, // passing false, as this is a single clip process
+      currentPlaybackType, // Add this parameter
     );
     if (playbackTypeStatus.data === null) throw new HttpException(409, playbackTypeStatus.message);
     const oldAudioFilePathStatus = await getOldAudioFilePath(clipId);
@@ -519,6 +553,7 @@ class AudioClipsService {
           },
         },
       );
+      await updateParentAudioDescription(clipId);
       if (!updatedAudioClip) throw new HttpException(409, 'Problem Saving Audio!! Please try again');
       return [updatedAudioClip.matchedCount, updatedAudioClip.modifiedCount, updatedAudioClip.upsertedCount];
     } else {
@@ -596,6 +631,7 @@ class AudioClipsService {
       adId,
       null, // see condition in method - sends null for clipId
       false, // passing false, as this is a single clip process
+      newACPlaybackType as 'extended' | 'inline',
     );
     if (playbackTypeStatus.data === null) throw new HttpException(409, playbackTypeStatus.message);
     const newPlaybackType = playbackTypeStatus.data;

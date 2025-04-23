@@ -4,6 +4,7 @@ import { IVideo } from '../models/mongodb/Videos.mongo';
 import { getVideoDataByYoutubeId } from './videos.util';
 import { GPU_URL } from '../config';
 import moment from 'moment';
+import { logger } from './logger';
 
 /**
  * @method isEmpty
@@ -108,25 +109,55 @@ export const utcToLongInt = (timestampUtc: number): number => {
 
 export const nowUtc = () => moment().utc().format('YYYYMMDDHHmmss') as unknown as number;
 
-export const calculateContributions = (contributions: Map<string, number>, origin: string, userId: string, revision: string) => {
-  const edittingDistance = calculateEdittingDistance(origin, revision);
-  const oldLength = origin.length;
-  const newContribution = edittingDistance / (oldLength + edittingDistance);
+export const calculateContributions = (contributions, origin, userId, revision) => {
+  logger.info(`[COLLAB] Calculating contributions for user ${userId}`);
+  logger.debug(`[COLLAB] Original text length: ${origin.length}, Revised text length: ${revision.length}`);
+
+  const editingDistance = calculateEdittingDistance(origin, revision);
+  logger.info(`[COLLAB] Editing distance: ${editingDistance}`);
+
+  const oldLength = Math.max(1, origin.length); // Avoid division by zero
+  const newContribution = editingDistance / (oldLength + editingDistance);
   const oldContributionSum = 1 - newContribution;
 
+  logger.info(
+    `[COLLAB] New contribution percentage: ${(newContribution * 100).toFixed(2)}%, Old contributions scaled to: ${(oldContributionSum * 100).toFixed(2)}%`,
+  );
+
+  logger.debug(`[COLLAB] Before update contributions: ${JSON.stringify(contributions)}`);
+
+  // Initialize if empty
+  if (Object.keys(contributions).length === 0) {
+    logger.info(`[COLLAB] Empty contributions object, initializing with user ${userId}`);
+    contributions[userId] = 1;
+    return;
+  }
+
   let userFound = false;
-  contributions.forEach((value: number, key: string) => {
-    contributions.set(key, value * oldContributionSum);
+
+  // Apply scaling to existing contributions
+  Object.keys(contributions).forEach(key => {
+    const oldValue = contributions[key];
+    contributions[key] = contributions[key] * oldContributionSum;
+    logger.debug(`[COLLAB] Scaling user ${key} contribution: ${oldValue} -> ${contributions[key]}`);
+
     if (key === userId) {
       userFound = true;
+      logger.debug(`[COLLAB] Current user ${userId} already has contributions`);
     }
   });
 
+  // Add contribution for current user
   if (userFound) {
-    contributions.set(userId, contributions.get(userId) + newContribution);
+    const oldValue = contributions[userId];
+    contributions[userId] += newContribution;
+    logger.debug(`[COLLAB] Updating existing user ${userId}: ${oldValue} + ${newContribution} = ${contributions[userId]}`);
   } else {
-    contributions.set(userId, newContribution);
+    contributions[userId] = newContribution;
+    logger.debug(`[COLLAB] Adding new user ${userId} with contribution ${newContribution}`);
   }
+
+  logger.debug(`[COLLAB] Final contributions: ${JSON.stringify(contributions)}`);
 };
 
 export const calculateEdittingDistance = (origin: string, revision: string): number => {

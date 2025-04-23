@@ -1,13 +1,20 @@
 import { NextFunction, Request, Response } from 'express';
 import passport from 'passport';
-import { PASSPORT_REDIRECT_URL, APPLE_CALLBACK_URL } from '../config/index';
+import { PASSPORT_REDIRECT_URL } from '../config';
 import { logger } from '../utils/logger';
 import { MongoUsersModel } from '../models/mongodb/init-models.mongo';
+import AuthService from '../services/auth.service';
 
 class AuthController {
+  private readonly authService: AuthService = new AuthService();
+
   public initAuthentication = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      passport.authenticate('google', { scope: ['profile', 'email', 'openid'] })(req, res, next);
+      req.session.returnTo = req.query.returnTo as string; // Store return URL in session
+
+      passport.authenticate('google', {
+        scope: ['profile', 'email', 'openid'],
+      })(req, res, next);
     } catch (error) {
       logger.error('Error signing in: ', error);
       next(error);
@@ -17,7 +24,7 @@ class AuthController {
   public handleGoogleCallback = async (req: Request, res: Response, next: NextFunction) => {
     try {
       passport.authenticate('google', {
-        successRedirect: PASSPORT_REDIRECT_URL,
+        successRedirect: req.session?.returnTo || PASSPORT_REDIRECT_URL,
         failureRedirect: PASSPORT_REDIRECT_URL,
         failureFlash: 'Sign In Unsuccessful. Please try again!',
       })(req, res, next);
@@ -39,7 +46,6 @@ class AuthController {
         };
         res.status(ret.status).json(ret);
       } else {
-        // console.log('req.user is null');
         const ret = {
           type: 'system_error',
           code: 1,
@@ -96,7 +102,7 @@ class AuthController {
   public initAppleAuthentication = async (req: Request, res: Response, next: NextFunction) => {
     try {
       logger.info('Initiating Apple Authentication');
-      passport.authenticate('apple')(req, res, next);
+      passport.authenticate('apple', { scope: ['name', 'email'] })(req, res, next);
     } catch (error) {
       logger.error('Error signing in with Apple: ', error);
       next(error);
@@ -105,10 +111,33 @@ class AuthController {
 
   public handleAppleCallback = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      passport.authenticate('apple', {
-        successRedirect: APPLE_CALLBACK_URL,
-        failureRedirect: APPLE_CALLBACK_URL,
-        failureFlash: 'Sign In Unsuccessful. Please try again!',
+      logger.info('Handling Apple Callback');
+      passport.authenticate('apple', function (err, user, info) {
+        if (err) {
+          if (err == 'AuthorizationError') {
+            res.send(
+              'Oops! Looks like you didn\'t allow the app to proceed. Please sign in again! <br /> \
+                <a href="/login">Sign in with Apple</a>',
+            );
+          } else if (err == 'TokenError') {
+            res.send(
+              'Oops! Couldn\'t get a valid token from Apple\'s servers! <br /> \
+                <a href="/login">Sign in with Apple</a>',
+            );
+          } else {
+            res.send(err);
+          }
+        } else {
+          if (req.body.user) {
+            // Get the profile info (name and email) if the person is registering
+            res.json({
+              user: req.body.user,
+              idToken: user,
+            });
+          } else {
+            res.json(user);
+          }
+        }
       })(req, res, next);
     } catch (error) {
       logger.error('Error with Apple Callback: ', error);
