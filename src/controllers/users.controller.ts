@@ -294,6 +294,19 @@ class UsersController {
     }
   };
 
+  public requestAiDescriptionsWithLana = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // const userData = req.user as unknown as IUser;
+      const youtube_id = req.body.youtube_id;
+      const user_id = req.body.user_id;
+      // const hostname = req.headers.origin;
+      const returnData = await this.userService.requestAiDescriptionsWithLana(user_id, youtube_id);
+      res.status(201).json(returnData);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   public aiDescriptionStatus = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userData = req.user as unknown as IUser;
