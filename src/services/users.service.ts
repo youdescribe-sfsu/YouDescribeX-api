@@ -581,7 +581,7 @@ class UserService {
       // Queue the video for processing instead of sending directly
       // Direct call to the GPU service API
       console.log('AI_USER_IDAI_USER_IDAI_USER_ID', AI_USER_ID);
-      const response = await axios.post(`http://0.0.0.0:8000/api/generate_ai_caption`, {
+      const response = await axios.post(`http://172.31.13.176:8000/api/generate_ai_caption`, {
         youtube_id: youtube_id,
         user_id: userId,
         ai_user_id: AI_USER_ID,
@@ -1430,7 +1430,7 @@ class UserService {
         current_time: timeStamp.toString(),
       };
 
-      const response = await axios.post('http://0.0.0.0:8000/api/info-bot', requestBody);
+      const response = await axios.post('http://172.31.13.176:8000/api/info-bot', requestBody);
       if (response?.data?.status === 'success') {
         console.log('Response from AI:', response.data.response);
         return response.data.response;
