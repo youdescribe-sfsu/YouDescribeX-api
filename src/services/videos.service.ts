@@ -268,7 +268,7 @@ class VideosService {
                 logger.warn(`User not found for ID: ${key}, skipping contribution mapping`);
                 continue;
               }
-              const name = user.user_type === 'AI' ? 'AI Description Draft' : user.name;
+              const name = user.name;
               nameContributions[name] = value;
             } catch (error) {
               logger.error(`Error processing contribution for key ${key}:`, error);
