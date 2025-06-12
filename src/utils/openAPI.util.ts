@@ -1,5 +1,7 @@
 import { OpenAI } from 'openai';
 import { OPENAI_API_KEY } from '../config';
+import { logger } from './logger'; // Using your existing logger
+
 const BATCH_SIZE = 30;
 
 const openai = new OpenAI({
@@ -30,9 +32,9 @@ const getRelevanceScores = async (items: IWishList[], keyword: string, category:
     const batch = items.slice(i, i + BATCH_SIZE);
 
     const prompt = `
-      I have a list of YouTube videos, and each video has a youtube_id and a list of tags. I want you to rank the relevance of each video to this keyword: "${keyword}"${
+      You must respond with ONLY a valid JSON array. I have a list of YouTube videos, and each video has a youtube_id and a list of tags. I want you to rank the relevance of each video to this keyword: "${keyword}"${
       category ? ` and this category "${category}"` : ''
-    }. In addition to considering individual tags, you need to take into account how the tags combine to form an overall context for the video. For each video, provide a relevance score between 1 and 10, where 1 is "not relevant at all" and 10 is "highly relevant". Here is the data:
+    }. In addition to considering individual tags, you need to take into account how the tags combine to form an overall context for the video. For each video, provide a relevance score between 1 and 10, where 1 is "not relevant at all" and 10 is "highly relevant".
 
       Videos:
       ${batch
@@ -41,25 +43,67 @@ const getRelevanceScores = async (items: IWishList[], keyword: string, category:
         })
         .join('\n')}
 
-      Please return the result as a valid string array of objects in this exact format and Do NOT provide any explanation or additional text.:
+      Respond with ONLY the JSON array below. No markdown, no code blocks, no explanations:
             [
-              {"youtube_id": "<youtube_id>", "relevance_score": "<relevance_score>" },
-              {"youtube_id": "<youtube_id>", "relevance_score": "<relevance_score>" }
+              {"youtube_id": "youtube_id_here", "relevance_score": 5},
+              {"youtube_id": "youtube_id_here", "relevance_score": 7}
             ]
-      Ensure that each video in the list has a corresponding entry in the response array, even if the relevance_score is set to 1 for videos with missing tags or incomplete data.
       `;
 
+    let response;
     try {
-      const response = await openai.chat.completions.create({
+      response = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
         messages: [
-          { role: 'system', content: 'You are a ranking system.' },
+          { role: 'system', content: 'You are a JSON-only ranking system. Respond only with valid JSON arrays. Never use markdown or explanations.' },
           { role: 'user', content: prompt },
         ],
         max_tokens: 4000,
       });
+
       const responseContent = response.choices[0].message.content;
-      const parsedResponse: { youtube_id: string; relevance_score: number }[] = JSON.parse(responseContent);
+
+      if (!responseContent) {
+        logger.error('Empty response from OpenAI for relevance scoring');
+        // Fallback: assign default scores to this batch
+        const fallbackBatch: RelevanceScoreResult[] = batch.map(item => ({
+          ...item,
+          relevance_score: 1,
+        }));
+        scoredItems.push(...fallbackBatch);
+        continue;
+      }
+
+      // Clean the response content
+      let cleanedContent = responseContent.trim();
+
+      // Remove markdown code blocks if present
+      if (cleanedContent.startsWith('```json')) {
+        cleanedContent = cleanedContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      } else if (cleanedContent.startsWith('```')) {
+        cleanedContent = cleanedContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      }
+
+      // Remove any leading/trailing backticks
+      cleanedContent = cleanedContent.replace(/^`+|`+$/g, '');
+
+      if (!cleanedContent) {
+        logger.error('Empty content after cleaning OpenAI response');
+        // Fallback: assign default scores to this batch
+        const fallbackBatch: RelevanceScoreResult[] = batch.map(item => ({
+          ...item,
+          relevance_score: 1,
+        }));
+        scoredItems.push(...fallbackBatch);
+        continue;
+      }
+
+      const parsedResponse: { youtube_id: string; relevance_score: number }[] = JSON.parse(cleanedContent);
+
+      // Validate parsed response
+      if (!Array.isArray(parsedResponse)) {
+        throw new Error('OpenAI response is not an array');
+      }
 
       const relevanceMap = new Map(parsedResponse.map(item => [item.youtube_id, item.relevance_score]));
 
@@ -70,12 +114,30 @@ const getRelevanceScores = async (items: IWishList[], keyword: string, category:
       }));
 
       scoredItems.push(...batchWithScores);
+
+      logger.info(`Successfully processed batch ${Math.floor(i / BATCH_SIZE) + 1} for relevance scoring`);
     } catch (err) {
-      console.error('Error:', err);
+      logger.error('Error parsing OpenAI response for relevance scoring:', {
+        error: err.message,
+        rawResponse: response?.choices?.[0]?.message?.content,
+        batchSize: batch.length,
+        keyword,
+        category,
+      });
+
+      // Fallback: assign default scores to this batch
+      const fallbackBatch: RelevanceScoreResult[] = batch.map(item => ({
+        ...item,
+        relevance_score: 1,
+      }));
+      scoredItems.push(...fallbackBatch);
     }
   }
 
   const sortedItems: RelevanceScoreResult[] = scoredItems.sort((a, b) => b.relevance_score - a.relevance_score);
+
+  logger.info(`Relevance scoring completed for ${sortedItems.length} items with keyword: "${keyword}"`);
+
   return sortedItems;
 };
 
