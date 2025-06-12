@@ -1091,6 +1091,29 @@ class UserService {
         // Unwind the video array
         { $unwind: '$video' },
 
+        {
+          $lookup: {
+            from: 'audio_descriptions',
+            let: { youtubeId: '$youtube_id' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ['$youtube_id', '$$youtubeId'] },
+                      { $eq: ['$user_id', AI_USER_ID] }, // Your AI user ID
+                    ],
+                  },
+                },
+              },
+            ],
+            as: 'actual_ai_description',
+          },
+        },
+
+        // Only include requests where actual AI description exists
+        { $match: { 'actual_ai_description.0': { $exists: true } } },
+
         // Group by ID to deduplicate
         {
           $group: {
