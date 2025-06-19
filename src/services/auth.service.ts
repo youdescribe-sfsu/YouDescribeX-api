@@ -3,7 +3,7 @@ import { logger } from '../utils/logger';
 
 class AuthService {
   validateReturnUrl = url => {
-    const allowedDomains = ['ydx.youdescribe.org', 'localhost', process.env.ALLOWED_REDIRECT_DOMAIN];
+    const allowedDomains = ['ydx.youdescribe.org', 'ydx-dev.youdescribe.org', 'localhost', process.env.ALLOWED_REDIRECT_DOMAIN];
     try {
       const parsedUrl = new URL(url);
       return allowedDomains.includes(parsedUrl.hostname);
