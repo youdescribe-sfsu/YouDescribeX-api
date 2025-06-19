@@ -1,5 +1,5 @@
 import { ObjectId } from 'mongodb';
-import { AUDIO_DIRECTORY, CURRENT_DATABASE } from '../config';
+import { AI_USER_ID, AUDIO_DIRECTORY, CURRENT_DATABASE } from '../config';
 import { NewAiDescriptionDto } from '../dtos/audioDescriptions.dto';
 import { HttpException } from '../exceptions/HttpException';
 import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
@@ -678,11 +678,34 @@ class AudioDescriptionsService {
           },
         },
         { $unwind: '$video' },
+
+        // ADD: Verify actual AI description exists
+        {
+          $lookup: {
+            from: 'audio_descriptions',
+            let: { youtubeId: '$youtube_id' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [{ $eq: ['$youtube_id', '$$youtubeId'] }, { $eq: ['$user_id', new ObjectId(AI_USER_ID)] }],
+                  },
+                },
+              },
+            ],
+            as: 'actual_ai_description',
+          },
+        },
+
+        // Only show videos that actually have AI descriptions
+        { $match: { 'actual_ai_description.0': { $exists: true } } },
+
         {
           $group: {
             _id: '$_id',
             status: { $first: '$status' },
             video: { $first: '$video' },
+            ai_description_id: { $first: { $arrayElemAt: ['$actual_ai_description._id', 0] } },
           },
         },
         {
@@ -695,6 +718,8 @@ class AudioDescriptionsService {
             video_length: '$video.duration',
             createdAt: '$video.created_at',
             updatedAt: '$video.updated_at',
+            ai_description_id: 1,
+            url: { $concat: ['/editor/', { $toString: '$ai_description_id' }] },
           },
         },
         { $sort: { createdAt: -1 } },
