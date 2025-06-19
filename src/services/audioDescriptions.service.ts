@@ -679,16 +679,16 @@ class AudioDescriptionsService {
         },
         { $unwind: '$video' },
 
-        // ADD: Verify actual AI description exists
+        // CORRECTED: Look up audio descriptions through video ObjectId relationship
         {
           $lookup: {
             from: 'audio_descriptions',
-            let: { youtubeId: '$youtube_id' },
+            let: { videoId: '$video._id' },
             pipeline: [
               {
                 $match: {
                   $expr: {
-                    $and: [{ $eq: ['$youtube_id', '$$youtubeId'] }, { $eq: ['$user_id', new ObjectId(AI_USER_ID)] }],
+                    $and: [{ $eq: ['$video', '$$videoId'] }, { $eq: ['$user', { $toObjectId: AI_USER_ID }] }],
                   },
                 },
               },
