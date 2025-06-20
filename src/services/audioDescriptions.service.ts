@@ -669,6 +669,7 @@ class AudioDescriptionsService {
       const skipCount = (page - 1) * perPage;
       const pipeline: any[] = [
         { $match: { status: 'completed' } },
+
         {
           $lookup: {
             from: 'videos',
@@ -679,7 +680,7 @@ class AudioDescriptionsService {
         },
         { $unwind: '$video' },
 
-        // CORRECTED: Look up audio descriptions through video ObjectId relationship
+        // Verify actual AI description exists
         {
           $lookup: {
             from: 'audio_descriptions',
@@ -706,8 +707,13 @@ class AudioDescriptionsService {
             status: { $first: '$status' },
             video: { $first: '$video' },
             ai_description_id: { $first: { $arrayElemAt: ['$actual_ai_description._id', 0] } },
+            // Keep the request timestamps
+            request_created_at: { $first: '$createdAt' }, // When request was made
+            request_updated_at: { $first: '$updatedAt' }, // When request was completed
+            ai_description_created_at: { $first: { $arrayElemAt: ['$actual_ai_description.created_at', 0] } },
           },
         },
+
         {
           $project: {
             _id: 1,
@@ -716,13 +722,23 @@ class AudioDescriptionsService {
             youtube_id: '$video.youtube_id',
             video_name: '$video.title',
             video_length: '$video.duration',
-            createdAt: '$video.created_at',
-            updatedAt: '$video.updated_at',
             ai_description_id: 1,
+            request_created_at: 1,
+            request_updated_at: 1,
+            ai_description_created_at: 1,
             url: { $concat: ['/editor/', { $toString: '$ai_description_id' }] },
           },
         },
-        { $sort: { createdAt: -1 } },
+
+        // OPTIMAL SORTING: Most recently completed requests first
+        {
+          $sort: {
+            request_updated_at: -1, // Primary: When request was completed (status changed to 'completed')
+            ai_description_created_at: -1, // Secondary: When actual AI description was created
+            request_created_at: -1, // Tertiary: When request was originally made
+          },
+        },
+
         {
           $facet: {
             videos: [{ $skip: skipCount }, { $limit: perPage }],
@@ -736,6 +752,7 @@ class AudioDescriptionsService {
           },
         },
       ];
+
       const result = await MongoAICaptionRequestModel.aggregate(pipeline).exec();
       return {
         result: result[0]?.videos || [],

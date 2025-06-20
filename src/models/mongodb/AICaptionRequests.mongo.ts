@@ -29,7 +29,7 @@ const AICaptionRequestSchema: Schema = new Schema(
       },
     ],
   },
-  { collection: 'AICaptionRequests' },
+  { collection: 'AICaptionRequests', timestamps: true },
 );
 
 export default AICaptionRequestSchema;
