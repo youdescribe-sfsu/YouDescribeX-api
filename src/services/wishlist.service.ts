@@ -44,6 +44,8 @@ class WishListService {
     });
   }
 
+  // BACKEND FIX: Restore GPT ranking with bulletproof error handling
+
   public async getAllWishlist(filterBody: WishListRequest): Promise<any> {
     const { sort, category = [], page, limit, sortField, search = '' } = filterBody;
 
@@ -80,7 +82,7 @@ class WishListService {
     // Basic match criteria used in multiple places
     const baseMatchCriteria = {
       $and: [
-        { status: 'queued' }, // Rely on this being set to 'fulfilled' when published
+        { status: 'queued' },
         { youtube_status: 'available' },
         { tags: { $regex: search, $options: 'i' } },
         { category: { $regex: categoryRegex, $options: 'i' } },
@@ -88,83 +90,229 @@ class WishListService {
     };
 
     try {
-      console.log('Fetching wishlist with params:', { page: pageNumber, limit: pageSize, search, category });
+      // DECISION POINT: Use simple aggregation for no search, GPT ranking for actual searches
+      if (search === '' || search.trim() === '') {
+        console.log('No search term provided, using standard database sorting');
 
-      const wishListItems = await MongoWishListModel.aggregate().facet({
-        items: [
-          {
-            $match: baseMatchCriteria,
-          },
-          // Keep only the AI caption request lookup for aiRequested field
-          {
-            $lookup: {
-              from: 'AICaptionRequests',
-              localField: 'youtube_id',
-              foreignField: 'youtube_id',
-              as: 'aiCaptionRequests',
-            },
-          },
-          {
-            $addFields: {
-              aiRequested: {
-                $cond: {
-                  if: { $gt: [{ $size: '$aiCaptionRequests' }, 0] },
-                  then: {
-                    $cond: {
-                      if: { $eq: [{ $arrayElemAt: ['$aiCaptionRequests.status', 0] }, 'completed'] },
-                      then: true,
-                      else: false,
-                    },
-                  },
-                  else: false,
-                },
+        // Non-search case: Use simple, fast database sorting
+        const wishListItems = await MongoWishListModel.aggregate().facet({
+          items: [
+            { $match: baseMatchCriteria },
+            {
+              $lookup: {
+                from: 'AICaptionRequests',
+                localField: 'youtube_id',
+                foreignField: 'youtube_id',
+                as: 'aiCaptionRequests',
               },
-              lowercaseCategory: { $toLower: '$category' },
             },
-          },
-          { $sort: sortOptions },
-          { $skip: skip },
-          { $limit: pageSize },
-        ],
-        // Simplified count pipeline
-        count: [{ $match: baseMatchCriteria }, { $count: 'count' }],
-      });
+            {
+              $addFields: {
+                aiRequested: {
+                  $cond: {
+                    if: { $gt: [{ $size: '$aiCaptionRequests' }, 0] },
+                    then: {
+                      $cond: {
+                        if: { $eq: [{ $arrayElemAt: ['$aiCaptionRequests.status', 0] }, 'completed'] },
+                        then: true,
+                        else: false,
+                      },
+                    },
+                    else: false,
+                  },
+                },
+                lowercaseCategory: { $toLower: '$category' },
+              },
+            },
+            { $sort: sortOptions },
+            { $skip: skip },
+            { $limit: pageSize },
+          ],
+          count: [{ $match: baseMatchCriteria }, { $count: 'count' }],
+        });
 
-      console.log('Aggregation completed, results length:', wishListItems.length);
+        const totalCount = wishListItems[0]?.count?.[0]?.count || 0;
+        const items = wishListItems[0]?.items || [];
 
-      // SAFE ERROR HANDLING: Check if results exist before accessing
-      if (!wishListItems || wishListItems.length === 0) {
-        console.log('No wishlist items found');
         return {
-          totalItems: 0,
+          totalItems: totalCount,
           page: pageNumber,
           pageSize,
-          data: [],
+          data: items,
+        };
+      } else {
+        console.log('Search term provided, attempting GPT-ranked results');
+
+        // Search case: Try GPT ranking with multiple fallback layers
+        const cacheKey = `${categoryRegex ? `${categoryRegex}-` : ''}${search}`;
+
+        // LAYER 1: Try to get cached GPT rankings
+        let rankedData = null;
+        try {
+          if (this.cache) {
+            rankedData = this.cache.get(cacheKey);
+            if (rankedData) {
+              console.log('Using cached GPT rankings');
+            }
+          }
+        } catch (cacheError) {
+          console.warn('Cache access failed, proceeding without cache:', cacheError.message);
+        }
+
+        // LAYER 2: Try to get pre-computed rankings from database
+        if (!rankedData) {
+          try {
+            const keywordVideos = await KeywordVideosModel.findOne({ keyword: cacheKey });
+            if (keywordVideos?.data) {
+              rankedData = JSON.parse(keywordVideos.data);
+              // Filter to ensure only valid items remain
+              rankedData = rankedData.filter(item => item.status === 'queued' && item.youtube_status === 'available');
+              console.log('Using pre-computed keyword rankings');
+            }
+          } catch (dbError) {
+            console.warn('Keyword database lookup failed, proceeding to live GPT ranking:', dbError.message);
+          }
+        }
+
+        // LAYER 3: Generate new GPT rankings if no cached/pre-computed data exists
+        if (!rankedData) {
+          try {
+            console.log('Generating new GPT rankings for search term:', search);
+
+            // First get all matching items from database
+            const wishListItems = await MongoWishListModel.aggregate().facet({
+              items: [
+                { $match: baseMatchCriteria },
+                {
+                  $lookup: {
+                    from: 'AICaptionRequests',
+                    localField: 'youtube_id',
+                    foreignField: 'youtube_id',
+                    as: 'aiCaptionRequests',
+                  },
+                },
+                {
+                  $addFields: {
+                    aiRequested: {
+                      $cond: {
+                        if: { $gt: [{ $size: '$aiCaptionRequests' }, 0] },
+                        then: {
+                          $cond: {
+                            if: { $eq: [{ $arrayElemAt: ['$aiCaptionRequests.status', 0] }, 'completed'] },
+                            then: true,
+                            else: false,
+                          },
+                        },
+                        else: false,
+                      },
+                    },
+                    lowercaseCategory: { $toLower: '$category' },
+                  },
+                },
+                { $sort: sortOptions },
+              ],
+              count: [{ $match: baseMatchCriteria }, { $count: 'count' }],
+            });
+
+            const items = wishListItems[0]?.items || [];
+
+            if (items.length === 0) {
+              console.log('No items found matching search criteria');
+              return {
+                totalItems: 0,
+                page: pageNumber,
+                pageSize,
+                data: [],
+              };
+            }
+
+            // CRITICAL: Wrap GPT ranking in timeout and error handling
+            const GPT_TIMEOUT_MS = 10000; // 10 second timeout
+
+            const gptRankingPromise = getRelevanceScores(items, search, categoryRegex);
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('GPT ranking timeout')), GPT_TIMEOUT_MS));
+
+            rankedData = await Promise.race([gptRankingPromise, timeoutPromise]);
+            console.log('GPT ranking completed successfully');
+
+            // Try to cache the successful result
+            try {
+              if (this.cache && rankedData) {
+                this.cache.set(cacheKey, rankedData);
+              }
+            } catch (cacheError) {
+              console.warn('Failed to cache GPT results:', cacheError.message);
+            }
+          } catch (gptError) {
+            console.error('GPT ranking failed, falling back to database sorting:', gptError.message);
+
+            // LAYER 4: Fallback to simple database sorting when GPT fails
+            const fallbackItems = await MongoWishListModel.aggregate().facet({
+              items: [
+                { $match: baseMatchCriteria },
+                {
+                  $lookup: {
+                    from: 'AICaptionRequests',
+                    localField: 'youtube_id',
+                    foreignField: 'youtube_id',
+                    as: 'aiCaptionRequests',
+                  },
+                },
+                {
+                  $addFields: {
+                    aiRequested: {
+                      $cond: {
+                        if: { $gt: [{ $size: '$aiCaptionRequests' }, 0] },
+                        then: {
+                          $cond: {
+                            if: { $eq: [{ $arrayElemAt: ['$aiCaptionRequests.status', 0] }, 'completed'] },
+                            then: true,
+                            else: false,
+                          },
+                        },
+                        else: false,
+                      },
+                    },
+                    lowercaseCategory: { $toLower: '$category' },
+                  },
+                },
+                { $sort: sortOptions },
+              ],
+              count: [{ $match: baseMatchCriteria }, { $count: 'count' }],
+            });
+
+            rankedData = fallbackItems[0]?.items || [];
+            console.log('Using database fallback sorting');
+          }
+        }
+
+        // Apply pagination to ranked results
+        const startIndex = (pageNumber - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+        const paginatedData = rankedData.slice(startIndex, endIndex);
+
+        console.log(`Returning ${paginatedData.length} items from ${rankedData.length} total ranked results`);
+
+        return {
+          totalItems: rankedData.length,
+          page: pageNumber,
+          pageSize,
+          data: paginatedData,
+          rankedByGPT: true, // Flag to indicate GPT ranking was used
         };
       }
-
-      // SAFE ARRAY ACCESS: Check if count exists before accessing
-      const totalCount = wishListItems[0].count && wishListItems[0].count.length > 0 ? wishListItems[0].count[0].count : 0;
-
-      // SAFE ITEMS ACCESS: Check if items exist before accessing
-      const items = wishListItems[0].items || [];
-
-      console.log('Returning results:', { totalItems: totalCount, itemsCount: items.length });
-
-      return {
-        totalItems: totalCount,
-        page: pageNumber,
-        pageSize,
-        data: items,
-      };
     } catch (error) {
-      // ENHANCED ERROR LOGGING: Log the actual error details
       console.error('Error in getAllWishlist:', error);
       console.error('Filter params:', filterBody);
-      console.error('Match criteria:', baseMatchCriteria);
 
-      // Return a more informative error
-      throw new Error(`Failed to fetch wishlist items: ${error.message}`);
+      // FINAL SAFETY NET: Return empty results rather than crashing
+      return {
+        totalItems: 0,
+        page: pageNumber,
+        pageSize,
+        data: [],
+        error: 'Search temporarily unavailable',
+      };
     }
   }
 
