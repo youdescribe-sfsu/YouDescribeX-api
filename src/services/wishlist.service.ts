@@ -88,134 +88,83 @@ class WishListService {
     };
 
     try {
-      if (search === '') {
-        // Non-search case
-        const wishListItems = await MongoWishListModel.aggregate().facet({
-          items: [
-            {
-              $match: baseMatchCriteria,
+      console.log('Fetching wishlist with params:', { page: pageNumber, limit: pageSize, search, category });
+
+      const wishListItems = await MongoWishListModel.aggregate().facet({
+        items: [
+          {
+            $match: baseMatchCriteria,
+          },
+          // Keep only the AI caption request lookup for aiRequested field
+          {
+            $lookup: {
+              from: 'AICaptionRequests',
+              localField: 'youtube_id',
+              foreignField: 'youtube_id',
+              as: 'aiCaptionRequests',
             },
-            // Keep only the AI caption request lookup for aiRequested field
-            {
-              $lookup: {
-                from: 'AICaptionRequests',
-                localField: 'youtube_id',
-                foreignField: 'youtube_id',
-                as: 'aiCaptionRequests',
-              },
-            },
-            {
-              $addFields: {
-                aiRequested: {
-                  $cond: {
-                    if: { $gt: [{ $size: '$aiCaptionRequests' }, 0] },
-                    then: {
-                      $cond: {
-                        if: { $eq: [{ $arrayElemAt: ['$aiCaptionRequests.status', 0] }, 'completed'] },
-                        then: true,
-                        else: false,
-                      },
+          },
+          {
+            $addFields: {
+              aiRequested: {
+                $cond: {
+                  if: { $gt: [{ $size: '$aiCaptionRequests' }, 0] },
+                  then: {
+                    $cond: {
+                      if: { $eq: [{ $arrayElemAt: ['$aiCaptionRequests.status', 0] }, 'completed'] },
+                      then: true,
+                      else: false,
                     },
-                    else: false,
                   },
+                  else: false,
                 },
-                lowercaseCategory: { $toLower: '$category' },
               },
+              lowercaseCategory: { $toLower: '$category' },
             },
-            { $sort: sortOptions },
-            { $skip: skip },
-            { $limit: pageSize },
-          ],
-          // Simplified count pipeline
-          count: [{ $match: baseMatchCriteria }, { $count: 'count' }],
-        });
+          },
+          { $sort: sortOptions },
+          { $skip: skip },
+          { $limit: pageSize },
+        ],
+        // Simplified count pipeline
+        count: [{ $match: baseMatchCriteria }, { $count: 'count' }],
+      });
 
-        if (wishListItems.length === 0 || !wishListItems[0].count || wishListItems[0].count.length === 0) {
-          return {
-            totalItems: 0,
-            page: pageNumber,
-            pageSize,
-            data: [],
-          };
-        }
+      console.log('Aggregation completed, results length:', wishListItems.length);
 
+      // SAFE ERROR HANDLING: Check if results exist before accessing
+      if (!wishListItems || wishListItems.length === 0) {
+        console.log('No wishlist items found');
         return {
-          totalItems: wishListItems[0].count[0].count,
+          totalItems: 0,
           page: pageNumber,
           pageSize,
-          data: wishListItems[0].items,
-        };
-      } else {
-        // Search case
-        const cacheKey = `${categoryRegex ? `${categoryRegex}-` : ''}${search}`;
-        let cacheData = this.cache.get(cacheKey);
-
-        const startIndex = (pageNumber - 1) * pageSize;
-        const endIndex = startIndex + pageSize;
-
-        if (!cacheData) {
-          const keywordVideos = await KeywordVideosModel.findOne({ keyword: cacheKey });
-          if (!keywordVideos) {
-            const wishListItems = await MongoWishListModel.aggregate().facet({
-              items: [
-                {
-                  $match: baseMatchCriteria,
-                },
-                {
-                  $lookup: {
-                    from: 'AICaptionRequests',
-                    localField: 'youtube_id',
-                    foreignField: 'youtube_id',
-                    as: 'aiCaptionRequests',
-                  },
-                },
-                {
-                  $addFields: {
-                    aiRequested: {
-                      $cond: {
-                        if: { $gt: [{ $size: '$aiCaptionRequests' }, 0] },
-                        then: {
-                          $cond: {
-                            if: { $eq: [{ $arrayElemAt: ['$aiCaptionRequests.status', 0] }, 'completed'] },
-                            then: true,
-                            else: false,
-                          },
-                        },
-                        else: false,
-                      },
-                    },
-                    lowercaseCategory: { $toLower: '$category' },
-                  },
-                },
-                { $sort: sortOptions },
-              ],
-              count: [{ $match: baseMatchCriteria }, { $count: 'count' }],
-            });
-
-            const rankedItems = await getRelevanceScores(wishListItems[0].items, search, categoryRegex);
-            if (rankedItems.length > 0) {
-              cacheData = rankedItems;
-            }
-          } else {
-            cacheData = JSON.parse(keywordVideos.data);
-
-            // Filter cached data to ensure only queued items remain
-            // This ensures cached data respects status changes
-            cacheData = cacheData.filter(item => item.status === 'queued');
-          }
-          this.cache.set(cacheKey, cacheData);
-        }
-
-        return {
-          totalItems: cacheData.length,
-          page: pageNumber,
-          pageSize,
-          data: cacheData.slice(startIndex, endIndex),
+          data: [],
         };
       }
+
+      // SAFE ARRAY ACCESS: Check if count exists before accessing
+      const totalCount = wishListItems[0].count && wishListItems[0].count.length > 0 ? wishListItems[0].count[0].count : 0;
+
+      // SAFE ITEMS ACCESS: Check if items exist before accessing
+      const items = wishListItems[0].items || [];
+
+      console.log('Returning results:', { totalItems: totalCount, itemsCount: items.length });
+
+      return {
+        totalItems: totalCount,
+        page: pageNumber,
+        pageSize,
+        data: items,
+      };
     } catch (error) {
-      console.error('Error fetching wishlist items:', error);
-      throw new Error('Failed to fetch wishlist items');
+      // ENHANCED ERROR LOGGING: Log the actual error details
+      console.error('Error in getAllWishlist:', error);
+      console.error('Filter params:', filterBody);
+      console.error('Match criteria:', baseMatchCriteria);
+
+      // Return a more informative error
+      throw new Error(`Failed to fetch wishlist items: ${error.message}`);
     }
   }
 
