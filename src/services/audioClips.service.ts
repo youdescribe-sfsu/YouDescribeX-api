@@ -317,6 +317,107 @@ class AudioClipsService {
     }
   }
 
+  // Add this method to your AudioClipsService class
+  public async switchToTTS(
+    clipId: string,
+    text: string,
+    userId: string,
+    youtubeVideoId: string,
+    audioDescriptionId: string,
+  ): Promise<{ message: string; clipId: string }> {
+    if (isEmpty(clipId)) throw new HttpException(400, 'Clip ID is empty');
+    if (isEmpty(text)) throw new HttpException(400, 'Text is empty');
+    if (isEmpty(userId)) throw new HttpException(400, 'User ID is empty');
+    if (isEmpty(youtubeVideoId)) throw new HttpException(400, 'YouTube Video ID is empty');
+    if (isEmpty(audioDescriptionId)) throw new HttpException(400, 'Audio Description ID is empty');
+
+    try {
+      // Get the existing recorded clip
+      const existingClip = await MongoAudioClipsModel.findById(clipId);
+      if (!existingClip) {
+        throw new HttpException(404, 'Audio clip not found');
+      }
+
+      // Verify this is actually a recorded clip before switching
+      if (!existingClip.is_recorded) {
+        throw new HttpException(400, 'This clip is not a recorded audio clip');
+      }
+
+      // Get the old audio file path for cleanup
+      const oldAudioFilePathStatus = await getOldAudioFilePath(clipId);
+      if (oldAudioFilePathStatus.data === null) {
+        throw new HttpException(409, oldAudioFilePathStatus.message);
+      }
+
+      // Generate new TTS audio using your existing utility
+      const ttsResult = await generateMp3forDescriptionText(audioDescriptionId, youtubeVideoId, text, existingClip.description_type || 'Visual');
+
+      if (!ttsResult.status) {
+        throw new HttpException(500, 'Failed to generate TTS audio');
+      }
+
+      // Calculate new clip timing
+      const clipPath = ttsResult.filename ? `${ttsResult.filepath}/${ttsResult.filename}` : ttsResult.filepath;
+
+      const durationResult = await getAudioDuration(clipPath);
+      if (!durationResult.data) {
+        throw new HttpException(500, 'Failed to calculate audio duration');
+      }
+
+      const clipDuration = parseFloat(durationResult.data);
+      const clipEndTime = existingClip.start_time + clipDuration;
+
+      // Update the clip to TTS mode with all the new properties
+      const updateResult = await MongoAudioClipsModel.updateOne(
+        { _id: clipId },
+        {
+          $set: {
+            // Switch to TTS mode
+            is_recorded: false,
+
+            // Update with new TTS audio file
+            file_path: ttsResult.filepath,
+            file_name: ttsResult.filename,
+            file_mime_type: ttsResult.file_mime_type,
+            file_size_bytes: ttsResult.file_size_bytes,
+
+            // Update timing based on new TTS duration
+            duration: clipDuration,
+            end_time: clipEndTime,
+
+            // Update the text content
+            description_text: text,
+
+            // Update timestamp
+            updated_at: nowUtc(),
+          },
+        },
+      );
+
+      if (updateResult.matchedCount === 0) {
+        throw new HttpException(404, 'Failed to update audio clip');
+      }
+
+      // Clean up the old recorded audio file
+      const deleteSuccess = deleteOldAudioFile(oldAudioFilePathStatus.data);
+      if (!deleteSuccess) {
+        // Log warning but don't fail the operation
+        logger.warn(`Failed to delete old audio file: ${oldAudioFilePathStatus.data}`);
+      }
+
+      // Update the parent audio description timestamp
+      await updateParentAudioDescription(clipId);
+
+      return {
+        message: 'Successfully switched to TTS audio',
+        clipId: clipId,
+      };
+    } catch (error) {
+      logger.error(`Error switching clip ${clipId} to TTS:`, error);
+      throw error; // Re-throw to be handled by controller
+    }
+  }
+
   public async updateAudioClipStartTime(clipId: string, audioBody: UpdateAudioClipStartTimeDto): Promise<number[]> {
     const { youtubeVideoId, clipStartTime, audioDescriptionId } = audioBody;
 
