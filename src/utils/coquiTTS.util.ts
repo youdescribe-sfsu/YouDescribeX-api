@@ -9,36 +9,23 @@ interface CoquiTTSResponse {
   error?: string;
 }
 
-interface CoquiTTSRequest {
-  text: string;
-  speaker_id?: string;
-  language?: string;
-}
-
 class CoquiTTSService {
   private static baseUrl = CONFIG.coqui.baseUrl;
   private static timeout = CONFIG.coqui.timeout;
 
-  /**
-   * Generate speech using Coqui TTS XTTS v2 model
-   */
-  static async generateSpeech(text: string, speakerId = 'p225', language = 'en'): Promise<CoquiTTSResponse> {
+  static async generateSpeech(text: string, speakerId = 'Claribel Dervla', language = 'en'): Promise<CoquiTTSResponse> {
     try {
       logger.info(`Generating speech with Coqui TTS: ${text.substring(0, 50)}...`);
 
-      const requestData: CoquiTTSRequest = {
-        text: this.preprocessText(text),
-        speaker_id: speakerId,
-        language: language,
-      };
-
-      // Use the correct endpoint for XTTS v2
-      const response: AxiosResponse = await axios.post(`${this.baseUrl}/api/tts`, requestData, {
+      // Use GET request with query parameters (verified from server.py source code)
+      const response: AxiosResponse = await axios.get(`${this.baseUrl}/api/tts`, {
+        params: {
+          text: this.preprocessText(text),
+          speaker_idx: speakerId, // Coqui server expects speaker_idx parameter
+          language_idx: language, // Coqui server expects language_idx parameter
+        },
         timeout: this.timeout,
         responseType: 'arraybuffer',
-        headers: {
-          'Content-Type': 'application/json',
-        },
       });
 
       if (response.status === 200) {
@@ -63,7 +50,8 @@ class CoquiTTSService {
    */
   static async healthCheck(): Promise<boolean> {
     try {
-      const response = await axios.get(`${this.baseUrl}/docs`, {
+      // Use root endpoint - /docs returns 404 as verified in testing
+      const response = await axios.get(`${this.baseUrl}/`, {
         timeout: 5000,
       });
       return response.status === 200;
