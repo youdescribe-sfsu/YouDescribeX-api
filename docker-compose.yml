@@ -75,7 +75,7 @@ services:
     environment:
       - MODEL_NAME=tts_models/multilingual/multi-dataset/xtts_v2
     entrypoint: ["/bin/bash"]
-    command: ["-c", "python3 TTS/server/server.py --model_name tts_models/multilingual/multi-dataset/xtts_v2 --host 0.0.0.0 --port 5002"]
+    command: ["-c", "python3 TTS/server/server.py --model_name tts_models/multilingual/multi-dataset/xtts_v2 --port 5002"]
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5002/docs"]
