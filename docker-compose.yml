@@ -74,6 +74,7 @@ services:
     network_mode: host
     environment:
       - MODEL_NAME=tts_models/multilingual/multi-dataset/xtts_v2
+      - COQUI_TOS_AGREED=1
     entrypoint: ["/bin/bash"]
     command: ["-c", "python3 TTS/server/server.py --model_name tts_models/multilingual/multi-dataset/xtts_v2 --port 5002"]
     restart: unless-stopped
