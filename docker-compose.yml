@@ -1,4 +1,4 @@
-version: '3'
+version: '3.4'
 
 services:
   backend:
@@ -10,6 +10,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     network_mode: host
+    depends_on:
+      - coqui-tts
     volumes:
       - /home/ubuntu/ydx_data/logs:/app/logs
       - /mnt/ebs/audio-descriptions-files:/app/public
@@ -56,6 +58,36 @@ services:
       - APPLE_CLIENT_ID=${APPLE_CLIENT_ID}
       - APPLE_TEAM_ID=${APPLE_TEAM_ID}
       - APPLE_KEY_ID=${APPLE_KEY_ID}
+      - COQUI_TTS_URL=${COQUI_TTS_URL:-http://localhost:5002}
+      - TTS_ENGINE=${TTS_ENGINE:-google}
+      - COQUI_TTS_TIMEOUT=${COQUI_TTS_TIMEOUT:-30000}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200k"
+        max-file: "10"
+
+  # Coqui TTS Service
+  coqui-tts:
+    container_name: youdescribex-coqui-tts
+    image: ghcr.io/idiap/coqui-tts-cpu:latest
+    network_mode: host
+    environment:
+      - MODEL_NAME=tts_models/multilingual/multi-dataset/xtts_v2
+    command: >
+      bash -c "
+        python3 TTS/server/server.py
+        --model_name tts_models/multilingual/multi-dataset/xtts_v2
+        --host 0.0.0.0
+        --port 5002
+      "
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     logging:
       driver: "json-file"
       options:

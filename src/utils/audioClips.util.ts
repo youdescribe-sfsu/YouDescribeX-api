@@ -14,6 +14,7 @@ import { logger } from './logger';
 import { getYouTubeVideoStatus, nowUtc } from './util';
 import path from 'path';
 import { HttpException } from '../exceptions/HttpException';
+import { CoquiTTSService } from './coquiTTS.util';
 
 // Types and Interfaces
 interface TextToSpeechResponse {
@@ -131,6 +132,61 @@ class AudioClipService {
     keyFilename: CONFIG.google.textToSpeech.credentialsPath,
   });
 
+  static async generateSpeechWithEngine(text: string, clipDescriptionType: string): Promise<Buffer> {
+    const engine = CONFIG.app.ttsEngine;
+    if (engine === 'coqui') {
+      return await this.generateWithCoquiTTS(text, clipDescriptionType);
+    } else {
+      return await this.generateWithGoogleTTS(text, clipDescriptionType);
+    }
+  }
+
+  /**
+   * Generate speech using Coqui TTS
+   */
+  private static async generateWithCoquiTTS(text: string, clipDescriptionType: string): Promise<Buffer> {
+    // Check if Coqui TTS is healthy
+    const isHealthy = await CoquiTTSService.healthCheck();
+    if (!isHealthy) {
+      logger.warn('Coqui TTS unhealthy, falling back to Google TTS');
+      return await this.generateWithGoogleTTS(text, clipDescriptionType);
+    }
+
+    // Choose speaker based on content type
+    const speakerId = clipDescriptionType === 'Visual' ? CONFIG.coqui.speakers.visual : CONFIG.coqui.speakers.ocr;
+
+    const result = await CoquiTTSService.generateSpeech(text, speakerId, 'en');
+
+    if (result.status && result.audio) {
+      return result.audio;
+    } else {
+      logger.warn('Coqui TTS failed, falling back to Google TTS');
+      return await this.generateWithGoogleTTS(text, clipDescriptionType);
+    }
+  }
+
+  /**
+   * Generate speech using Google TTS (existing logic)
+   */
+  private static async generateWithGoogleTTS(text: string, clipDescriptionType: string): Promise<Buffer> {
+    const voiceName = clipDescriptionType === 'Visual' ? 'en-US-Wavenet-D' : 'en-US-Wavenet-C';
+
+    const [response] = await this.textToSpeechClient.synthesizeSpeech({
+      input: { text },
+      voice: {
+        languageCode: 'en-US',
+        name: voiceName,
+        ssmlGender: 'NEUTRAL',
+      },
+      audioConfig: {
+        audioEncoding: 'MP3',
+        speakingRate: 1.0,
+      },
+    });
+
+    return response.audioContent as Buffer;
+  }
+
   static async generateMp3forDescriptionText(
     adId: string,
     youtubeVideoId: string,
@@ -138,29 +194,21 @@ class AudioClipService {
     clipDescriptionType: string,
   ): Promise<TextToSpeechResponse> {
     try {
-      const voiceName = clipDescriptionType === 'Visual' ? 'en-US-Wavenet-D' : 'en-US-Wavenet-C';
-      const [response] = await this.textToSpeechClient.synthesizeSpeech({
-        input: { text: clipDescriptionText },
-        voice: {
-          languageCode: 'en-US',
-          name: voiceName,
-          ssmlGender: 'NEUTRAL',
-        },
-        audioConfig: {
-          audioEncoding: 'MP3',
-          speakingRate: 1.25,
-        },
-      });
+      const audioBuffer = await this.generateSpeechWithEngine(clipDescriptionText, clipDescriptionType);
+
+      const engine = CONFIG.app.ttsEngine;
+      const fileExtension = engine === 'coqui' ? 'wav' : 'mp3';
+      const expectedMimeType = engine === 'coqui' ? 'audio/wav' : 'audio/mpeg';
 
       const uniqueId = uuidv4();
       const type = clipDescriptionType === 'Visual' ? 'nonOCR' : 'OCR';
-      const fileName = `${type}-${uniqueId}.mp3`;
+      const fileName = `${type}-${uniqueId}.${fileExtension}`;
       const dir = `${CONFIG.app.audioDirectory}/audio/${youtubeVideoId}/${adId}`;
 
       FileManagementService.ensureDirectoryExists(dir);
 
       const filepath = `${dir}/${fileName}`;
-      await fs.promises.writeFile(filepath, response.audioContent, 'binary');
+      await fs.promises.writeFile(filepath, audioBuffer);
 
       const fileMimeType = mime.lookup(filepath);
       const fileSizeBytes = fs.statSync(filepath).size;
@@ -170,7 +218,7 @@ class AudioClipService {
         status: true,
         filepath: servingFilepath,
         filename: fileName,
-        file_mime_type: fileMimeType || 'audio/mpeg',
+        file_mime_type: fileMimeType || expectedMimeType,
         file_size_bytes: fileSizeBytes,
       };
     } catch (error) {

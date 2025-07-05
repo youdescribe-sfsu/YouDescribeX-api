@@ -33,6 +33,18 @@ interface ServerConfig {
   origin: string;
 }
 
+interface CoquiConfig {
+  baseUrl: string;
+  timeout: number;
+  models: {
+    xtts_v2: string;
+  };
+  speakers: {
+    visual: string;
+    ocr: string;
+  };
+}
+
 interface GoogleConfig {
   youtube: {
     apiKey: string;
@@ -75,6 +87,7 @@ interface GpuConfig {
 }
 
 interface AppConfig {
+  ttsEngine: string;
   nodeEnv: string;
   audioDirectory: string;
   aiUserId: string;
@@ -99,6 +112,18 @@ export const CONFIG = {
     logDir: process.env.LOG_DIR || '',
     origin: process.env.ORIGIN || '',
   } as ServerConfig,
+
+  coqui: {
+    baseUrl: process.env.COQUI_TTS_URL || 'http://localhost:5002',
+    timeout: parseInt(process.env.COQUI_TTS_TIMEOUT || '30000'),
+    models: {
+      xtts_v2: 'tts_models/multilingual/multi-dataset/xtts_v2',
+    },
+    speakers: {
+      visual: 'p225', // Female voice for visual descriptions
+      ocr: 'p226', // Male voice for OCR content
+    },
+  } as CoquiConfig,
 
   database: {
     mongo: {
@@ -171,6 +196,7 @@ export const CONFIG = {
     openai: {
       apiKey: process.env.OPENAI_API_KEY,
     },
+    ttsEngine: process.env.TTS_ENGINE || 'google', // 'coqui' or 'google'
   } as AppConfig,
 };
 
