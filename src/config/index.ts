@@ -120,8 +120,8 @@ export const CONFIG = {
       xtts_v2: 'tts_models/multilingual/multi-dataset/xtts_v2',
     },
     speakers: {
-      visual: 'Claribel Dervla', // Female voice for visual descriptions (verified from server interface)
-      ocr: 'Andrew Chipper', // Male voice for OCR content (verified from server interface)
+      visual: 'Ana Florence', // Female voice for visual descriptions (verified from server interface)
+      ocr: 'Craig Gutsy', // Male voice for OCR content (verified from server interface)
     },
   } as CoquiConfig,
 

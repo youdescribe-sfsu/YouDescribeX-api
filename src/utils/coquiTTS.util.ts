@@ -17,12 +17,11 @@ class CoquiTTSService {
     try {
       logger.info(`Generating speech with Coqui TTS: ${text.substring(0, 50)}...`);
 
-      // Use GET request with query parameters (verified from server.py source code)
       const response: AxiosResponse = await axios.get(`${this.baseUrl}/api/tts`, {
         params: {
           text: this.preprocessText(text),
-          speaker_idx: speakerId, // Coqui server expects speaker_idx parameter
-          language_idx: language, // Coqui server expects language_idx parameter
+          speaker: speakerId, // Coqui server expects speaker_idx parameter
+          language: language, // Coqui server expects language_idx parameter
         },
         timeout: this.timeout,
         responseType: 'arraybuffer',
