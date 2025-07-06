@@ -12,6 +12,7 @@ import { getYouTubeVideoStatus } from '../utils/util';
 import { deepCopyAudioClip } from '../utils/audioClips.util';
 import { deepCopyAudioDescriptionWithoutNewClips, updateAutoClips, updateContributions } from '../utils/audiodescriptions.util';
 import { PipelineFailureDto } from '../dtos/pipelineFailure.dto';
+import { InfoBotRequestDto } from '../dtos/infoBotRequest.dto';
 
 class UsersController {
   public userService = new userService();
@@ -293,6 +294,19 @@ class UsersController {
     }
   };
 
+  public requestAiDescriptionsWithLana = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // const userData = req.user as unknown as IUser;
+      const youtube_id = req.body.youtube_id;
+      const user_id = req.body.user_id;
+      // const hostname = req.headers.origin;
+      const returnData = await this.userService.requestAiDescriptionsWithLana(user_id, youtube_id);
+      res.status(201).json(returnData);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   public aiDescriptionStatus = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userData = req.user as unknown as IUser;
@@ -415,6 +429,16 @@ class UsersController {
       const failureData: PipelineFailureDto = req.body;
       await this.userService.handlePipelineFailure(failureData);
       res.status(200).json({ message: 'Pipeline failure handled successfully' });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public infoBotGenerateAnswer = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const requestBody: InfoBotRequestDto = req.body;
+      const response = await this.userService.infoBotGenerateAnswer(requestBody);
+      res.status(200).json(response);
     } catch (error) {
       next(error);
     }
