@@ -20,8 +20,8 @@ class CoquiTTSService {
       const response: AxiosResponse = await axios.get(`${this.baseUrl}/api/tts`, {
         params: {
           text: this.preprocessText(text),
-          speaker: speakerId, // Coqui server expects speaker_idx parameter
-          language: language, // Coqui server expects language_idx parameter
+          'speaker-id': speakerId, // Coqui server expects speaker_idx parameter
+          'language-id': language, // Coqui server expects language_idx parameter
         },
         timeout: this.timeout,
         responseType: 'arraybuffer',
