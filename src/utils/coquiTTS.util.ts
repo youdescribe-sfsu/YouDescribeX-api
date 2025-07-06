@@ -17,13 +17,13 @@ class CoquiTTSService {
     try {
       logger.info(`Generating speech with Coqui TTS: ${text.substring(0, 50)}...`);
 
-      // Get speaker ID from config
+      // Get speaker ID from config - this maps to the VCTK speaker identifiers
       const speakerId = CONFIG.coqui.speakers[speakerType];
 
       const response: AxiosResponse = await axios.get(`${this.baseUrl}/api/tts`, {
         params: {
           text: this.preprocessText(text),
-          speaker_idx: speakerId,
+          speaker_id: speakerId, // Note: using 'speaker_id' not 'speaker_idx'
         },
         timeout: this.timeout,
         responseType: 'arraybuffer',
@@ -54,7 +54,7 @@ class CoquiTTSService {
       const response = await axios.get(`${this.baseUrl}/api/tts`, {
         params: {
           text: 'test',
-          speaker_idx: 'p234',
+          speaker_id: 'p234', // Using the correct parameter name for testing
         },
         timeout: 5000,
         responseType: 'arraybuffer',
