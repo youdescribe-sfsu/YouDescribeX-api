@@ -15,15 +15,15 @@ class CoquiTTSService {
 
   static async generateSpeech(text: string, speakerType: 'visual' | 'ocr' = 'visual'): Promise<CoquiTTSResponse> {
     try {
-      logger.info(`Generating speech with Coqui TTS: ${text.substring(0, 50)}...`);
+      logger.info(`Generating speech with Coqui TTS (American accent): ${text.substring(0, 50)}...`);
 
-      // Get speaker ID from config - this maps to the VCTK speaker identifiers
+      // Get American speaker ID from config
       const speakerId = CONFIG.coqui.speakers[speakerType];
 
       const response: AxiosResponse = await axios.get(`${this.baseUrl}/api/tts`, {
         params: {
           text: this.preprocessText(text),
-          speaker_id: speakerId, // Note: using 'speaker_id' not 'speaker_idx'
+          speaker_id: speakerId, // Using correct parameter name for web API
         },
         timeout: this.timeout,
         responseType: 'arraybuffer',
@@ -47,14 +47,14 @@ class CoquiTTSService {
   }
 
   /**
-   * Check if Coqui TTS server is healthy
+   * Health check with American speaker for YouDescribe accessibility platform
    */
   static async healthCheck(): Promise<boolean> {
     try {
       const response = await axios.get(`${this.baseUrl}/api/tts`, {
         params: {
           text: 'test',
-          speaker_id: 'p234', // Using the correct parameter name for testing
+          speaker_id: 'p256', // Test with American male voice
         },
         timeout: 5000,
         responseType: 'arraybuffer',
@@ -67,19 +67,19 @@ class CoquiTTSService {
   }
 
   /**
-   * Preprocess text for better speech synthesis
+   * Preprocess text for optimal accessibility - clear pronunciation for audio descriptions
    */
   private static preprocessText(text: string): string {
     return (
       text
-        // Ensure proper sentence endings
+        // Ensure proper sentence endings for natural pauses
         .replace(/([.!?])\s*$/g, '$1')
-        // Handle abbreviations for better pronunciation
+        // Handle abbreviations for better pronunciation in accessibility context
         .replace(/\bDr\./g, 'Doctor')
         .replace(/\bMr\./g, 'Mister')
         .replace(/\bMrs\./g, 'Missus')
         .replace(/\bMs\./g, 'Miss')
-        // Handle common contractions
+        // Handle common contractions for clearer speech
         .replace(/won't/g, 'will not')
         .replace(/can't/g, 'cannot')
         .replace(/n't/g, ' not')

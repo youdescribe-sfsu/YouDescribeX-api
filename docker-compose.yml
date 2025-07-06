@@ -1,5 +1,8 @@
 version: '3.4'
 
+volumes:
+  tts_models:
+
 services:
   backend:
     container_name: youdescribex-backend
@@ -67,11 +70,13 @@ services:
         max-size: "200k"
         max-file: "10"
 
-  # Coqui TTS Service
+  # Coqui TTS Service with Persistent Model Storage
   coqui-tts:
     container_name: youdescribex-coqui-tts
     image: ghcr.io/idiap/coqui-tts-cpu:latest
     network_mode: host
+    volumes:
+      - tts_models:/root/.local/share/tts
     environment:
       - MODEL_NAME=tts_models/en/vctk/vits
       - COQUI_TOS_AGREED=1

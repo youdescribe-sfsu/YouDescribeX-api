@@ -120,8 +120,8 @@ export const CONFIG = {
       vctk_vits: 'tts_models/en/vctk/vits',
     },
     speakers: {
-      visual: 'p273',
-      ocr: 'p234',
+      visual: 'p257', // Female voice for visual descriptions (American accent)
+      ocr: 'p256', // Male voice for OCR content (American accent)
     },
   } as CoquiConfig,
 
