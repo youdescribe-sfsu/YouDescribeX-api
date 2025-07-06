@@ -152,10 +152,8 @@ class AudioClipService {
       return await this.generateWithGoogleTTS(text, clipDescriptionType);
     }
 
-    // Choose speaker based on content type
-    const speakerId = clipDescriptionType === 'Visual' ? CONFIG.coqui.speakers.visual : CONFIG.coqui.speakers.ocr;
-
-    const result = await CoquiTTSService.generateSpeech(text, speakerId, 'en');
+    const speakerType = clipDescriptionType === 'Visual' ? 'visual' : 'ocr';
+    const result = await CoquiTTSService.generateSpeech(text, speakerType);
 
     if (result.status && result.audio) {
       return result.audio;

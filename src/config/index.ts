@@ -37,7 +37,7 @@ interface CoquiConfig {
   baseUrl: string;
   timeout: number;
   models: {
-    xtts_v2: string;
+    vctk_vits: string;
   };
   speakers: {
     visual: string;
@@ -117,11 +117,11 @@ export const CONFIG = {
     baseUrl: process.env.COQUI_TTS_URL || 'http://localhost:5002',
     timeout: parseInt(process.env.COQUI_TTS_TIMEOUT || '30000'),
     models: {
-      xtts_v2: 'tts_models/multilingual/multi-dataset/xtts_v2',
+      vctk_vits: 'tts_models/en/vctk/vits',
     },
     speakers: {
-      visual: 'Ana Florence', // Female voice for visual descriptions (verified from server interface)
-      ocr: 'Craig Gutsy', // Male voice for OCR content (verified from server interface)
+      visual: 'p273',
+      ocr: 'p234',
     },
   } as CoquiConfig,
 

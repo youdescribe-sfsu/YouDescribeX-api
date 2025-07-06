@@ -60,7 +60,7 @@ services:
       - APPLE_KEY_ID=${APPLE_KEY_ID}
       - COQUI_TTS_URL=${COQUI_TTS_URL:-http://localhost:5002}
       - TTS_ENGINE=${TTS_ENGINE:-google}
-      - COQUI_TTS_TIMEOUT=${COQUI_TTS_TIMEOUT:-30000}
+      - COQUI_TTS_TIMEOUT=${COQUI_TTS_TIMEOUT:-15000}
     logging:
       driver: "json-file"
       options:
@@ -73,13 +73,13 @@ services:
     image: ghcr.io/idiap/coqui-tts-cpu:latest
     network_mode: host
     environment:
-      - MODEL_NAME=tts_models/multilingual/multi-dataset/xtts_v2
+      - MODEL_NAME=tts_models/en/vctk/vits
       - COQUI_TOS_AGREED=1
     entrypoint: ["/bin/bash"]
-    command: ["-c", "python3 TTS/server/server.py --model_name tts_models/multilingual/multi-dataset/xtts_v2 --port 5002"]
+    command: ["-c", "python3 TTS/server/server.py --model_name tts_models/en/vctk/vits --port 5002"]
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5002/docs"]
+      test: ["CMD", "curl", "-f", "http://localhost:5002"]
       interval: 30s
       timeout: 10s
       retries: 3

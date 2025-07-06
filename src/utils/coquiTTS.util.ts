@@ -13,15 +13,17 @@ class CoquiTTSService {
   private static baseUrl = CONFIG.coqui.baseUrl;
   private static timeout = CONFIG.coqui.timeout;
 
-  static async generateSpeech(text: string, speakerId = 'Claribel Dervla', language = 'en'): Promise<CoquiTTSResponse> {
+  static async generateSpeech(text: string, speakerType: 'visual' | 'ocr' = 'visual'): Promise<CoquiTTSResponse> {
     try {
       logger.info(`Generating speech with Coqui TTS: ${text.substring(0, 50)}...`);
+
+      // Get speaker ID from config
+      const speakerId = CONFIG.coqui.speakers[speakerType];
 
       const response: AxiosResponse = await axios.get(`${this.baseUrl}/api/tts`, {
         params: {
           text: this.preprocessText(text),
-          'speaker-id': speakerId, // Coqui server expects speaker_idx parameter
-          'language-id': language, // Coqui server expects language_idx parameter
+          speaker_idx: speakerId,
         },
         timeout: this.timeout,
         responseType: 'arraybuffer',
@@ -49,9 +51,13 @@ class CoquiTTSService {
    */
   static async healthCheck(): Promise<boolean> {
     try {
-      // Use root endpoint - /docs returns 404 as verified in testing
-      const response = await axios.get(`${this.baseUrl}/`, {
+      const response = await axios.get(`${this.baseUrl}/api/tts`, {
+        params: {
+          text: 'test',
+          speaker_idx: 'p234',
+        },
         timeout: 5000,
+        responseType: 'arraybuffer',
       });
       return response.status === 200;
     } catch (error) {
