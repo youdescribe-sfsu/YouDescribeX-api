@@ -85,15 +85,16 @@ class FileManagementService {
   static deleteFile(filepath: string): boolean {
     try {
       const normalizedPath = filepath.startsWith('.') ? filepath.substring(1) : filepath;
-
       const fullPath = `${CONFIG.app.audioDirectory}${normalizedPath}`;
 
-      // Handle both .wav and .mp3 files based on actual file extension
+      // Instead of assuming MP3, check what file actually exists
       let finalPath = fullPath;
 
-      // If the path doesn't have an extension, try to determine the correct one
-      if (!fullPath.includes('.wav') && !fullPath.includes('.mp3')) {
-        // Check which file actually exists
+      // If the path already has an extension, use it as-is
+      if (fullPath.endsWith('.mp3') || fullPath.endsWith('.wav')) {
+        finalPath = fullPath;
+      } else {
+        // If no extension, try to find which file exists
         const wavPath = `${fullPath}.wav`;
         const mp3Path = `${fullPath}.mp3`;
 
@@ -102,7 +103,7 @@ class FileManagementService {
         } else if (fs.existsSync(mp3Path)) {
           finalPath = mp3Path;
         } else {
-          logger.error(`Neither WAV nor MP3 file exists for path: ${fullPath}`);
+          logger.error(`No audio file found for path: ${fullPath} (tried .wav and .mp3)`);
           return false;
         }
       }
@@ -394,12 +395,14 @@ class DatabaseService {
         };
       }
 
-      // Ensure proper path construction with file extension
+      // Build the full path with filename if available
       let filePath = clip.file_name ? `${clip.file_path}/${clip.file_name}` : clip.file_path;
 
-      // Validate the file extension
-      if (clip.file_name && !clip.file_name.endsWith('.mp3')) {
-        filePath = filePath + '.mp3';
+      // Only add an extension if the filename doesn't already have one
+      if (clip.file_name && !clip.file_name.includes('.')) {
+        // For files without extensions, we'll let the deleteFile method figure out which format exists
+        // This maintains compatibility with your new smart deletion logic
+        filePath = clip.file_path; // Return just the base path without filename
       }
 
       return {
