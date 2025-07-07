@@ -527,6 +527,7 @@ class AudioClipsService {
     const updatedAudioDuration = clipDurationStatus.data;
     const updatedClipEndTime = Number((parseFloat(clipStartTime) + parseFloat(updatedAudioDuration)).toFixed(2));
     const audioClip = await MongoAudioClipsModel.findById(clipId);
+    logger.info(`Database lookup result for clip ${clipId}:`, audioClip ? 'Found' : 'Not found');
     if (!audioClip) throw new HttpException(409, 'Audio clip not found');
 
     const currentPlaybackType = audioClip.playback_type as 'extended' | 'inline';

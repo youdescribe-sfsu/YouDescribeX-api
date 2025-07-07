@@ -88,7 +88,24 @@ class FileManagementService {
 
       const fullPath = `${CONFIG.app.audioDirectory}${normalizedPath}`;
 
-      const finalPath = fullPath.endsWith('.mp3') ? fullPath : `${fullPath}.mp3`;
+      // Handle both .wav and .mp3 files based on actual file extension
+      let finalPath = fullPath;
+
+      // If the path doesn't have an extension, try to determine the correct one
+      if (!fullPath.includes('.wav') && !fullPath.includes('.mp3')) {
+        // Check which file actually exists
+        const wavPath = `${fullPath}.wav`;
+        const mp3Path = `${fullPath}.mp3`;
+
+        if (fs.existsSync(wavPath)) {
+          finalPath = wavPath;
+        } else if (fs.existsSync(mp3Path)) {
+          finalPath = mp3Path;
+        } else {
+          logger.error(`Neither WAV nor MP3 file exists for path: ${fullPath}`);
+          return false;
+        }
+      }
 
       if (!fs.existsSync(finalPath)) {
         logger.error(`File does not exist: ${finalPath}`);
