@@ -170,8 +170,9 @@ class AudioClipService {
       return await this.generateWithGoogleTTS(text, clipDescriptionType);
     }
 
-    const speakerType = clipDescriptionType === 'Visual' ? 'visual' : 'ocr';
-    const result = await CoquiTTSService.generateSpeech(text, speakerType);
+    // Use faster speech (0.7) for visual descriptions, normal speed (1.0) for OCR
+    const lengthScale = clipDescriptionType === 'Visual' ? 0.7 : 1.0;
+    const result = await CoquiTTSService.generateSpeech(text, 'visual', lengthScale);
 
     if (result.status && result.audio) {
       return result.audio;

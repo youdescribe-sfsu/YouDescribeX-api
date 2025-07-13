@@ -13,21 +13,25 @@ class CoquiTTSService {
   private static baseUrl = CONFIG.coqui.baseUrl;
   private static timeout = CONFIG.coqui.timeout;
 
-  static async generateSpeech(text: string, speakerType: 'visual' | 'ocr' = 'visual'): Promise<CoquiTTSResponse> {
+  static async generateSpeech(text: string, speakerType: 'visual' | 'ocr' = 'visual', lengthScale = 1.0): Promise<CoquiTTSResponse> {
     try {
-      logger.info(`Generating speech with Coqui TTS (American accent): ${text.substring(0, 50)}...`);
+      logger.info(`Generating speech with Coqui TTS (Neon model, speed: ${lengthScale}): ${text.substring(0, 50)}...`);
 
-      // Get American speaker ID from config
-      const speakerId = CONFIG.coqui.speakers[speakerType];
-
-      const response: AxiosResponse = await axios.get(`${this.baseUrl}/api/tts`, {
-        params: {
+      // Neon model uses POST with form data
+      const response: AxiosResponse = await axios.post(
+        `${this.baseUrl}/api/tts`,
+        new URLSearchParams({
           text: this.preprocessText(text),
-          speaker_id: speakerId, // Using correct parameter name for web API
+          length_scale: lengthScale.toString(),
+        }),
+        {
+          timeout: this.timeout,
+          responseType: 'arraybuffer',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
         },
-        timeout: this.timeout,
-        responseType: 'arraybuffer',
-      });
+      );
 
       if (response.status === 200) {
         return {
@@ -47,18 +51,24 @@ class CoquiTTSService {
   }
 
   /**
-   * Health check with American speaker for YouDescribe accessibility platform
+   * Health check for Neon model
    */
   static async healthCheck(): Promise<boolean> {
     try {
-      const response = await axios.get(`${this.baseUrl}/api/tts`, {
-        params: {
+      const response = await axios.post(
+        `${this.baseUrl}/api/tts`,
+        new URLSearchParams({
           text: 'test',
-          speaker_id: 'p256', // Test with American male voice
+          length_scale: '1.0',
+        }),
+        {
+          timeout: 5000,
+          responseType: 'arraybuffer',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
         },
-        timeout: 5000,
-        responseType: 'arraybuffer',
-      });
+      );
       return response.status === 200;
     } catch (error) {
       logger.warn('Coqui TTS server health check failed:', error);
@@ -67,27 +77,20 @@ class CoquiTTSService {
   }
 
   /**
-   * Preprocess text for optimal accessibility - clear pronunciation for audio descriptions
+   * Preprocess text for optimal accessibility
    */
   private static preprocessText(text: string): string {
     return (
       text
         // Ensure proper sentence endings for natural pauses
-        .replace(/([.!?])\s*$/g, '$1')
-        // Handle abbreviations for better pronunciation in accessibility context
-        .replace(/\bDr\./g, 'Doctor')
-        .replace(/\bMr\./g, 'Mister')
-        .replace(/\bMrs\./g, 'Missus')
-        .replace(/\bMs\./g, 'Miss')
-        // Handle common contractions for clearer speech
-        .replace(/won't/g, 'will not')
-        .replace(/can't/g, 'cannot')
-        .replace(/n't/g, ' not')
-        // Clean up extra spaces
+        .replace(/([.!?])\s*([A-Z])/g, '$1 $2')
+        // Clean up excessive whitespace
         .replace(/\s+/g, ' ')
+        // Remove any characters that might cause pronunciation issues
+        .replace(/[^\w\s.,!?'-]/g, '')
         .trim()
     );
   }
 }
 
-export { CoquiTTSService, CoquiTTSResponse };
+export { CoquiTTSService };

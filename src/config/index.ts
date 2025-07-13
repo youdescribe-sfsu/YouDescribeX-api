@@ -116,13 +116,6 @@ export const CONFIG = {
   coqui: {
     baseUrl: process.env.COQUI_TTS_URL || 'http://localhost:5002',
     timeout: parseInt(process.env.COQUI_TTS_TIMEOUT || '30000'),
-    models: {
-      vctk_vits: 'tts_models/en/vctk/vits',
-    },
-    speakers: {
-      visual: 'p256', // Female voice for visual descriptions (American accent)
-      ocr: 'p257', // Male voice for OCR content (American accent)
-    },
   } as CoquiConfig,
 
   database: {
