@@ -81,7 +81,7 @@ services:
       - MODEL_NAME=tts_models/en/ljspeech/vits--neon
       - COQUI_TOS_AGREED=1
     entrypoint: ["/bin/bash"]
-    command: ["-c", "python3 TTS/server/server.py --model_name tts_models/en/ljspeech/vits--neon --port 5002"]
+    command: ["-c", "if [ ! -d '/root/.local/share/tts/tts_models--en--ljspeech--vits--neon' ]; then echo 'Model not found, will download...'; else echo 'Model exists, skipping download'; fi; python3 TTS/server/server.py --model_name tts_models/en/ljspeech/vits--neon --port 5002"]
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5002"]
