@@ -750,6 +750,7 @@ class AudioClipsService {
         file_name: fileName,
         file_mime_type: file_mime_type,
         file_size_bytes: file_size_bytes,
+        is_recorded: isRecorded === 'true',
         audio_description: adId,
         user: userId,
         video: videoId,
@@ -787,7 +788,7 @@ class AudioClipsService {
         clip_end_time: newClipEndTime,
         clip_duration: Number(newAudioDuration),
         clip_audio_path: newClipAudioFilePath,
-        is_recorded: isRecorded,
+        is_recorded: isRecorded === 'true',
         AudioDescriptionAdId: adId,
       });
       if (!newAudioClip) throw new HttpException(409, "Audio Description couldn't be created");

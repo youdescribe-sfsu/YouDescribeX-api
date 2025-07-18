@@ -36,7 +36,7 @@ export class UpdateClipAudioPathDto {
 }
 
 export class AddNewAudioClipDto {
-  isRecorded: boolean;
+  isRecorded: string;
   newACDescriptionText: string;
   newACPlaybackType: string;
   newACStartTime: string;
