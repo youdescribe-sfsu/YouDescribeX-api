@@ -137,7 +137,7 @@ class AudioClipService {
     clipDescriptionType: string,
   ): Promise<TextToSpeechResponse> {
     try {
-      const voiceName = clipDescriptionType === 'Visual' ? 'en-US-Studio-Q' : 'en-US-Studio-O';
+      const voiceName = clipDescriptionType === 'Visual' ? 'en-US-Studio-O' : 'en-US-Studio-Q';
       const [response] = await this.textToSpeechClient.synthesizeSpeech({
         input: { text: clipDescriptionText },
         voice: {
