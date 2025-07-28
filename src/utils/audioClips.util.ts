@@ -74,7 +74,8 @@ class FileManagementService {
 
     try {
       const buffer = fs.readFileSync(newPath);
-      const duration = (getMP3Duration(buffer) / 1000).toFixed(2);
+      const rawDuration = getMP3Duration(buffer) / 1000;
+      const duration = (Math.round(rawDuration * 1000) / 1000).toFixed(3);
       return { message: 'Success', data: duration };
     } catch (err) {
       logger.error('Audio Duration Error:', err);
