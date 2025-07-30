@@ -172,7 +172,7 @@ class AudioClipService {
     }
 
     // Use faster speech (0.7) for visual descriptions, normal speed (1.0) for OCR
-    const lengthScale = clipDescriptionType === 'Visual' ? 0.3 : 0.5;
+    const lengthScale = clipDescriptionType === 'Visual' ? 0.2 : 0.2;
     const result = await CoquiTTSService.generateSpeech(text, 'visual', lengthScale);
 
     if (result.status && result.audio) {
