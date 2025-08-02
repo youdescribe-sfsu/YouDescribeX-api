@@ -171,7 +171,7 @@ class AudioClipService {
       return await this.generateWithGoogleTTS(text, clipDescriptionType);
     }
 
-    const lengthScale = clipDescriptionType === 'Visual' ? 0.7 : 0.8;
+    const lengthScale = clipDescriptionType === 'Visual' ? 0.3 : 0.6;
     const result = await CoquiTTSService.generateSpeech(text, 'visual', lengthScale);
 
     if (result.status && result.audio) {
