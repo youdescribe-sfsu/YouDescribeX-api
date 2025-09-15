@@ -13,7 +13,7 @@ class CoquiTTSService {
   private static baseUrl = CONFIG.coqui.baseUrl;
   private static timeout = CONFIG.coqui.timeout;
 
-  static async generateSpeech(text: string, speakerType: 'visual' | 'ocr' = 'visual', lengthScale = 1.0): Promise<CoquiTTSResponse> {
+  static async generateSpeech(text: string, speakerType: 'visual' | 'ocr' = 'visual', lengthScale = 0.4): Promise<CoquiTTSResponse> {
     try {
       logger.info(`Generating speech with Coqui TTS (Neon model, speed: ${lengthScale}): ${text.substring(0, 50)}...`);
 
