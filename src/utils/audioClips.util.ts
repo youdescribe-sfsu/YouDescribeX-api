@@ -14,6 +14,7 @@ import { logger } from './logger';
 import { getYouTubeVideoStatus, nowUtc } from './util';
 import path from 'path';
 import { HttpException } from '../exceptions/HttpException';
+import { CoquiTTSService } from './coquiTTS.util';
 
 // Types and Interfaces
 interface TextToSpeechResponse {
@@ -73,7 +74,8 @@ class FileManagementService {
 
     try {
       const buffer = fs.readFileSync(newPath);
-      const duration = (getMP3Duration(buffer) / 1000).toFixed(2);
+      const rawDuration = getMP3Duration(buffer) / 1000;
+      const duration = (Math.round(rawDuration * 1000) / 1000).toFixed(3);
       return { message: 'Success', data: duration };
     } catch (err) {
       logger.error('Audio Duration Error:', err);
@@ -84,10 +86,28 @@ class FileManagementService {
   static deleteFile(filepath: string): boolean {
     try {
       const normalizedPath = filepath.startsWith('.') ? filepath.substring(1) : filepath;
-
       const fullPath = `${CONFIG.app.audioDirectory}${normalizedPath}`;
 
-      const finalPath = fullPath.endsWith('.mp3') ? fullPath : `${fullPath}.mp3`;
+      // Instead of assuming MP3, check what file actually exists
+      let finalPath = fullPath;
+
+      // If the path already has an extension, use it as-is
+      if (fullPath.endsWith('.mp3') || fullPath.endsWith('.wav')) {
+        finalPath = fullPath;
+      } else {
+        // If no extension, try to find which file exists
+        const wavPath = `${fullPath}.wav`;
+        const mp3Path = `${fullPath}.mp3`;
+
+        if (fs.existsSync(wavPath)) {
+          finalPath = wavPath;
+        } else if (fs.existsSync(mp3Path)) {
+          finalPath = mp3Path;
+        } else {
+          logger.error(`No audio file found for path: ${fullPath} (tried .wav and .mp3)`);
+          return false;
+        }
+      }
 
       if (!fs.existsSync(finalPath)) {
         logger.error(`File does not exist: ${finalPath}`);
@@ -131,6 +151,59 @@ class AudioClipService {
     keyFilename: CONFIG.google.textToSpeech.credentialsPath,
   });
 
+  static async generateSpeechWithEngine(text: string, clipDescriptionType: string): Promise<Buffer> {
+    const engine = CONFIG.app.ttsEngine;
+    if (engine === 'coqui') {
+      return await this.generateWithCoquiTTS(text, clipDescriptionType);
+    } else {
+      return await this.generateWithGoogleTTS(text, clipDescriptionType);
+    }
+  }
+
+  /**
+   * Generate speech using Coqui TTS
+   */
+  private static async generateWithCoquiTTS(text: string, clipDescriptionType: string): Promise<Buffer> {
+    // Check if Coqui TTS is healthy
+    const isHealthy = await CoquiTTSService.healthCheck();
+    if (!isHealthy) {
+      logger.warn('Coqui TTS unhealthy, falling back to Google TTS');
+      return await this.generateWithGoogleTTS(text, clipDescriptionType);
+    }
+
+    const lengthScale = clipDescriptionType === 'Visual' ? 0.3 : 0.6;
+    const result = await CoquiTTSService.generateSpeech(text, 'visual', lengthScale);
+
+    if (result.status && result.audio) {
+      return result.audio;
+    } else {
+      logger.warn('Coqui TTS failed, falling back to Google TTS');
+      return await this.generateWithGoogleTTS(text, clipDescriptionType);
+    }
+  }
+
+  /**
+   * Generate speech using Google TTS (existing logic)
+   */
+  private static async generateWithGoogleTTS(text: string, clipDescriptionType: string): Promise<Buffer> {
+    const voiceName = clipDescriptionType === 'Visual' ? 'en-US-Wavenet-D' : 'en-US-Wavenet-C';
+
+    const [response] = await this.textToSpeechClient.synthesizeSpeech({
+      input: { text },
+      voice: {
+        languageCode: 'en-US',
+        name: voiceName,
+        ssmlGender: 'NEUTRAL',
+      },
+      audioConfig: {
+        audioEncoding: 'MP3',
+        speakingRate: 1.0,
+      },
+    });
+
+    return response.audioContent as Buffer;
+  }
+
   static async generateMp3forDescriptionText(
     adId: string,
     youtubeVideoId: string,
@@ -138,29 +211,21 @@ class AudioClipService {
     clipDescriptionType: string,
   ): Promise<TextToSpeechResponse> {
     try {
-      const voiceName = clipDescriptionType === 'Visual' ? 'en-US-Wavenet-D' : 'en-US-Wavenet-C';
-      const [response] = await this.textToSpeechClient.synthesizeSpeech({
-        input: { text: clipDescriptionText },
-        voice: {
-          languageCode: 'en-US',
-          name: voiceName,
-          ssmlGender: 'NEUTRAL',
-        },
-        audioConfig: {
-          audioEncoding: 'MP3',
-          speakingRate: 1.25,
-        },
-      });
+      const audioBuffer = await this.generateSpeechWithEngine(clipDescriptionText, clipDescriptionType);
+
+      const engine = CONFIG.app.ttsEngine;
+      const fileExtension = engine === 'coqui' ? 'wav' : 'mp3';
+      const expectedMimeType = engine === 'coqui' ? 'audio/wav' : 'audio/mpeg';
 
       const uniqueId = uuidv4();
       const type = clipDescriptionType === 'Visual' ? 'nonOCR' : 'OCR';
-      const fileName = `${type}-${uniqueId}.mp3`;
+      const fileName = `${type}-${uniqueId}.${fileExtension}`;
       const dir = `${CONFIG.app.audioDirectory}/audio/${youtubeVideoId}/${adId}`;
 
       FileManagementService.ensureDirectoryExists(dir);
 
       const filepath = `${dir}/${fileName}`;
-      await fs.promises.writeFile(filepath, response.audioContent, 'binary');
+      await fs.promises.writeFile(filepath, audioBuffer);
 
       const fileMimeType = mime.lookup(filepath);
       const fileSizeBytes = fs.statSync(filepath).size;
@@ -170,7 +235,7 @@ class AudioClipService {
         status: true,
         filepath: servingFilepath,
         filename: fileName,
-        file_mime_type: fileMimeType || 'audio/mpeg',
+        file_mime_type: fileMimeType || expectedMimeType,
         file_size_bytes: fileSizeBytes,
       };
     } catch (error) {
@@ -331,12 +396,14 @@ class DatabaseService {
         };
       }
 
-      // Ensure proper path construction with file extension
+      // Build the full path with filename if available
       let filePath = clip.file_name ? `${clip.file_path}/${clip.file_name}` : clip.file_path;
 
-      // Validate the file extension
-      if (clip.file_name && !clip.file_name.endsWith('.mp3')) {
-        filePath = filePath + '.mp3';
+      // Only add an extension if the filename doesn't already have one
+      if (clip.file_name && !clip.file_name.includes('.')) {
+        // For files without extensions, we'll let the deleteFile method figure out which format exists
+        // This maintains compatibility with your new smart deletion logic
+        filePath = clip.file_path; // Return just the base path without filename
       }
 
       return {

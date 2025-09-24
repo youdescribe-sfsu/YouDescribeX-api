@@ -47,6 +47,28 @@ export class AudioClipsController {
     }
   };
 
+  // Add this method to your AudioClipsController class
+  public switchToTTS = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const clipId: string = req.params.clipId;
+      const { text, userId, youtubeVideoId, audioDescriptionId } = req.body;
+
+      // Validate required parameters
+      if (!text || !userId || !youtubeVideoId || !audioDescriptionId) {
+        return res.status(400).json({
+          message: 'Missing required parameters: text, userId, youtubeVideoId, audioDescriptionId',
+        });
+      }
+
+      const result = await this.audioClipsService.switchToTTS(clipId, text, userId, youtubeVideoId, audioDescriptionId);
+
+      res.status(200).json(result);
+    } catch (error) {
+      logger.error('Switch to TTS controller error:', error);
+      next(error);
+    }
+  };
+
   public updateAudioClipPlaybackType = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const clipId: string = req.params.clipId;
