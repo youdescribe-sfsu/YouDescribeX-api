@@ -1,5 +1,5 @@
 import { ObjectId } from 'mongodb';
-import { AI_USER_ID, AUDIO_DIRECTORY, CURRENT_DATABASE } from '../config';
+import { AUDIO_DIRECTORY, CURRENT_DATABASE } from '../config';
 import { NewAiDescriptionDto } from '../dtos/audioDescriptions.dto';
 import { HttpException } from '../exceptions/HttpException';
 import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
@@ -80,7 +80,7 @@ class AudioDescriptionsService {
           clip_end_time: audioClip.end_time,
           clip_duration: audioClip.duration,
           clip_audio_path: audioClip.file_name ? audioClip.file_path + '/' + audioClip.file_name : audioClip.file_path,
-          is_recorded: false,
+          is_recorded: audioClip.is_recorded,
           createdAt: audioClip.created_at,
           updatedAt: audioClip.updated_at,
           AudioDescriptionAdId: audioClip,
@@ -488,7 +488,7 @@ class AudioDescriptionsService {
         clip_end_time: audioClip.end_time,
         clip_duration: audioClip.duration,
         clip_audio_path: audioClip.file_name ? audioClip.file_path + '/' + audioClip.file_name : audioClip.file_path,
-        is_recorded: false,
+        is_recorded: audioClip.is_recorded,
         createdAt: audioClip.created_at,
         updatedAt: audioClip.updated_at,
         AudioDescriptionAdId: audioClip,
@@ -669,7 +669,6 @@ class AudioDescriptionsService {
       const skipCount = (page - 1) * perPage;
       const pipeline: any[] = [
         { $match: { status: 'completed' } },
-
         {
           $lookup: {
             from: 'videos',
@@ -679,41 +678,13 @@ class AudioDescriptionsService {
           },
         },
         { $unwind: '$video' },
-
-        // Verify actual AI description exists
-        {
-          $lookup: {
-            from: 'audio_descriptions',
-            let: { videoId: '$video._id' },
-            pipeline: [
-              {
-                $match: {
-                  $expr: {
-                    $and: [{ $eq: ['$video', '$$videoId'] }, { $eq: ['$user', { $toObjectId: AI_USER_ID }] }],
-                  },
-                },
-              },
-            ],
-            as: 'actual_ai_description',
-          },
-        },
-
-        // Only show videos that actually have AI descriptions
-        { $match: { 'actual_ai_description.0': { $exists: true } } },
-
         {
           $group: {
             _id: '$_id',
             status: { $first: '$status' },
             video: { $first: '$video' },
-            ai_description_id: { $first: { $arrayElemAt: ['$actual_ai_description._id', 0] } },
-            // Keep the request timestamps
-            request_created_at: { $first: '$createdAt' }, // When request was made
-            request_updated_at: { $first: '$updatedAt' }, // When request was completed
-            ai_description_created_at: { $first: { $arrayElemAt: ['$actual_ai_description.created_at', 0] } },
           },
         },
-
         {
           $project: {
             _id: 1,
@@ -722,23 +693,11 @@ class AudioDescriptionsService {
             youtube_id: '$video.youtube_id',
             video_name: '$video.title',
             video_length: '$video.duration',
-            ai_description_id: 1,
-            request_created_at: 1,
-            request_updated_at: 1,
-            ai_description_created_at: 1,
-            url: { $concat: ['/editor/', { $toString: '$ai_description_id' }] },
+            createdAt: '$video.created_at',
+            updatedAt: '$video.updated_at',
           },
         },
-
-        // OPTIMAL SORTING: Most recently completed requests first
-        {
-          $sort: {
-            request_updated_at: -1, // Primary: When request was completed (status changed to 'completed')
-            ai_description_created_at: -1, // Secondary: When actual AI description was created
-            request_created_at: -1, // Tertiary: When request was originally made
-          },
-        },
-
+        { $sort: { createdAt: -1 } },
         {
           $facet: {
             videos: [{ $skip: skipCount }, { $limit: perPage }],
@@ -752,7 +711,6 @@ class AudioDescriptionsService {
           },
         },
       ];
-
       const result = await MongoAICaptionRequestModel.aggregate(pipeline).exec();
       return {
         result: result[0]?.videos || [],
