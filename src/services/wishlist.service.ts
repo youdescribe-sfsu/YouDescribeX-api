@@ -333,7 +333,10 @@ class WishListService {
           },
         },
         {
-          $limit: 8, // Fetch extra items to account for potentially unavailable videos
+          $limit: 25,
+        },
+        {
+          $sample: { size: 8 },
         },
       ];
 
