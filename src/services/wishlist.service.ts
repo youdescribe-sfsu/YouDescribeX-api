@@ -318,7 +318,6 @@ class WishListService {
 
   getTopWishlist = async (user_id: string | undefined) => {
     try {
-      // Initial fetch of more items than we need (e.g., 8 instead of 5)
       const pipeline: PipelineStage[] = [
         {
           $match: {
@@ -333,25 +332,33 @@ class WishListService {
           },
         },
         {
-          $limit: 25,
-        },
-        {
-          $sample: { size: 8 },
+          $limit: 15,
         },
       ];
 
       const topWishlist = await MongoWishListModel.aggregate(pipeline);
 
+      // Shuffle using today's date as seed for daily rotation
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const seededRandom = (seed: string, index: number) => {
+        const hash = seed.split('').reduce((acc, char) => acc + char.charCodeAt(0), index);
+        return ((hash * 9301 + 49297) % 233280) / 233280;
+      };
+
+      const shuffled = topWishlist
+        .map((video, i) => ({ video, sort: seededRandom(today, i) }))
+        .sort((a, b) => a.sort - b.sort)
+        .map(({ video }) => video);
+
       // Filter out unavailable videos and get the first 5 available ones
       const availableVideos = [];
-      for (const video of topWishlist) {
+      for (const video of shuffled) {
         try {
           const response = await YouTubeCacheService.getVideoData([video.youtube_id]);
           if (response?.items?.length > 0) {
             availableVideos.push(video);
-            if (availableVideos.length === 5) break; // Stop once we have 5 videos
+            if (availableVideos.length === 5) break;
           } else {
-            // Mark video as unavailable in background
             markVideoUnavailable(video.youtube_id);
           }
         } catch (error) {
