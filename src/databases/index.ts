@@ -11,8 +11,8 @@ import { logger } from '../utils/logger';
 // MongoDB connection string
 const MONGODB_CONNECTION_STRING =
   NODE_ENV === 'production'
-    ? `mongodb://${MONGO_DB_USER}:${MONGO_DB_PASSWORD}@${MONGO_DB_HOST}:${MONGO_DB_PORT}/${MONGO_DB_DATABASE}`
-    : `mongodb://${MONGO_DB_HOST}:${MONGO_DB_PORT}/${MONGO_DB_DATABASE}`;
+    ? `mongodb://${MONGO_DB_USER}:${MONGO_DB_PASSWORD}@${MONGO_DB_HOST}:${MONGO_DB_PORT}/${MONGO_DB_DATABASE}?replicaSet=rs0`
+    : `mongodb://${MONGO_DB_HOST}:${MONGO_DB_PORT}/${MONGO_DB_DATABASE}?replicaSet=rs0`;
 
 logger.info(`NODE`);
 logger.info(process.env);
