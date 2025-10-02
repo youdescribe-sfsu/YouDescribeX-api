@@ -13,12 +13,18 @@ class AudioDescripionsController {
     try {
       const videoId: string = req.params.videoId;
       const audio_description_id: string = req.params.adId;
+      const preview = req.query.preview as string;
       // // console.log("audio_description_id", audio_description_id)
       const user = req.user as unknown as IUser;
       // console.log('user', user);
       if (!user) throw new Error('User not found');
       // const audio_description_id = req.headers.audiodescription as unknown as string;
-      const userAudioDescriptions = await this.audioDescriptionsService.getUserAudioDescriptionData(videoId, user._id, audio_description_id);
+      const userAudioDescriptions = await this.audioDescriptionsService.getUserAudioDescriptionData(
+        videoId,
+        user._id,
+        audio_description_id,
+        preview === 'true',
+      );
 
       res.status(200).json(userAudioDescriptions);
     } catch (error) {

@@ -33,6 +33,7 @@ class AudioDescriptionsService {
     videoId: string,
     userId: string,
     audio_description_id: string,
+    preview = false,
   ): Promise<{
     Audio_Clips: any[];
     createdAt: any;
@@ -52,6 +53,11 @@ class AudioDescriptionsService {
       });
 
       if (!audioDescriptions) throw new HttpException(409, "Audio Description for this YouTube Video doesn't exist");
+
+      // Only enforce published status check if not in preview mode
+      if (!preview && audioDescriptions.status !== 'published') {
+        throw new HttpException(409, 'Audio Description for this YouTube Video is not published');
+      }
       const audio_clips = audioDescriptions.audio_clips;
       const audioClipArr = await MongoAudioClipsModel.find({
         audio_description: audioDescriptions._id,
