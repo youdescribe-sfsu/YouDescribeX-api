@@ -513,7 +513,13 @@ class UserService {
     try {
       logger.info(`Starting AI description request for video ${youtube_id}`, { userId: userData._id });
 
-      // Validate the YouTube video exists
+      // Ensure the video document exists in the videos collection
+      const videoDocument = await getYouTubeVideoStatus(youtube_id);
+      if (!videoDocument) {
+        throw new VideoNotFoundError(`Could not create or find video document for YouTube ID: ${youtube_id}`);
+      }
+
+      // Get YouTube metadata for display/email purposes
       const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
       if (!youtubeVideoData) {
         throw new VideoNotFoundError(`No data found for YouTube ID: ${youtube_id}`);
@@ -1091,6 +1097,7 @@ class UserService {
         // Unwind the video array
         { $unwind: '$video' },
 
+        // Lookup AI audio descriptions
         {
           $lookup: {
             from: 'audio_descriptions',
@@ -1099,10 +1106,7 @@ class UserService {
               {
                 $match: {
                   $expr: {
-                    $and: [
-                      { $eq: ['$youtube_id', '$$youtubeId'] },
-                      { $eq: ['$user_id', AI_USER_ID] }, // Your AI user ID
-                    ],
+                    $and: [{ $eq: ['$youtube_id', '$$youtubeId'] }, { $eq: ['$user_id', AI_USER_ID] }],
                   },
                 },
               },
@@ -1111,16 +1115,15 @@ class UserService {
           },
         },
 
-        // Only include requests where actual AI description exists
-        { $match: { 'actual_ai_description.0': { $exists: true } } },
-
         // Group by ID to deduplicate
         {
           $group: {
             _id: '$_id',
             status: { $first: '$status' },
-            audio_description_id: { $first: '$_id' },
+            audio_description_id: { $first: { $arrayElemAt: ['$actual_ai_description._id', 0] } },
             video: { $first: '$video' },
+            youtube_id: { $first: '$youtube_id' },
+            has_ai_description: { $first: { $gt: [{ $size: '$actual_ai_description' }, 0] } },
           },
         },
 
@@ -1134,6 +1137,15 @@ class UserService {
             youtube_video_id: '$video.youtube_id',
             video_name: '$video.title',
             video_length: '$video.duration',
+            url: {
+              $cond: {
+                if: { $and: [{ $eq: ['$status', 'completed'] }, '$has_ai_description'] },
+                then: {
+                  $concat: ['editor/', '$youtube_id', '/', { $toString: '$audio_description_id' }],
+                },
+                else: null,
+              },
+            },
             createdAt: '$video.created_at',
             updatedAt: '$video.updated_at',
           },
