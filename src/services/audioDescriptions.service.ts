@@ -689,6 +689,8 @@ class AudioDescriptionsService {
             _id: '$_id',
             status: { $first: '$status' },
             video: { $first: '$video' },
+            requestCreatedAt: { $first: '$created_at' },
+            requestCompletedAt: { $first: '$completed_at' },
           },
         },
         {
@@ -699,7 +701,7 @@ class AudioDescriptionsService {
             youtube_id: '$video.youtube_id',
             video_name: '$video.title',
             video_length: '$video.duration',
-            createdAt: '$video.created_at',
+            createdAt: '$requestCompletedAt',
             updatedAt: '$video.updated_at',
           },
         },
