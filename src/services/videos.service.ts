@@ -333,6 +333,17 @@ class VideosService {
       const allUsers = await MongoUsersModel.find({ name: { $exists: true } }, { _id: 1, name: 1 });
       const usernames = allUsers.map(user => user.name.toLowerCase());
 
+      // First: Try direct partial match (contains) for describer names
+      const partialMatchUserIds = allUsers.filter(user => user.name.toLowerCase().includes(normalizedQuery)).map(user => user._id.toString());
+
+      // Add partial matches to the query
+      if (partialMatchUserIds.length > 0) {
+        matchQuery.$or.push({
+          'populated_audio_descriptions.user._id': { $in: partialMatchUserIds },
+        });
+      }
+
+      // Second: Try fuzzy matching for typos/misspellings (fallback)
       const matches = stringSimilarity.findBestMatch(normalizedQuery, usernames);
 
       const similarUserIds = Array.from(
@@ -347,8 +358,12 @@ class VideosService {
         ),
       );
 
+      // Add fuzzy matches that weren't already added by partial matching
       if (similarUserIds.length > 0) {
-        matchQuery.$or.push({ 'populated_audio_descriptions.user._id': { $in: similarUserIds } });
+        const newFuzzyIds = similarUserIds.filter(id => !partialMatchUserIds.includes(id));
+        if (newFuzzyIds.length > 0) {
+          matchQuery.$or.push({ 'populated_audio_descriptions.user._id': { $in: newFuzzyIds } });
+        }
       }
 
       if (/^[a-zA-Z0-9-_]{11}$/.test(query)) {
