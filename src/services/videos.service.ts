@@ -334,7 +334,7 @@ class VideosService {
       const usernames = allUsers.map(user => user.name.toLowerCase());
 
       // First: Try direct partial match (contains) for describer names
-      const partialMatchUserIds = allUsers.filter(user => user.name.toLowerCase().includes(normalizedQuery)).map(user => user._id.toString());
+      const partialMatchUserIds = allUsers.filter(user => user.name.toLowerCase().includes(normalizedQuery)).map(user => user._id);
 
       // Add partial matches to the query
       if (partialMatchUserIds.length > 0) {
@@ -352,7 +352,7 @@ class VideosService {
             .filter(({ rating }) => rating > 0.5)
             .map(({ target }) => {
               const normalizedTarget = target.toLowerCase();
-              return allUsers.filter(user => user.name.toLowerCase() === normalizedTarget).map(user => user._id.toString());
+              return allUsers.filter(user => user.name.toLowerCase() === normalizedTarget).map(user => user._id);
             })
             .flat(),
         ),
@@ -360,7 +360,7 @@ class VideosService {
 
       // Add fuzzy matches that weren't already added by partial matching
       if (similarUserIds.length > 0) {
-        const newFuzzyIds = similarUserIds.filter(id => !partialMatchUserIds.includes(id));
+        const newFuzzyIds = similarUserIds.filter(id => !partialMatchUserIds.some(pId => pId.equals(id)));
         if (newFuzzyIds.length > 0) {
           matchQuery.$or.push({ 'populated_audio_descriptions.user._id': { $in: newFuzzyIds } });
         }
