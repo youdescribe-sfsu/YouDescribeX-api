@@ -336,6 +336,10 @@ class VideosService {
       // First: Try direct partial match (contains) for describer names
       const partialMatchUserIds = allUsers.filter(user => user.name.toLowerCase().includes(normalizedQuery)).map(user => user._id);
 
+      console.log(`Search query: "${normalizedQuery}"`);
+      console.log(`Partial match user IDs found: ${partialMatchUserIds.length}`);
+      console.log(`Matched users: ${allUsers.filter(user => user.name.toLowerCase().includes(normalizedQuery)).map(u => u.name)}`);
+
       // Add partial matches to the query
       if (partialMatchUserIds.length > 0) {
         matchQuery.$or.push({
@@ -360,7 +364,9 @@ class VideosService {
 
       // Add fuzzy matches that weren't already added by partial matching
       if (similarUserIds.length > 0) {
-        const newFuzzyIds = similarUserIds.filter(id => !partialMatchUserIds.some(pId => pId.equals(id)));
+        const partialMatchStrings = partialMatchUserIds.map(id => id.toString());
+        const newFuzzyIds = similarUserIds.filter(id => !partialMatchStrings.includes(id.toString()));
+
         if (newFuzzyIds.length > 0) {
           matchQuery.$or.push({ 'populated_audio_descriptions.user._id': { $in: newFuzzyIds } });
         }
@@ -396,6 +402,13 @@ class VideosService {
             localField: 'populated_audio_descriptions.user',
             foreignField: '_id',
             as: 'populated_audio_descriptions.user',
+          },
+        },
+        {
+          $addFields: {
+            'populated_audio_descriptions.user': {
+              $arrayElemAt: ['$populated_audio_descriptions.user', 0],
+            },
           },
         },
         {
