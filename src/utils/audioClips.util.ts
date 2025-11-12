@@ -128,7 +128,7 @@ class FileManagementService {
 
 class AudioClipService {
   private static textToSpeechClient = new TextToSpeechClient({
-    keyFilename: CONFIG.google.textToSpeech.credentialsPath,
+    keyFilename: path.resolve(__dirname, '../../sa-text-to-speech.json'),
   });
 
   static async generateMp3forDescriptionText(
@@ -138,17 +138,16 @@ class AudioClipService {
     clipDescriptionType: string,
   ): Promise<TextToSpeechResponse> {
     try {
-      const voiceName = clipDescriptionType === 'Visual' ? 'en-US-Wavenet-D' : 'en-US-Wavenet-C';
+      const voiceName = clipDescriptionType === 'Visual' ? 'en-US-Studio-O' : 'en-US-Studio-Q';
       const [response] = await this.textToSpeechClient.synthesizeSpeech({
         input: { text: clipDescriptionText },
         voice: {
           languageCode: 'en-US',
           name: voiceName,
-          ssmlGender: 'NEUTRAL',
         },
         audioConfig: {
           audioEncoding: 'MP3',
-          speakingRate: 1.25,
+          speakingRate: 1.5,
         },
       });
 

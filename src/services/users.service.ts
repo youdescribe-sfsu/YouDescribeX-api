@@ -25,6 +25,7 @@ import { VideoNotFoundError, AIProcessingError } from '../utils/customErrors';
 import moment from 'moment';
 import { PipelineFailureDto } from '../dtos/pipelineFailure.dto';
 import cacheService from '../utils/cacheService';
+import { InfoBotRequestDto } from '../dtos/infoBotRequest.dto';
 
 class UserService {
   private videoProcessingQueue: Array<{
@@ -548,6 +549,69 @@ class UserService {
       } else if (error instanceof HttpException) {
         throw error;
       } else {
+        throw new HttpException(500, 'An unexpected error occurred');
+      }
+    }
+  }
+
+  public async requestAiDescriptionsWithLana(userId: string, youtube_id: string) {
+    try {
+      logger.info(`Starting AI description request for video ${youtube_id}`, { userId });
+
+      // Validate the YouTube video exists
+      const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
+      if (!youtubeVideoData) {
+        throw new VideoNotFoundError(`No data found for YouTube ID: ${youtube_id}`);
+      }
+
+      logger.info(`Video data retrieved for ${youtube_id}`, { videoTitle: youtubeVideoData.title });
+
+      // await cacheService.invalidateByPrefix(`ai_requests_${userData._id}`);
+      // logger.info(`Invalidated cache for user ${userData._id} after requesting AI description`);
+
+      // Check if we already have an AI description for this video
+      const aiAudioDescriptions = await this.checkIfVideoHasAudioDescription(youtube_id, AI_USER_ID, userId);
+      if (aiAudioDescriptions) {
+        // Handle existing description case
+        logger.info(`Existing AI description found for ${youtube_id}`);
+        return;
+        // return await this.handleExistingAudioDescription(userData, youtube_id, ydx_app_host, youtubeVideoData, aiAudioDescriptions);
+      }
+
+      // Queue the video for processing instead of sending directly
+      // Direct call to the GPU service API
+      console.log('AI_USER_IDAI_USER_IDAI_USER_ID', AI_USER_ID);
+      const response = await axios.post(`http://0.0.0.0:8000/api/generate_ai_caption`, {
+        youtube_id: youtube_id,
+        user_id: userId,
+        ai_user_id: AI_USER_ID,
+      });
+
+      // const audioDescriptionId = await this.userService.generateAudioDescGpu(
+      //         {
+      //           youtubeVideoId: newUserAudioDescription.youtube_id,
+      //           aiUserId: AI_USER_ID,
+      //         },
+      //         user._id,
+      //       );
+      //       await this.audioClipsService.processAllClipsInDB(audioDescriptionId.audioDescriptionId.toString());
+
+      logger.info(`GPU service response for ${youtube_id}: ${JSON.stringify(response.data)}`);
+    } catch (error) {
+      logger.error(`Error in requestAiDescriptionsWithGpu: ${error.message}`, {
+        userId: userId,
+        youtubeId: youtube_id,
+        error: error,
+      });
+
+      if (error instanceof VideoNotFoundError) {
+        throw new HttpException(404, error.message);
+      } else if (error instanceof AIProcessingError) {
+        throw new HttpException(503, 'AI processing service is currently unavailable');
+      } else if (error instanceof HttpException) {
+        throw error;
+      } else {
+        logger.error(`Unexpected error: ${error.message}`);
         throw new HttpException(500, 'An unexpected error occurred');
       }
     }
@@ -1375,6 +1439,31 @@ class UserService {
     } catch (error) {
       logger.error('Error fetching video history:', error);
       throw error;
+    }
+  }
+
+  public async infoBotGenerateAnswer(infoBotRequest: InfoBotRequestDto) {
+    try {
+      const { youtubeVideoId, question, timeStamp } = infoBotRequest;
+      console.log(typeof timeStamp);
+
+      const requestBody = {
+        video_id: youtubeVideoId,
+        question,
+        current_time: timeStamp.toString(),
+      };
+
+      const response = await axios.post('http://0.0.0.0:8000/api/info-bot', requestBody);
+      if (response?.data?.status === 'success') {
+        console.log('Response from AI:', response.data.response);
+        return response.data.response;
+      } else {
+        return 'Not Found Description or Answer';
+      }
+    } catch (error) {
+      console.log('Error in infoBotGenerateAnswer:', error);
+
+      throw new HttpException(500, 'Request for AI answer failed');
     }
   }
 }

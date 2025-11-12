@@ -17,6 +17,7 @@ import { initPassport, MongoAICaptionRequestModel, MongoVideosModel } from './mo
 import { checkAndNotify, gpuStatusCronJob, videoStatusCheckJob } from './utils/cron.utils';
 import moment from 'moment';
 import YouTubeProxyRoute from './routes/youtube-proxy.route';
+import cors from 'cors';
 
 class App {
   public static numOfVideosFromYoutube = 0;
@@ -73,6 +74,12 @@ class App {
     this.app.use(passport.session());
     logger.info(`AUDIO_DIRECTORY: ${AUDIO_DIRECTORY}`);
     this.app.use('/api/static', express.static(AUDIO_DIRECTORY));
+
+    const corsOptions = {
+      origin: 'http://localhost:3000', // Change * to your frontend origin
+      credentials: true,
+    };
+    this.app.use(cors(corsOptions));
 
     // Add a preflight handler for all routes
     this.app.options('*', (req, res) => {
