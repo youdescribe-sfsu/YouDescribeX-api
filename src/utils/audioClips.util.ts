@@ -118,7 +118,7 @@ class FileManagementService {
       fs.mkdirSync(targetDir, { recursive: true });
 
       fs.copyFileSync(oldAbsPath, newPath);
-      return `/audio/${youtubeVideoId}/${adId}`;
+      return `./audio/${youtubeVideoId}/${adId}`;
     } catch (err) {
       logger.error('File copy error:', err);
       return oldPath;

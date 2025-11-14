@@ -26,6 +26,7 @@ import moment from 'moment';
 import { PipelineFailureDto } from '../dtos/pipelineFailure.dto';
 import cacheService from '../utils/cacheService';
 import { InfoBotRequestDto } from '../dtos/infoBotRequest.dto';
+import LanaService from './lana.service';
 
 class UserService {
   private videoProcessingQueue: Array<{
@@ -36,6 +37,7 @@ class UserService {
   }> = [];
   private isProcessingQueue = false;
   public audioClipsService = new AudioClipsService();
+  private lanaService = new LanaService();
 
   public async findAllUser(): Promise<IUser[] | UsersAttributes[]> {
     if (CURRENT_DATABASE == 'mongodb') {
@@ -556,6 +558,14 @@ class UserService {
 
   public async requestAiDescriptionsWithLana(userId: string, youtube_id: string) {
     try {
+      // Validate inputs
+      if (isEmpty(youtube_id)) {
+        throw new HttpException(400, 'youtubeId is empty');
+      }
+      if (isEmpty(userId)) {
+        throw new HttpException(400, 'userId is empty');
+      }
+
       logger.info(`Starting AI description request for video ${youtube_id}`, { userId });
 
       // Validate the YouTube video exists
@@ -566,8 +576,9 @@ class UserService {
 
       logger.info(`Video data retrieved for ${youtube_id}`, { videoTitle: youtubeVideoData.title });
 
-      // await cacheService.invalidateByPrefix(`ai_requests_${userData._id}`);
-      // logger.info(`Invalidated cache for user ${userData._id} after requesting AI description`);
+      // Track user request in database
+      await this.increaseRequestCount(youtube_id, userId, AI_USER_ID);
+      logger.info(`Tracked user request for ${youtube_id} by user ${userId}`);
 
       // Check if we already have an AI description for this video
       const aiAudioDescriptions = await this.checkIfVideoHasAudioDescription(youtube_id, AI_USER_ID, userId);
@@ -575,43 +586,32 @@ class UserService {
         // Handle existing description case
         logger.info(`Existing AI description found for ${youtube_id}`);
         return;
-        // return await this.handleExistingAudioDescription(userData, youtube_id, ydx_app_host, youtubeVideoData, aiAudioDescriptions);
       }
 
-      // Queue the video for processing instead of sending directly
-      // Direct call to the GPU service API
-      console.log('AI_USER_IDAI_USER_IDAI_USER_ID', AI_USER_ID);
-      const response = await axios.post(`http://0.0.0.0:8000/api/generate_ai_caption`, {
+      // Call LANA service to request AI description
+      const requestData = {
         youtube_id: youtube_id,
         user_id: userId,
         ai_user_id: AI_USER_ID,
-      });
+      };
 
-      // const audioDescriptionId = await this.userService.generateAudioDescGpu(
-      //         {
-      //           youtubeVideoId: newUserAudioDescription.youtube_id,
-      //           aiUserId: AI_USER_ID,
-      //         },
-      //         user._id,
-      //       );
-      //       await this.audioClipsService.processAllClipsInDB(audioDescriptionId.audioDescriptionId.toString());
+      const response = await this.lanaService.requestAiDescriptionWithLana(requestData);
 
-      logger.info(`GPU service response for ${youtube_id}: ${JSON.stringify(response.data)}`);
+      logger.info(`LANA service response for ${youtube_id}: ${JSON.stringify(response)}`);
+
+      return response;
     } catch (error) {
-      logger.error(`Error in requestAiDescriptionsWithGpu: ${error.message}`, {
+      logger.error(`Error in requestAiDescriptionsWithLana: ${error.message}`, {
         userId: userId,
         youtubeId: youtube_id,
         error: error,
       });
 
       if (error instanceof VideoNotFoundError) {
-        throw new HttpException(404, error.message);
-      } else if (error instanceof AIProcessingError) {
-        throw new HttpException(503, 'AI processing service is currently unavailable');
+        throw error;
       } else if (error instanceof HttpException) {
         throw error;
       } else {
-        logger.error(`Unexpected error: ${error.message}`);
         throw new HttpException(500, 'An unexpected error occurred');
       }
     }

@@ -8,6 +8,9 @@ import { Sequelize, Options } from 'sequelize';
 
 import { CURRENT_DATABASE } from '../config';
 import { logger } from '../utils/logger';
+
+// Set strictQuery to false to suppress deprecation warning and prepare for Mongoose 7
+mongoose.set('strictQuery', false);
 // MongoDB connection string
 const MONGODB_CONNECTION_STRING =
   NODE_ENV === 'production'

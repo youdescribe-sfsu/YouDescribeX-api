@@ -13,6 +13,7 @@ import WishListRoute from './routes/wishlist.route';
 import GpuUtilsRoute from './routes/gpu_utils.route';
 import audioDescriptionRatingRoute from './routes/audioDescriptionRating.route';
 import YouTubeProxyRoute from './routes/youtube-proxy.route';
+import AiRoute from './routes/ai.route';
 
 validateEnv();
 
@@ -30,6 +31,7 @@ const app = new App([
   new GpuUtilsRoute(),
   new audioDescriptionRatingRoute(),
   new YouTubeProxyRoute(),
+  new AiRoute(),
 ]);
 
 app.listen();

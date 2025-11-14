@@ -14,7 +14,9 @@ import options from './swaggerOptions';
 import yaml from 'js-yaml';
 import fs from 'fs';
 import { initPassport, MongoAICaptionRequestModel, MongoVideosModel } from './models/mongodb/init-models.mongo';
-import { checkAndNotify, gpuStatusCronJob, videoStatusCheckJob } from './utils/cron.utils';
+// GPU status checking disabled - using LANA service instead
+// import { checkAndNotify, gpuStatusCronJob, videoStatusCheckJob } from './utils/cron.utils';
+import { videoStatusCheckJob } from './utils/cron.utils';
 import moment from 'moment';
 import YouTubeProxyRoute from './routes/youtube-proxy.route';
 import cors from 'cors';
@@ -73,13 +75,36 @@ class App {
     this.app.use(passport.initialize());
     this.app.use(passport.session());
     logger.info(`AUDIO_DIRECTORY: ${AUDIO_DIRECTORY}`);
-    this.app.use('/api/static', express.static(AUDIO_DIRECTORY));
 
+    // Configure CORS first to ensure it applies to static files
+    const frontendOrigin = process.env.FRONTEND_URL || 'http://localhost:3000';
     const corsOptions = {
-      origin: 'http://localhost:3000', // Change * to your frontend origin
+      origin: frontendOrigin, // Allow frontend origin
       credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
     };
     this.app.use(cors(corsOptions));
+
+    // Serve static audio files with explicit CORS headers and proper MIME types
+    this.app.use(
+      '/api/static',
+      (req, res, next) => {
+        // Set CORS headers explicitly for audio files (in case CORS middleware doesn't catch them)
+        res.header('Access-Control-Allow-Origin', frontendOrigin);
+        res.header('Access-Control-Allow-Credentials', 'true');
+        res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.header('Access-Control-Allow-Headers', 'Content-Type');
+
+        // Set proper content type for audio files
+        if (req.path.endsWith('.mp3')) {
+          res.type('audio/mpeg');
+        }
+
+        next();
+      },
+      express.static(AUDIO_DIRECTORY),
+    );
 
     // Add a preflight handler for all routes
     this.app.options('*', (req, res) => {
@@ -129,8 +154,9 @@ class App {
     console.log('Initializing Cron Jobs');
     logger.info('Initializing Cron Jobs');
     this.resetNumOfVideos();
-    checkAndNotify();
-    gpuStatusCronJob.start();
+    // GPU status checking disabled - using LANA service instead
+    // checkAndNotify();
+    // gpuStatusCronJob.start();
     videoStatusCheckJob.start();
     this.setupVideoCountIntervals();
   }

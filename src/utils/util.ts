@@ -77,8 +77,9 @@ export const checkGPUServerStatus = async (): Promise<boolean> => {
     if (GPU_URL === null) throw new Error('GPU_URL is not defined');
     await axios.get(`${GPU_URL}/health_check`);
     return true;
-  } catch (error) {
-    console.error('Error checking GPU server status:', error.code);
+  } catch (error: any) {
+    const errorMessage = error?.message || error?.code || 'Unknown error';
+    console.error('Error checking GPU server status:', errorMessage);
     return false;
   }
 };

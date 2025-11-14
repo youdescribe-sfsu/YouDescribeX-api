@@ -1,5 +1,5 @@
 import { ObjectId } from 'mongodb';
-import { AI_USER_ID, AUDIO_DIRECTORY, CURRENT_DATABASE } from '../config';
+import { AI_USER_ID, AUDIO_DIRECTORY, CURRENT_DATABASE, CURRENT_YDX_HOST } from '../config';
 import { NewAiDescriptionDto } from '../dtos/audioDescriptions.dto';
 import { HttpException } from '../exceptions/HttpException';
 import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
@@ -22,9 +22,11 @@ import {
   PostGres_Videos,
 } from '../models/postgres/init-models';
 import { logger } from '../utils/logger';
-import { getYouTubeVideoStatus, isEmpty, nowUtc } from '../utils/util';
-import { isVideoAvailable } from '../utils/videos.util';
+import { getYouTubeVideoStatus, isEmpty, nowUtc, getEmailForUser } from '../utils/util';
+import { isVideoAvailable, getVideoDataByYoutubeId } from '../utils/videos.util';
 import cacheService from '../utils/cacheService';
+import AudioClipsService from './audioClips.service';
+import sendEmail from '../utils/emailService';
 
 const fs = require('fs');
 
@@ -235,7 +237,30 @@ class AudioDescriptionsService {
       if (!new_timestamp) throw new HttpException(409, "Dialog Timestamps couldn't be created");
       // console.log('new_timestamp', ad);
       await ad.save();
+
+      // Process audio clips to generate MP3 files
+      try {
+        logger.info(`Starting audio processing for audio description ${ad._id}`);
+        const audioClipsService = new AudioClipsService();
+        await audioClipsService.processAllClipsInDB(ad._id.toString());
+        logger.info(`Successfully processed audio clips for audio description ${ad._id}`);
+      } catch (error) {
+        logger.error(`Error processing audio clips for audio description ${ad._id}: ${error.message}`, { error });
+        // Don't throw - allow description to be saved even if audio processing fails
+        // Audio can be processed later via manual endpoint if needed
+      }
+
+      // Update request status to completed
       await MongoAICaptionRequestModel.findOneAndUpdate({ youtube_id: youtube_id }, { status: 'completed' });
+
+      // Send email notifications to users who requested this description
+      try {
+        await this.sendCompletionEmails(youtube_id, ad._id.toString(), video_name);
+      } catch (error) {
+        logger.error(`Error sending completion emails for ${youtube_id}: ${error.message}`, { error });
+        // Don't throw - email failure shouldn't block the callback
+      }
+
       return ad;
     } else {
       const aiUser = await PostGres_Users.findOne({
@@ -294,7 +319,72 @@ class AudioDescriptionsService {
       );
       if (!new_timestamp) throw new HttpException(409, "Dialog Timestamps couldn't be created");
 
+      // Process audio clips to generate MP3 files
+      try {
+        logger.info(`Starting audio processing for audio description ${ad.ad_id}`);
+        const audioClipsService = new AudioClipsService();
+        await audioClipsService.processAllClipsInDB(ad.ad_id.toString());
+        logger.info(`Successfully processed audio clips for audio description ${ad.ad_id}`);
+      } catch (error) {
+        logger.error(`Error processing audio clips for audio description ${ad.ad_id}: ${error.message}`, { error });
+        // Don't throw - allow description to be saved even if audio processing fails
+      }
+
       return ad;
+    }
+  }
+
+  private async sendCompletionEmails(youtube_id: string, audio_description_id: string, video_name: string): Promise<void> {
+    try {
+      const captionRequest = await MongoAICaptionRequestModel.findOne({ youtube_id: youtube_id });
+      if (!captionRequest || !captionRequest.caption_requests || captionRequest.caption_requests.length === 0) {
+        logger.warn(`No users found in caption request for ${youtube_id}`);
+        return;
+      }
+
+      const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
+      if (!youtubeVideoData) {
+        logger.error(`Video data not found for ${youtube_id}`);
+        return;
+      }
+
+      const videoTitle = youtubeVideoData.title || video_name;
+      const ydx_app_host = CURRENT_YDX_HOST || 'https://ydx.youdescribe.org';
+      const previewURL = `${ydx_app_host}/editor/${youtube_id}/${audio_description_id}`;
+      const subject = `🎉 Audio Description Ready for "${videoTitle}"`;
+
+      for (const user_id of captionRequest.caption_requests) {
+        try {
+          const email = await getEmailForUser(user_id.toString());
+          const user = await MongoUsersModel.findById(user_id);
+          const userName = user?.name || 'there';
+          const emailBody = `
+Dear ${userName},
+
+Great news! Your AI-generated audio description for "${videoTitle}" is now available.
+
+You can access and explore this description by following this link:
+${previewURL}
+
+This description provides audio narration of visual elements, making the content more accessible. You can make any adjustments using our editor if needed.
+
+Thank you for being part of the YouDescribe community and helping make content more accessible for everyone!
+
+Best regards,
+The YouDescribe Team
+          `;
+          logger.info(`Sending completion email to ${email} for video ${youtube_id}`);
+          await sendEmail(email, subject, emailBody);
+          logger.info(`Successfully sent completion email to ${email}`);
+        } catch (error) {
+          logger.error(`Failed to send email to user ${user_id}: ${error.message}`, { error });
+        }
+      }
+
+      logger.info(`Completed sending emails to ${captionRequest.caption_requests.length} users for ${youtube_id}`);
+    } catch (error) {
+      logger.error(`Error in sendCompletionEmails for ${youtube_id}: ${error.message}`, { error });
+      throw error;
     }
   }
 
