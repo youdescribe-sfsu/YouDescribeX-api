@@ -33,7 +33,8 @@ const POSTGRESQL_CONNECTION: Sequelize = new Sequelize(POSTGRES_DB_NAME, POSTGRE
  * Returns a MongoDB connection instance
 A Promise that resolves to a MongoDB connection instance
 */
-export const getMongoDbConnection = (): Promise<typeof import('mongoose')> => connect(MONGODB_CONNECTION_STRING);
+export const getMongoDbConnection = (): Promise<typeof import('mongoose')> =>
+  connect('mongodb+srv://duyanh1202tm:mdyYM25dohRvBfZG@cluster0.rybxq.mongodb.net/youdescribe?retryWrites=true&w=majority');
 
 /**
  * Returns a PostgreSQL connection instance
