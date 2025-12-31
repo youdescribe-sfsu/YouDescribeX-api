@@ -80,6 +80,12 @@ class App {
     };
     this.app.use(cors(corsOptions));
 
+    const corsOptions = {
+      origin: 'http://localhost:3000', // Change * to your frontend origin
+      credentials: true,
+    };
+    this.app.use(cors(corsOptions));
+
     // Add a preflight handler for all routes
     this.app.options('*', (req, res) => {
       res.sendStatus(200);

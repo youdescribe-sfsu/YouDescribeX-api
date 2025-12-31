@@ -29,6 +29,7 @@ yarn-error.log*
 
 # API keys
 tts_api_key.json
+sa-text-to-speech.json
 AuthKey_57HVXW9Y8Z.p8
 
 #env
