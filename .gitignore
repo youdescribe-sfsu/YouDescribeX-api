@@ -37,4 +37,5 @@ AuthKey_57HVXW9Y8Z.p8
 # audio files
 public/audio/
 dist/
-logs/
+logs/sa-text-to-speech.json
+sa-text-to-speech.json

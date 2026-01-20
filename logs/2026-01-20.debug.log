@@ -1,0 +1,103 @@
+2026-01-20 15:29:35 info: YouTube Cache Service initialized
+2026-01-20 15:29:35 info: NODE
+2026-01-20 15:29:35 info: [object Object]
+2026-01-20 15:29:35 info: MONGODB_CONNECTION_STRING: mongodb://127.0.0.1:27017/youdescribe
+2026-01-20 15:29:35 info: Cache service initialized
+2026-01-20 15:29:36 info: Testing MongoDB connection
+2026-01-20 15:29:36 info: AUDIO_DIRECTORY: app/public
+2026-01-20 15:29:36 info: Initializing Cron Jobs
+2026-01-20 15:29:36 info: =================================
+2026-01-20 15:29:36 info: ======= ENV: development =======
+2026-01-20 15:29:36 info: 🚀 App listening on the port 4001
+2026-01-20 15:29:36 info: =================================
+2026-01-20 15:29:36 info: GPU Server Status :: false
+2026-01-20 15:29:36 info: Connected to MongoDB Database: youdescribe
+2026-01-20 15:29:36 info: SMTP server connection established successfully
+2026-01-20 15:29:37 info: Database indexes created successfully
+2026-01-20 15:29:43 info: YouTube database cache hit for 50 videos
+2026-01-20 15:30:09 info: [COLLAB] Starting deep copy of audio description 68890e0716020c4c702e87f3 for user 5cedd767a774ac520ff93e60
+2026-01-20 15:30:09 info: [COLLAB] Original audio description: user 650506db3ff1c2140ea10ece, depth 1
+2026-01-20 15:30:09 debug: [COLLAB] Original contributions: {}
+2026-01-20 15:30:09 info: [COLLAB] Created new audio description 69701001904f8f76d96f821c with depth 2
+2026-01-20 15:30:27 info: Calculating duration for: app/public/audio/adzYW5DZoWs/69701001904f8f76d96f821c/OCR-4214e132-cd5c-4cdd-aed0-5418458d23a9.mp3
+2026-01-20 15:30:27 info: File deleted successfully:
+2026-01-20 15:32:03 info: Calculating duration for: app/public/audio/adzYW5DZoWs/69701001904f8f76d96f821c/nonOCR-b5235d5f-c5f9-410b-afc4-11e7a7dcfbff.mp3
+2026-01-20 15:32:03 info: File deleted successfully:
+2026-01-20 15:34:21 info: Calculating duration for: app/public/audio/adzYW5DZoWs/69701001904f8f76d96f821c/nonOCR-609fae2a-b0ae-401d-9df5-6393dcded876.mp3
+2026-01-20 15:34:21 info: File deleted successfully:
+2026-01-20 15:40:45 info: File deleted successfully:
+2026-01-20 15:41:53 info: Calculating duration for: app/public/audio/adzYW5DZoWs/69701001904f8f76d96f821c/nonOCR-cb74addc-8602-4534-aedb-16982b49d1da.mp3
+2026-01-20 15:41:54 info: File deleted successfully:
+2026-01-20 15:42:08 info: Calculating duration for: app/public/audio/adzYW5DZoWs/69701001904f8f76d96f821c/nonOCR-c12ea1c2-3a7a-4c24-8e28-f152ef42eefe.mp3
+2026-01-20 15:42:09 info: File deleted successfully:
+2026-01-20 15:43:46 info: [COLLAB] Publishing audio description 69701001904f8f76d96f821c for video adzYW5DZoWs by user 5cedd767a774ac520ff93e60
+2026-01-20 15:43:46 info: [COLLAB] Collaborative editing enabled: true
+2026-01-20 15:43:46 info: [COLLAB] Found audio description: 69701001904f8f76d96f821c, user: 5cedd767a774ac520ff93e60, depth: 2
+2026-01-20 15:43:46 debug: [COLLAB] Initial contributions state: {}
+2026-01-20 15:43:46 info: [COLLAB] Getting concatenated audio clips for 68890e0716020c4c702e87f3
+2026-01-20 15:43:46 debug: [COLLAB] getConcatenatedAudioClips called from: at Generator.next (<anonymous>)
+2026-01-20 15:43:46 info: [COLLAB] Found 20 audio clips for 68890e0716020c4c702e87f3
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 68890e0716020c4c702e87f5, text length: 14 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 68890e0716020c4c702e87f6, text length: 79 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 68890e0716020c4c702e87f7, text length: 29 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 68890e0716020c4c702e87f8, text length: 174 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 68890e0716020c4c702e87f9, text length: 49 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 68890e0716020c4c702e87fa, text length: 33 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 68890e0716020c4c702e87fb, text length: 14 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 68890e0716020c4c702e87fc, text length: 61 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 68890e0716020c4c702e87fd, text length: 47 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 68890e0716020c4c702e87fe, text length: 90 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 68890e0716020c4c702e87ff, text length: 24 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 68890e0716020c4c702e8800, text length: 58 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 68890e0716020c4c702e8801, text length: 35 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 68890e0716020c4c702e8802, text length: 36 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 68890e0716020c4c702e8803, text length: 73 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 68890e0716020c4c702e8804, text length: 93 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 68890e0716020c4c702e8805, text length: 18 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 68890e0716020c4c702e8806, text length: 9 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 68890e0716020c4c702e8807, text length: 21 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 68890e0716020c4c702e8808, text length: 8 chars
+2026-01-20 15:43:46 info: [COLLAB] Concatenated text length: 965 chars for 68890e0716020c4c702e87f3
+2026-01-20 15:43:46 info: [COLLAB] Getting concatenated audio clips for 69701001904f8f76d96f821c
+2026-01-20 15:43:46 debug: [COLLAB] getConcatenatedAudioClips called from: at Generator.next (<anonymous>)
+2026-01-20 15:43:46 info: [COLLAB] Found 19 audio clips for 69701001904f8f76d96f821c
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 69701001904f8f76d96f8220, text length: 26 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 69701001904f8f76d96f8221, text length: 79 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 69701001904f8f76d96f8222, text length: 29 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 69701001904f8f76d96f8223, text length: 42 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 69701001904f8f76d96f8224, text length: 46 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 69701001904f8f76d96f8225, text length: 33 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 69701001904f8f76d96f8226, text length: 14 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 69701001904f8f76d96f8227, text length: 61 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 69701001904f8f76d96f8228, text length: 47 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 69701001904f8f76d96f8229, text length: 90 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 69701001904f8f76d96f822a, text length: 24 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 69701001904f8f76d96f822b, text length: 58 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 69701001904f8f76d96f822c, text length: 35 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 69701001904f8f76d96f822d, text length: 22 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 69701001904f8f76d96f822e, text length: 60 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 69701001904f8f76d96f822f, text length: 93 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 69701001904f8f76d96f8231, text length: 9 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 69701001904f8f76d96f8232, text length: 21 chars
+2026-01-20 15:43:46 debug: [COLLAB] Adding clip 69701001904f8f76d96f8233, text length: 8 chars
+2026-01-20 15:43:46 info: [COLLAB] Concatenated text length: 797 chars for 69701001904f8f76d96f821c
+2026-01-20 15:43:46 info: [COLLAB] Contributions BEFORE update: {}
+2026-01-20 15:43:46 info: [COLLAB] Editing distance: 210
+2026-01-20 15:43:46 info: [COLLAB] New contribution percentage: 17.87%, Old contributions scaled to: 82.13%
+2026-01-20 15:43:46 info: [COLLAB] Added original author 650506db3ff1c2140ea10ece with contribution 0.8212765957446808
+2026-01-20 15:43:46 info: [COLLAB] Added new user 5cedd767a774ac520ff93e60 contribution: 0.17872340425531916
+2026-01-20 15:43:46 info: [COLLAB] Final contributions to save: {"650506db3ff1c2140ea10ece":0.8212765957446808,"5cedd767a774ac520ff93e60":0.17872340425531916}
+2026-01-20 15:43:46 info: [COLLAB] Update result: Success
+2026-01-20 15:43:46 info: [COLLAB] Successfully updated contributions for 69701001904f8f76d96f821c
+2026-01-20 15:43:46 info: [COLLAB] Audio description 69701001904f8f76d96f821c published successfully
+2026-01-20 15:43:46 info: [COLLAB] Home page cache invalidated after publishing audio description 69701001904f8f76d96f821c
+2026-01-20 15:45:46 info: YouTube database cache hit for 1 videos
+2026-01-20 15:45:46 error: Number of Audio Clips in Audio Description Collection (20)does not match actual number of AUdio Clips (0).
+2026-01-20 15:45:46 error: Middleware executed at: /Users/lanado/Desktop/YouDescribeX-api/node_modules/express/lib/router/layer.js:71:5
+2026-01-20 15:45:46 error: [GET] /api/audio-descriptions/get-user-ad/5cc6615b56b7f3071f306163&69332ef6def70aef5bdaffec >> StatusCode:: 409, Message:: Something went wrong getting Audio Clips for Audio Description
+2026-01-20 15:45:46 error: Number of Audio Clips in Audio Description Collection (20)does not match actual number of AUdio Clips (0).
+2026-01-20 15:45:46 error: Middleware executed at: /Users/lanado/Desktop/YouDescribeX-api/node_modules/express/lib/router/layer.js:71:5
+2026-01-20 15:45:46 error: [GET] /api/audio-descriptions/get-user-ad/5cc6615b56b7f3071f306163&69332ef6def70aef5bdaffec >> StatusCode:: 409, Message:: Something went wrong getting Audio Clips for Audio Description
+2026-01-20 15:45:46 error: Number of Audio Clips in Audio Description Collection (20)does not match actual number of AUdio Clips (0).
+2026-01-20 15:45:46 error: Middleware executed at: /Users/lanado/Desktop/YouDescribeX-api/node_modules/express/lib/router/layer.js:71:5
+2026-01-20 15:45:46 error: [GET] /api/audio-descriptions/get-user-ad/5cc6615b56b7f3071f306163&69332ef6def70aef5bdaffec >> StatusCode:: 409, Message:: Something went wrong getting Audio Clips for Audio Description

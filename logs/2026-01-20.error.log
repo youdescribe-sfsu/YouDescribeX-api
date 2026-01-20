@@ -1,0 +1,9 @@
+2026-01-20 15:45:46 error: Number of Audio Clips in Audio Description Collection (20)does not match actual number of AUdio Clips (0).
+2026-01-20 15:45:46 error: Middleware executed at: /Users/lanado/Desktop/YouDescribeX-api/node_modules/express/lib/router/layer.js:71:5
+2026-01-20 15:45:46 error: [GET] /api/audio-descriptions/get-user-ad/5cc6615b56b7f3071f306163&69332ef6def70aef5bdaffec >> StatusCode:: 409, Message:: Something went wrong getting Audio Clips for Audio Description
+2026-01-20 15:45:46 error: Number of Audio Clips in Audio Description Collection (20)does not match actual number of AUdio Clips (0).
+2026-01-20 15:45:46 error: Middleware executed at: /Users/lanado/Desktop/YouDescribeX-api/node_modules/express/lib/router/layer.js:71:5
+2026-01-20 15:45:46 error: [GET] /api/audio-descriptions/get-user-ad/5cc6615b56b7f3071f306163&69332ef6def70aef5bdaffec >> StatusCode:: 409, Message:: Something went wrong getting Audio Clips for Audio Description
+2026-01-20 15:45:46 error: Number of Audio Clips in Audio Description Collection (20)does not match actual number of AUdio Clips (0).
+2026-01-20 15:45:46 error: Middleware executed at: /Users/lanado/Desktop/YouDescribeX-api/node_modules/express/lib/router/layer.js:71:5
+2026-01-20 15:45:46 error: [GET] /api/audio-descriptions/get-user-ad/5cc6615b56b7f3071f306163&69332ef6def70aef5bdaffec >> StatusCode:: 409, Message:: Something went wrong getting Audio Clips for Audio Description
