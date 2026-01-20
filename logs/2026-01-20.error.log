@@ -1,0 +1,8 @@
+2026-01-20 14:44:30 error: Error in requestAiDescriptionsWithGpu: User couldn't be found
+2026-01-20 14:44:30 error: Middleware executed at: /Users/lanado/Desktop/YouDescribeX-api/node_modules/express/lib/router/layer.js:71:5
+2026-01-20 14:44:30 error: [POST] /api/users/request-ai-descriptions-with-lana >> StatusCode:: 409, Message:: User couldn't be found
+2026-01-20 14:50:54 error: Error in requestAiDescriptionsWithGpu: User couldn't be found
+2026-01-20 14:50:54 error: Middleware executed at: /Users/lanado/Desktop/YouDescribeX-api/node_modules/express/lib/router/layer.js:71:5
+2026-01-20 14:50:54 error: [POST] /api/users/request-ai-descriptions-with-lana >> StatusCode:: 409, Message:: User couldn't be found
+2026-01-20 14:51:31 error: Error sending to API service: connect ECONNREFUSED 0.0.0.0:8000
+2026-01-20 14:51:31 error: Error in queue processing: connect ECONNREFUSED 0.0.0.0:8000

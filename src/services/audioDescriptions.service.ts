@@ -25,6 +25,7 @@ import { logger } from '../utils/logger';
 import { getYouTubeVideoStatus, isEmpty, nowUtc } from '../utils/util';
 import { isVideoAvailable } from '../utils/videos.util';
 import cacheService from '../utils/cacheService';
+import GpuUtilsService from './gpu_utils.service';
 
 const fs = require('fs');
 
@@ -236,7 +237,23 @@ class AudioDescriptionsService {
       // console.log('new_timestamp', ad);
       await ad.save();
       await MongoAICaptionRequestModel.findOneAndUpdate({ youtube_id: youtube_id }, { status: 'completed' });
-      return ad;
+
+      await ad.save();
+      await MongoAICaptionRequestModel.findOneAndUpdate({ youtube_id: youtube_id }, { status: 'completed' });
+
+      // --- START NOTIFICATION EMAIL BLOCK ---
+      try {
+        const gpuUtils = new GpuUtilsService();
+        const ydx_app_host = 'http://localhost:3000';
+
+        await gpuUtils.notifyAiDescriptions(youtube_id, ad._id.toString(), ydx_app_host, []);
+        logger.info(`Notification trigger for ${youtube_id} initiated successfully.`);
+      } catch (emailError) {
+        logger.error(`Notification failed: ${emailError.message}`);
+      }
+      // --- END NOTIFICATION EMAIL BLOCK ---
+
+      return ad; // <--- MOVE THIS HERE (At the very end of the if block)
     } else {
       const aiUser = await PostGres_Users.findOne({
         where: {

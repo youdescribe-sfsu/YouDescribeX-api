@@ -55,3 +55,157 @@
 2026-01-20 21:04:56 info: SMTP server connection established successfully
 2026-01-20 21:04:56 info: Connected to MongoDB Database: youdescribe
 2026-01-20 21:04:57 info: Database indexes created successfully
+2026-01-20 14:15:49 info: YouTube Cache Service initialized
+2026-01-20 14:15:49 info: NODE
+2026-01-20 14:15:49 info: [object Object]
+2026-01-20 14:15:49 info: MONGODB_CONNECTION_STRING: mongodb://127.0.0.1:27017/youdescribe
+2026-01-20 14:15:49 info: Cache service initialized
+2026-01-20 14:15:50 info: Testing MongoDB connection
+2026-01-20 14:15:50 info: AUDIO_DIRECTORY: app/public
+2026-01-20 14:15:50 info: Initializing Cron Jobs
+2026-01-20 14:15:50 info: =================================
+2026-01-20 14:15:50 info: ======= ENV: development =======
+2026-01-20 14:15:50 info: 🚀 App listening on the port 4001
+2026-01-20 14:15:50 info: =================================
+2026-01-20 14:15:50 info: GPU Server Status :: false
+2026-01-20 14:15:50 info: Connected to MongoDB Database: youdescribe
+2026-01-20 14:15:50 info: SMTP server connection established successfully
+2026-01-20 14:15:51 info: Database indexes created successfully
+2026-01-20 14:16:50 info: Starting AI description request for video TPq172qI9NI
+2026-01-20 14:16:50 info: YouTube database cache hit for 1 videos
+2026-01-20 14:16:50 info: Video data retrieved for TPq172qI9NI
+2026-01-20 14:16:50 info: Invalidated cache for user 5cedd767a774ac520ff93e60 after requesting AI description
+2026-01-20 14:16:50 info: Adding video TPq172qI9NI to processing queue for user 5cedd767a774ac520ff93e60
+2026-01-20 14:16:50 info: Sending email to: lanphuong330@gmail.com
+2026-01-20 14:16:52 info: Email sent successfully to lanphuong330@gmail.com
+2026-01-20 14:16:52 info: Immediate operations completed for video TPq172qI9NI, user 5cedd767a774ac520ff93e60
+2026-01-20 14:16:52 info: Processing queue item for video TPq172qI9NI
+2026-01-20 14:16:52 warn: GPU service unavailable, will retry processing TPq172qI9NI later
+2026-01-20 14:17:23 info: Processing queue item for video TPq172qI9NI
+2026-01-20 14:17:23 warn: GPU service unavailable, will retry processing TPq172qI9NI later
+2026-01-20 14:17:54 info: Processing queue item for video TPq172qI9NI
+2026-01-20 14:17:54 warn: GPU service unavailable, will retry processing TPq172qI9NI later
+2026-01-20 14:18:25 info: Processing queue item for video TPq172qI9NI
+2026-01-20 14:18:25 warn: GPU service unavailable, will retry processing TPq172qI9NI later
+2026-01-20 14:18:56 info: Processing queue item for video TPq172qI9NI
+2026-01-20 14:18:56 warn: GPU service unavailable, will retry processing TPq172qI9NI later
+2026-01-20 14:19:27 info: Processing queue item for video TPq172qI9NI
+2026-01-20 14:19:27 warn: GPU service unavailable, will retry processing TPq172qI9NI later
+2026-01-20 14:19:58 info: Processing queue item for video TPq172qI9NI
+2026-01-20 14:19:58 warn: GPU service unavailable, will retry processing TPq172qI9NI later
+2026-01-20 14:20:29 info: Processing queue item for video TPq172qI9NI
+2026-01-20 14:20:29 warn: GPU service unavailable, will retry processing TPq172qI9NI later
+2026-01-20 14:21:00 info: Processing queue item for video TPq172qI9NI
+2026-01-20 14:21:00 warn: GPU service unavailable, will retry processing TPq172qI9NI later
+2026-01-20 14:21:31 info: Processing queue item for video TPq172qI9NI
+2026-01-20 14:21:31 warn: GPU service unavailable, will retry processing TPq172qI9NI later
+2026-01-20 14:22:02 info: Processing queue item for video TPq172qI9NI
+2026-01-20 14:22:02 warn: GPU service unavailable, will retry processing TPq172qI9NI later
+2026-01-20 14:22:33 info: Processing queue item for video TPq172qI9NI
+2026-01-20 14:22:33 warn: GPU service unavailable, will retry processing TPq172qI9NI later
+2026-01-20 14:23:04 info: Processing queue item for video TPq172qI9NI
+2026-01-20 14:23:04 warn: GPU service unavailable, will retry processing TPq172qI9NI later
+2026-01-20 14:23:35 info: Processing queue item for video TPq172qI9NI
+2026-01-20 14:23:35 warn: GPU service unavailable, will retry processing TPq172qI9NI later
+2026-01-20 14:24:06 info: Processing queue item for video TPq172qI9NI
+2026-01-20 14:24:06 warn: GPU service unavailable, will retry processing TPq172qI9NI later
+2026-01-20 14:24:37 info: Processing queue item for video TPq172qI9NI
+2026-01-20 14:24:37 warn: GPU service unavailable, will retry processing TPq172qI9NI later
+2026-01-20 14:25:08 info: Processing queue item for video TPq172qI9NI
+2026-01-20 14:25:08 warn: GPU service unavailable, will retry processing TPq172qI9NI later
+2026-01-20 14:25:39 info: Processing queue item for video TPq172qI9NI
+2026-01-20 14:25:39 warn: GPU service unavailable, will retry processing TPq172qI9NI later
+2026-01-20 14:26:10 info: Processing queue item for video TPq172qI9NI
+2026-01-20 14:26:10 warn: GPU service unavailable, will retry processing TPq172qI9NI later
+2026-01-20 14:26:41 info: Processing queue item for video TPq172qI9NI
+2026-01-20 14:26:41 warn: GPU service unavailable, will retry processing TPq172qI9NI later
+2026-01-20 14:44:09 info: YouTube Cache Service initialized
+2026-01-20 14:44:09 info: NODE
+2026-01-20 14:44:09 info: [object Object]
+2026-01-20 14:44:09 info: MONGODB_CONNECTION_STRING: mongodb://127.0.0.1:27017/youdescribe
+2026-01-20 14:44:09 info: Cache service initialized
+2026-01-20 14:44:10 info: Testing MongoDB connection
+2026-01-20 14:44:10 info: AUDIO_DIRECTORY: app/public
+2026-01-20 14:44:10 info: Initializing Cron Jobs
+2026-01-20 14:44:10 info: =================================
+2026-01-20 14:44:10 info: ======= ENV: development =======
+2026-01-20 14:44:10 info: 🚀 App listening on the port 4001
+2026-01-20 14:44:10 info: =================================
+2026-01-20 14:44:10 info: GPU Server Status :: false
+2026-01-20 14:44:10 info: Connected to MongoDB Database: youdescribe
+2026-01-20 14:44:10 info: SMTP server connection established successfully
+2026-01-20 14:44:11 info: Database indexes created successfully
+2026-01-20 14:44:30 info: Starting AI description request for video TPq172qI9NI
+2026-01-20 14:44:30 info: YouTube database cache hit for 1 videos
+2026-01-20 14:44:30 info: Video data retrieved for TPq172qI9NI
+2026-01-20 14:44:30 error: Error in requestAiDescriptionsWithGpu: User couldn't be found
+2026-01-20 14:44:30 error: Middleware executed at: /Users/lanado/Desktop/YouDescribeX-api/node_modules/express/lib/router/layer.js:71:5
+2026-01-20 14:44:30 error: [POST] /api/users/request-ai-descriptions-with-lana >> StatusCode:: 409, Message:: User couldn't be found
+2026-01-20 14:50:54 info: Starting AI description request for video TPq172qI9NI
+2026-01-20 14:50:54 info: YouTube cache hit for 1 videos
+2026-01-20 14:50:54 info: Video data retrieved for TPq172qI9NI
+2026-01-20 14:50:54 error: Error in requestAiDescriptionsWithGpu: User couldn't be found
+2026-01-20 14:50:54 error: Middleware executed at: /Users/lanado/Desktop/YouDescribeX-api/node_modules/express/lib/router/layer.js:71:5
+2026-01-20 14:50:54 error: [POST] /api/users/request-ai-descriptions-with-lana >> StatusCode:: 409, Message:: User couldn't be found
+2026-01-20 14:51:12 info: YouTube Cache Service initialized
+2026-01-20 14:51:12 info: NODE
+2026-01-20 14:51:12 info: [object Object]
+2026-01-20 14:51:12 info: MONGODB_CONNECTION_STRING: mongodb://127.0.0.1:27017/youdescribe
+2026-01-20 14:51:12 info: Cache service initialized
+2026-01-20 14:51:12 info: Testing MongoDB connection
+2026-01-20 14:51:12 info: AUDIO_DIRECTORY: app/public
+2026-01-20 14:51:12 info: Initializing Cron Jobs
+2026-01-20 14:51:12 info: =================================
+2026-01-20 14:51:12 info: ======= ENV: development =======
+2026-01-20 14:51:12 info: 🚀 App listening on the port 4001
+2026-01-20 14:51:12 info: =================================
+2026-01-20 14:51:12 info: GPU Server Status :: false
+2026-01-20 14:51:13 info: Connected to MongoDB Database: youdescribe
+2026-01-20 14:51:13 info: SMTP server connection established successfully
+2026-01-20 14:51:13 info: Database indexes created successfully
+2026-01-20 14:51:29 info: Starting AI description request for video TPq172qI9NI
+2026-01-20 14:51:29 info: YouTube database cache hit for 1 videos
+2026-01-20 14:51:29 info: Video data retrieved for TPq172qI9NI
+2026-01-20 14:51:29 info: Invalidated cache for user 5cedd767a774ac520ff93e60 after requesting AI description
+2026-01-20 14:51:30 info: Adding video TPq172qI9NI to processing queue for user 5cedd767a774ac520ff93e60
+2026-01-20 14:51:30 info: Sending email to: lanphuong330@gmail.com
+2026-01-20 14:51:31 info: Email sent successfully to lanphuong330@gmail.com
+2026-01-20 14:51:31 info: Immediate operations completed for video TPq172qI9NI, user 5cedd767a774ac520ff93e60
+2026-01-20 14:51:31 info: Calling API service for video: TPq172qI9NI
+2026-01-20 14:51:31 error: Error sending to API service: connect ECONNREFUSED 0.0.0.0:8000
+2026-01-20 14:51:31 error: Error in queue processing: connect ECONNREFUSED 0.0.0.0:8000
+2026-01-20 14:53:24 info: Starting AI description request for video TPq172qI9NI
+2026-01-20 14:53:24 info: YouTube cache hit for 1 videos
+2026-01-20 14:53:24 info: Video data retrieved for TPq172qI9NI
+2026-01-20 14:53:24 info: Invalidated cache for user 5cedd767a774ac520ff93e60 after requesting AI description
+2026-01-20 14:53:24 info: Adding video TPq172qI9NI to processing queue for user 5cedd767a774ac520ff93e60
+2026-01-20 14:53:24 info: Sending email to: lanphuong330@gmail.com
+2026-01-20 14:53:25 info: Email sent successfully to lanphuong330@gmail.com
+2026-01-20 14:53:25 info: Immediate operations completed for video TPq172qI9NI, user 5cedd767a774ac520ff93e60
+2026-01-20 14:53:26 info: Calling API service for video: TPq172qI9NI
+2026-01-20 14:53:26 info: API service response for TPq172qI9NI: {"status":"processing","message":"Pipeline started in background for TPq172qI9NI"}
+2026-01-20 14:53:52 info: Cache miss for home page videos: home_videos_page_1
+2026-01-20 14:53:55 info: YouTube database cache hit for 50 videos
+2026-01-20 14:54:05 info: Starting AI description request for video n9nC8liwZ5Y
+2026-01-20 14:54:05 info: YouTube database cache hit for 1 videos
+2026-01-20 14:54:05 info: Video data retrieved for n9nC8liwZ5Y
+2026-01-20 14:54:05 info: Invalidated cache for user 5cedd767a774ac520ff93e60 after requesting AI description
+2026-01-20 14:54:06 info: Adding video n9nC8liwZ5Y to processing queue for user 5cedd767a774ac520ff93e60
+2026-01-20 14:54:06 info: Sending email to: lanphuong330@gmail.com
+2026-01-20 14:54:07 info: Email sent successfully to lanphuong330@gmail.com
+2026-01-20 14:54:07 info: Immediate operations completed for video n9nC8liwZ5Y, user 5cedd767a774ac520ff93e60
+2026-01-20 14:54:07 info: System busy: TPq172qI9NI is still processing. Waiting...
+2026-01-20 14:54:37 info: System busy: TPq172qI9NI is still processing. Waiting...
+2026-01-20 14:55:07 info: System busy: TPq172qI9NI is still processing. Waiting...
+2026-01-20 14:55:37 info: System busy: TPq172qI9NI is still processing. Waiting...
+2026-01-20 14:56:07 info: System busy: TPq172qI9NI is still processing. Waiting...
+2026-01-20 14:56:37 info: System busy: TPq172qI9NI is still processing. Waiting...
+2026-01-20 14:57:07 info: System busy: TPq172qI9NI is still processing. Waiting...
+2026-01-20 14:57:37 info: System busy: TPq172qI9NI is still processing. Waiting...
+2026-01-20 14:58:07 info: System busy: TPq172qI9NI is still processing. Waiting...
+2026-01-20 14:58:37 info: System busy: TPq172qI9NI is still processing. Waiting...
+2026-01-20 14:59:07 info: System busy: TPq172qI9NI is still processing. Waiting...
+2026-01-20 14:59:37 info: System busy: TPq172qI9NI is still processing. Waiting...
+2026-01-20 15:00:00 info: GPU Server Status :: false
+2026-01-20 15:00:07 info: System busy: TPq172qI9NI is still processing. Waiting...
+2026-01-20 15:00:37 info: System busy: TPq172qI9NI is still processing. Waiting...
