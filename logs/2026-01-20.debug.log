@@ -1,0 +1,57 @@
+2026-01-20 18:10:12 info: YouTube Cache Service initialized
+2026-01-20 18:10:13 info: NODE
+2026-01-20 18:10:13 info: [object Object]
+2026-01-20 18:10:13 info: MONGODB_CONNECTION_STRING: mongodb://127.0.0.1:27017/youdescribe
+2026-01-20 18:10:13 info: Cache service initialized
+2026-01-20 18:10:14 info: Testing MongoDB connection
+2026-01-20 18:10:14 info: AUDIO_DIRECTORY: app/public
+2026-01-20 18:10:14 info: Initializing Cron Jobs
+2026-01-20 18:10:14 info: =================================
+2026-01-20 18:10:14 info: ======= ENV: development =======
+2026-01-20 18:10:14 info: 🚀 App listening on the port 4001
+2026-01-20 18:10:14 info: =================================
+2026-01-20 18:10:14 info: GPU Server Status :: false
+2026-01-20 18:10:14 info: SMTP server connection established successfully
+2026-01-20 18:10:15 info: Connected to MongoDB Database: youdescribe
+2026-01-20 18:10:16 info: Database indexes created successfully
+2026-01-20 19:00:00 info: GPU Server Status :: false
+2026-01-20 20:00:00 info: GPU Server Status :: false
+2026-01-20 20:03:26 info: YouTube database cache hit for 50 videos
+2026-01-20 20:04:25 info: YouTube cache hit for 50 videos
+2026-01-20 20:37:59 info: YouTube Cache Service initialized
+2026-01-20 20:37:59 info: NODE
+2026-01-20 20:37:59 info: [object Object]
+2026-01-20 20:37:59 info: MONGODB_CONNECTION_STRING: mongodb://127.0.0.1:27017/youdescribe
+2026-01-20 20:37:59 info: Cache service initialized
+2026-01-20 20:37:59 info: Testing MongoDB connection
+2026-01-20 20:37:59 info: AUDIO_DIRECTORY: app/public
+2026-01-20 20:37:59 info: Initializing Cron Jobs
+2026-01-20 20:37:59 info: =================================
+2026-01-20 20:37:59 info: ======= ENV: development =======
+2026-01-20 20:37:59 info: 🚀 App listening on the port 4001
+2026-01-20 20:37:59 info: =================================
+2026-01-20 20:37:59 info: GPU Server Status :: false
+2026-01-20 20:38:00 info: SMTP server connection established successfully
+2026-01-20 20:38:00 info: Connected to MongoDB Database: youdescribe
+2026-01-20 20:38:01 info: Database indexes created successfully
+2026-01-20 20:38:57 info: [COLLAB] Starting deep copy of audio description 68890dc616020c4c702e8705 for user 5cedd767a774ac520ff93e60
+2026-01-20 20:38:57 info: [COLLAB] Original audio description: user 6881366ec48a17363190231b, depth 1
+2026-01-20 20:38:57 debug: [COLLAB] Original contributions: {}
+2026-01-20 20:38:57 info: [COLLAB] Created new audio description 696fe7e13db3991c82193770 with depth 2
+2026-01-20 21:00:00 info: GPU Server Status :: false
+2026-01-20 21:04:55 info: YouTube Cache Service initialized
+2026-01-20 21:04:55 info: NODE
+2026-01-20 21:04:55 info: [object Object]
+2026-01-20 21:04:55 info: MONGODB_CONNECTION_STRING: mongodb://127.0.0.1:27017/youdescribe
+2026-01-20 21:04:55 info: Cache service initialized
+2026-01-20 21:04:56 info: Testing MongoDB connection
+2026-01-20 21:04:56 info: AUDIO_DIRECTORY: app/public
+2026-01-20 21:04:56 info: Initializing Cron Jobs
+2026-01-20 21:04:56 info: =================================
+2026-01-20 21:04:56 info: ======= ENV: development =======
+2026-01-20 21:04:56 info: 🚀 App listening on the port 4001
+2026-01-20 21:04:56 info: =================================
+2026-01-20 21:04:56 info: GPU Server Status :: false
+2026-01-20 21:04:56 info: SMTP server connection established successfully
+2026-01-20 21:04:56 info: Connected to MongoDB Database: youdescribe
+2026-01-20 21:04:57 info: Database indexes created successfully
