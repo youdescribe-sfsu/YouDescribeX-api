@@ -88,8 +88,8 @@ export const initPassport = () => {
   passport.use(
     new Strategy(
       {
-        clientID: '1061361249208-9799kv6172rjgmk4gad077639dfrck82.apps.googleusercontent.com',
-        clientSecret: 'emqt6gfCSMNlhHfpADZCEgqf',
+        clientID: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
         callbackURL: PASSPORT_CALLBACK_URL,
         userProfileURL: 'https://www.googleapis.com/oauth2/v3/userinfo',
       },
