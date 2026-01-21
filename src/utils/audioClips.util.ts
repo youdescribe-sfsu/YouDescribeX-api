@@ -143,7 +143,6 @@ class AudioClipService {
         voice: {
           languageCode: 'en-US',
           name: voiceName,
-          ssmlGender: 'NEUTRAL',
         },
         audioConfig: {
           audioEncoding: 'MP3',

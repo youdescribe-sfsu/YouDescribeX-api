@@ -6,3 +6,14 @@
 2026-01-20 14:50:54 error: [POST] /api/users/request-ai-descriptions-with-lana >> StatusCode:: 409, Message:: User couldn't be found
 2026-01-20 14:51:31 error: Error sending to API service: connect ECONNREFUSED 0.0.0.0:8000
 2026-01-20 14:51:31 error: Error in queue processing: connect ECONNREFUSED 0.0.0.0:8000
+2026-01-20 15:59:45 error: Text-to-Speech Error: 3 INVALID_ARGUMENT: Gender neutral voices are not supported.
+2026-01-20 15:59:45 error: Middleware executed at: /Users/lanado/Desktop/YouDescribeX-api/node_modules/express/lib/router/layer.js:71:5
+2026-01-20 15:59:45 error: [PUT] /api/audio-clips/update-clip-description/69700d7880e9532ae07e96ca >> StatusCode:: 409, Message:: Audio Description couldn't be generated
+2026-01-20 16:02:36 error: Text-to-Speech Error: 3 INVALID_ARGUMENT: Gender neutral voices are not supported.
+2026-01-20 16:02:36 error: Middleware executed at: /Users/lanado/Desktop/YouDescribeX-api/node_modules/express/lib/router/layer.js:71:5
+2026-01-20 16:02:36 error: [PUT] /api/audio-clips/update-clip-description/69700be9de32ef93da81c011 >> StatusCode:: 409, Message:: Audio Description couldn't be generated
+2026-01-20 16:03:23 error: Middleware executed at: /Users/lanado/Desktop/YouDescribeX-api/node_modules/express/lib/router/layer.js:71:5
+2026-01-20 16:03:23 error: [GET] /api/audio-descriptions/get-user-ad/5cc6615b56b7f3071f306163&69700be9de32ef93da81c00b >> StatusCode:: 409, Message:: Audio Description for this YouTube Video doesn't exist
+2026-01-20 16:04:00 error: Text-to-Speech Error: 3 INVALID_ARGUMENT: Gender neutral voices are not supported.
+2026-01-20 16:04:00 error: Middleware executed at: /Users/lanado/Desktop/YouDescribeX-api/node_modules/express/lib/router/layer.js:71:5
+2026-01-20 16:04:00 error: [PUT] /api/audio-clips/update-clip-description/697017d43ba3dde567ca825d >> StatusCode:: 409, Message:: Audio Description couldn't be generated

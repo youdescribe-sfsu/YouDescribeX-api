@@ -208,3 +208,52 @@
 2026-01-20 15:00:00 info: GPU Server Status :: false
 2026-01-20 15:00:07 info: System busy: TPq172qI9NI is still processing. Waiting...
 2026-01-20 15:00:37 info: System busy: TPq172qI9NI is still processing. Waiting...
+2026-01-20 15:58:49 info: YouTube Cache Service initialized
+2026-01-20 15:58:50 info: NODE
+2026-01-20 15:58:50 info: [object Object]
+2026-01-20 15:58:50 info: MONGODB_CONNECTION_STRING: mongodb://127.0.0.1:27017/youdescribe
+2026-01-20 15:58:50 info: Cache service initialized
+2026-01-20 15:58:50 info: Testing MongoDB connection
+2026-01-20 15:58:50 info: AUDIO_DIRECTORY: app/public
+2026-01-20 15:58:50 info: Initializing Cron Jobs
+2026-01-20 15:58:50 info: =================================
+2026-01-20 15:58:50 info: ======= ENV: development =======
+2026-01-20 15:58:50 info: 🚀 App listening on the port 4001
+2026-01-20 15:58:50 info: =================================
+2026-01-20 15:58:50 info: GPU Server Status :: false
+2026-01-20 15:58:50 info: Connected to MongoDB Database: youdescribe
+2026-01-20 15:58:51 info: SMTP server connection established successfully
+2026-01-20 15:58:51 info: Database indexes created successfully
+2026-01-20 15:59:45 error: Text-to-Speech Error: 3 INVALID_ARGUMENT: Gender neutral voices are not supported.
+2026-01-20 15:59:45 error: Middleware executed at: /Users/lanado/Desktop/YouDescribeX-api/node_modules/express/lib/router/layer.js:71:5
+2026-01-20 15:59:45 error: [PUT] /api/audio-clips/update-clip-description/69700d7880e9532ae07e96ca >> StatusCode:: 409, Message:: Audio Description couldn't be generated
+2026-01-20 16:00:00 info: GPU Server Status :: false
+2026-01-20 16:02:36 error: Text-to-Speech Error: 3 INVALID_ARGUMENT: Gender neutral voices are not supported.
+2026-01-20 16:02:36 error: Middleware executed at: /Users/lanado/Desktop/YouDescribeX-api/node_modules/express/lib/router/layer.js:71:5
+2026-01-20 16:02:36 error: [PUT] /api/audio-clips/update-clip-description/69700be9de32ef93da81c011 >> StatusCode:: 409, Message:: Audio Description couldn't be generated
+2026-01-20 16:03:23 error: Middleware executed at: /Users/lanado/Desktop/YouDescribeX-api/node_modules/express/lib/router/layer.js:71:5
+2026-01-20 16:03:23 error: [GET] /api/audio-descriptions/get-user-ad/5cc6615b56b7f3071f306163&69700be9de32ef93da81c00b >> StatusCode:: 409, Message:: Audio Description for this YouTube Video doesn't exist
+2026-01-20 16:03:32 info: [COLLAB] Starting deep copy of audio description 6883cc2feec5c3a2c62b475f for user 5cedd767a774ac520ff93e60
+2026-01-20 16:03:32 info: [COLLAB] Original audio description: user 6845e4375506faa0752b8d62, depth 1
+2026-01-20 16:03:32 info: [COLLAB] Created new audio description 697017d43ba3dde567ca8258 with depth 2
+2026-01-20 16:04:00 error: Text-to-Speech Error: 3 INVALID_ARGUMENT: Gender neutral voices are not supported.
+2026-01-20 16:04:00 error: Middleware executed at: /Users/lanado/Desktop/YouDescribeX-api/node_modules/express/lib/router/layer.js:71:5
+2026-01-20 16:04:00 error: [PUT] /api/audio-clips/update-clip-description/697017d43ba3dde567ca825d >> StatusCode:: 409, Message:: Audio Description couldn't be generated
+2026-01-20 16:10:23 info: YouTube Cache Service initialized
+2026-01-20 16:10:23 info: NODE
+2026-01-20 16:10:23 info: [object Object]
+2026-01-20 16:10:23 info: MONGODB_CONNECTION_STRING: mongodb://127.0.0.1:27017/youdescribe
+2026-01-20 16:10:24 info: Cache service initialized
+2026-01-20 16:10:24 info: Testing MongoDB connection
+2026-01-20 16:10:24 info: AUDIO_DIRECTORY: app/public
+2026-01-20 16:10:24 info: Initializing Cron Jobs
+2026-01-20 16:10:24 info: =================================
+2026-01-20 16:10:24 info: ======= ENV: development =======
+2026-01-20 16:10:24 info: 🚀 App listening on the port 4001
+2026-01-20 16:10:24 info: =================================
+2026-01-20 16:10:24 info: GPU Server Status :: false
+2026-01-20 16:10:24 info: SMTP server connection established successfully
+2026-01-20 16:10:24 info: Connected to MongoDB Database: youdescribe
+2026-01-20 16:10:25 info: Database indexes created successfully
+2026-01-20 16:10:57 info: Calculating duration for: app/public/audio/adzYW5DZoWs/697017d43ba3dde567ca8258/nonOCR-1ac8a7a1-7723-4d35-9123-9065a2ebf8fb.mp3
+2026-01-20 16:10:57 info: File deleted successfully:
