@@ -3,6 +3,7 @@ import { logger } from '../utils/logger';
 import { AddNewAudioClipDto, UpdateAudioClipDescriptionDto, UpdateAudioClipStartTimeDto, UpdateClipAudioPathDto } from '../dtos/audioClips.dto';
 import AudioClipsService from '../services/audioClips.service';
 import { IUser } from '../models/mongodb/User.mongo';
+import { MongoAudioClipsModel } from '../models/mongodb/init-models.mongo';
 
 export class AudioClipsController {
   public audioClipsService = new AudioClipsService();
@@ -24,6 +25,46 @@ export class AudioClipsController {
       const processedAudioClips = await this.audioClipsService.updateAudioClipTitle(clipId, adTitle);
       res.status(200).json(processedAudioClips);
     } catch (error) {
+      next(error);
+    }
+  };
+
+  public getAudioClipPlaybackType = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const clipId: string = req.params.clipId;
+      const clip = await MongoAudioClipsModel.findById(clipId);
+
+      if (!clip) {
+        return res.status(404).json({ message: 'Audio clip not found' });
+      }
+
+      res.status(200).json({
+        playback_type: clip.playback_type,
+        message: 'Success',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // Add this method to your AudioClipsController class
+  public switchToTTS = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const clipId: string = req.params.clipId;
+      const { text, userId, youtubeVideoId, audioDescriptionId } = req.body;
+
+      // Validate required parameters
+      if (!text || !userId || !youtubeVideoId || !audioDescriptionId) {
+        return res.status(400).json({
+          message: 'Missing required parameters: text, userId, youtubeVideoId, audioDescriptionId',
+        });
+      }
+
+      const result = await this.audioClipsService.switchToTTS(clipId, text, userId, youtubeVideoId, audioDescriptionId);
+
+      res.status(200).json(result);
+    } catch (error) {
+      logger.error('Switch to TTS controller error:', error);
       next(error);
     }
   };
