@@ -40,8 +40,8 @@ class App {
     initPassport();
     this.initializeCronJobs();
   }
-
   public listen() {
+    console.log('About to call app.listen...');
     this.app.listen(this.port, () => {
       logger.info(`=================================`);
       logger.info(`======= ENV: ${this.env} =======`);

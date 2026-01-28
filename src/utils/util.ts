@@ -160,6 +160,7 @@ export const calculateContributions = (contributions, origin, userId, revision) 
   logger.debug(`[COLLAB] Final contributions: ${JSON.stringify(contributions)}`);
 };
 
+// Update calDistance -> Time difference
 export const calculateEdittingDistance = (origin: string, revision: string): number => {
   const m = origin.length;
   const n = revision.length;

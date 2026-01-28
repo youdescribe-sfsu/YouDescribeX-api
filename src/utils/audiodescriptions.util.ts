@@ -205,6 +205,7 @@ class ContributionService {
       const oldContributions = audioDescription.contributions || {};
 
       // Calculate edit distance and contribution percentages
+      // Update function
       const editingDistance = calculateEdittingDistance(prevText, newText);
       logger.info(`[COLLAB] Editing distance: ${editingDistance}`);
 
@@ -273,23 +274,35 @@ class ContributionService {
         return '';
       }
 
-      // Log method caller information if possible
       const stack = new Error().stack;
       logger.debug(`[COLLAB] getConcatenatedAudioClips called from: ${stack?.split('\n')[2]?.trim() || 'unknown'}`);
 
       const audioClips = await MongoAudioClipsModel.find({
         audio_description: audioDescriptionId,
-      });
+      }).sort({ start_time: 1 }); // Sort by start_time to maintain order
 
       logger.info(`[COLLAB] Found ${audioClips?.length || 0} audio clips for ${audioDescriptionId}`);
 
-      const result = audioClips.reduce((text, clip) => {
+      // Create a comprehensive representation including all editable properties
+      const result = audioClips.reduce((acc, clip, index) => {
         const clipText = clip.description_text || clip.transcript?.reduce((transcriptText, t) => transcriptText + t.sentence, '') || '';
-        logger.debug(`[COLLAB] Adding clip ${clip._id}, text length: ${clipText.length} chars`);
-        return text + clipText;
+
+        // Include all relevant properties that can be edited
+        const clipRepresentation = [
+          `[CLIP_${index}]`,
+          `START:${clip.start_time}`,
+          `TYPE:${clip.description_type}`,
+          `PLAYBACK:${clip.playback_type}`,
+          `LABEL:${clip.label || ''}`,
+          `TEXT:${clipText}`,
+          `[/CLIP_${index}]`,
+        ].join('|');
+
+        logger.debug(`[COLLAB] Adding clip ${clip._id}, representation length: ${clipRepresentation.length} chars`);
+        return acc + clipRepresentation;
       }, '');
 
-      logger.info(`[COLLAB] Concatenated text length: ${result.length} chars for ${audioDescriptionId}`);
+      logger.info(`[COLLAB] Concatenated representation length: ${result.length} chars for ${audioDescriptionId}`);
       return result;
     } catch (error) {
       logger.error(`[COLLAB] Error getting concatenated audio clips for ${audioDescriptionId}: ${error.message}`);

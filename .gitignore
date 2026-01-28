@@ -42,3 +42,5 @@ logs/sa-text-to-speech.json
 sa-text-to-speech.json
 logs/
 *.log
+app/public/audio/
+sa-text-to-speech.json
