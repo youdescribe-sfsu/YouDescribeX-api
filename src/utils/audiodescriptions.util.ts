@@ -170,12 +170,12 @@ class ContributionService {
         return;
       }
 
-      // CHANGED: get separate representations
-      const prevReps = await ContributionService.getConcatenatedAudioClips(audioDescription.prev_audio_description);
-      const newReps = await ContributionService.getConcatenatedAudioClips(audioDescriptionId);
+      // Get text content for comparison
+      const prevText = await ContributionService.getConcatenatedAudioClips(audioDescription.prev_audio_description);
+      const newText = await ContributionService.getConcatenatedAudioClips(audioDescriptionId);
 
       // If previous doc exists but no content to compare, initialize with original user
-      if (!prevReps.full) {
+      if (!prevText) {
         const prevAudioDescription = await MongoAudio_Descriptions_Model.findById(audioDescription.prev_audio_description);
 
         if (prevAudioDescription) {
@@ -204,46 +204,12 @@ class ContributionService {
       const newContributions = {};
       const oldContributions = audioDescription.contributions || {};
 
-      // CHANGED: Calculate separate edit distances for each category
-      const timingDistance = calculateEdittingDistance(prevReps.timing, newReps.timing);
-      const metadataDistance = calculateEdittingDistance(prevReps.metadata, newReps.metadata);
-      const textDistance = calculateEdittingDistance(prevReps.text, newReps.text);
+      // Calculate edit distance and contribution percentages
+      const editingDistance = calculateEdittingDistance(prevText, newText);
+      logger.info(`[COLLAB] Editing distance: ${editingDistance}`);
 
-      // ADDED: Log each distance
-      logger.info(`[COLLAB] Timing distance: ${timingDistance} (prev: ${prevReps.timing.length} chars, new: ${newReps.timing.length} chars)`);
-      logger.info(`[COLLAB] Metadata distance: ${metadataDistance} (prev: ${prevReps.metadata.length} chars, new: ${newReps.metadata.length} chars)`);
-      logger.info(`[COLLAB] Text distance: ${textDistance} (prev: ${prevReps.text.length} chars, new: ${newReps.text.length} chars)`);
-
-      // ADDED: Calculate normalized contribution for each category
-      const timingContribution = timingDistance / (Math.max(1, prevReps.timing.length) + timingDistance);
-      const metadataContribution = metadataDistance / (Math.max(1, prevReps.metadata.length) + metadataDistance);
-      const textContribution = textDistance / (Math.max(1, prevReps.text.length) + textDistance);
-
-      // ADDED: Define weights (adjust these as needed)
-      const TIMING_WEIGHT = 0.4; // 40% weight for timing changes
-      const TEXT_WEIGHT = 0.4; // 40% weight for text changes
-      const METADATA_WEIGHT = 0.2; // 20% weight for metadata changes
-
-      // CHANGED: Calculate weighted total instead of single edit distance
-      const newContribution = timingContribution * TIMING_WEIGHT + textContribution * TEXT_WEIGHT + metadataContribution * METADATA_WEIGHT;
-
-      // ADDED: Log detailed breakdown
-      logger.info(
-        `[COLLAB] Timing contribution: ${(timingContribution * 100).toFixed(2)}% × ${TIMING_WEIGHT} = ${(timingContribution * TIMING_WEIGHT * 100).toFixed(
-          2,
-        )}%`,
-      );
-      logger.info(
-        `[COLLAB] Text contribution: ${(textContribution * 100).toFixed(2)}% × ${TEXT_WEIGHT} = ${(textContribution * TEXT_WEIGHT * 100).toFixed(2)}%`,
-      );
-      logger.info(
-        `[COLLAB] Metadata contribution: ${(metadataContribution * 100).toFixed(2)}% × ${METADATA_WEIGHT} = ${(
-          metadataContribution *
-          METADATA_WEIGHT *
-          100
-        ).toFixed(2)}%`,
-      );
-
+      const oldLength = Math.max(1, prevText.length); // Avoid division by zero
+      const newContribution = editingDistance / (oldLength + editingDistance);
       const oldContributionSum = 1 - newContribution;
 
       logger.info(
@@ -298,97 +264,40 @@ class ContributionService {
     }
   }
 
-  // CHANGED: Return type is now an object with separate representations
-  static async getConcatenatedAudioClips(audioDescriptionId: string): Promise<{
-    full: string;
-    timing: string;
-    metadata: string;
-    text: string;
-  }> {
+  static async getConcatenatedAudioClips(audioDescriptionId: string): Promise<string> {
     logger.info(`[COLLAB] Getting concatenated audio clips for ${audioDescriptionId}`);
 
     try {
       if (!audioDescriptionId) {
         logger.warn(`[COLLAB] Empty audioDescriptionId passed to getConcatenatedAudioClips`);
-        // CHANGED: Return object instead of empty string
-        return { full: '', timing: '', metadata: '', text: '' };
+        return '';
       }
 
+      // Log method caller information if possible
       const stack = new Error().stack;
       logger.debug(`[COLLAB] getConcatenatedAudioClips called from: ${stack?.split('\n')[2]?.trim() || 'unknown'}`);
 
       const audioClips = await MongoAudioClipsModel.find({
         audio_description: audioDescriptionId,
-      }).sort({ start_time: 1 }); // Sort by start_time to maintain order
+      });
 
       logger.info(`[COLLAB] Found ${audioClips?.length || 0} audio clips for ${audioDescriptionId}`);
 
-      // ADDED: Separate arrays for each category
-      const timingParts: string[] = [];
-      const metadataParts: string[] = [];
-      const textParts: string[] = [];
-      const fullParts: string[] = [];
-
-      // CHANGED: Use forEach instead of reduce to build separate arrays
-      audioClips.forEach((clip, index) => {
+      const result = audioClips.reduce((text, clip) => {
         const clipText = clip.description_text || clip.transcript?.reduce((transcriptText, t) => transcriptText + t.sentence, '') || '';
+        logger.debug(`[COLLAB] Adding clip ${clip._id}, text length: ${clipText.length} chars`);
+        return text + clipText;
+      }, '');
 
-        // ADDED: Separate representations for each category
-        const timingRep = `[${index}]START:${Math.round(clip.start_time * 1000)
-          .toString()
-          .padStart(9, '0')}|END:${Math.round((clip.end_time || 0) * 1000)
-          .toString()
-          .padStart(9, '0')}`;
-        const metadataRep = `[${index}]TYPE:${clip.description_type}|PLAYBACK:${clip.playback_type}|LABEL:${clip.label || ''}`;
-        const textRep = `[${index}]${clipText}`;
-
-        // Keep full representation for backward compatibility
-        const clipRepresentation = [
-          `[CLIP_${index}]`,
-          `START:${Math.round(clip.start_time * 1000)
-            .toString()
-            .padStart(9, '0')}`,
-          `END:${Math.round((clip.end_time || 0) * 1000)
-            .toString()
-            .padStart(9, '0')}`,
-          `TYPE:${clip.description_type}|${clip.description_type}|${clip.description_type}`,
-          `PLAYBACK:${clip.playback_type}|${clip.playback_type}|${clip.playback_type}`,
-          `LABEL:${clip.label || ''}`,
-          `TEXT:${clipText}`,
-          `[/CLIP_${index}]`,
-        ].join('|');
-
-        // ADDED: Push to separate arrays
-        timingParts.push(timingRep);
-        metadataParts.push(metadataRep);
-        textParts.push(textRep);
-        fullParts.push(clipRepresentation);
-
-        logger.debug(`[COLLAB] Adding clip ${clip._id}, representation length: ${clipRepresentation.length} chars`);
-      });
-
-      // ADDED: Join all parts
-      const result = {
-        full: fullParts.join('||'),
-        timing: timingParts.join('||'),
-        metadata: metadataParts.join('||'),
-        text: textParts.join('||'),
-      };
-
-      logger.info(`[COLLAB] Concatenated representation length: ${result.full.length} chars for ${audioDescriptionId}`);
-      // ADDED: Log separate lengths
-      logger.info(`[COLLAB] Timing: ${result.timing.length} chars | Metadata: ${result.metadata.length} chars | Text: ${result.text.length} chars`);
-
+      logger.info(`[COLLAB] Concatenated text length: ${result.length} chars for ${audioDescriptionId}`);
       return result;
     } catch (error) {
       logger.error(`[COLLAB] Error getting concatenated audio clips for ${audioDescriptionId}: ${error.message}`);
       logger.error(`[COLLAB] Stack trace: ${error.stack}`);
-      // CHANGED: Return object instead of empty string
-      return { full: '', timing: '', metadata: '', text: '' };
+      return '';
     }
   }
 }
-
 // AI Audio Description Service
 class AIAudioDescriptionService {
   static async createNewDescription(newAIDescription: NewAiDescriptionDto): Promise<IAudioDescription & { _id: Types.ObjectId }> {
