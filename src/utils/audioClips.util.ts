@@ -151,59 +151,6 @@ class AudioClipService {
     keyFilename: CONFIG.google.textToSpeech.credentialsPath,
   });
 
-  static async generateSpeechWithEngine(text: string, clipDescriptionType: string): Promise<Buffer> {
-    const engine = CONFIG.app.ttsEngine;
-    if (engine === 'coqui') {
-      return await this.generateWithCoquiTTS(text, clipDescriptionType);
-    } else {
-      return await this.generateWithGoogleTTS(text, clipDescriptionType);
-    }
-  }
-
-  /**
-   * Generate speech using Coqui TTS
-   */
-  private static async generateWithCoquiTTS(text: string, clipDescriptionType: string): Promise<Buffer> {
-    // Check if Coqui TTS is healthy
-    const isHealthy = await CoquiTTSService.healthCheck();
-    if (!isHealthy) {
-      logger.warn('Coqui TTS unhealthy, falling back to Google TTS');
-      return await this.generateWithGoogleTTS(text, clipDescriptionType);
-    }
-
-    const lengthScale = clipDescriptionType === 'Visual' ? 0.3 : 0.6;
-    const result = await CoquiTTSService.generateSpeech(text, 'visual', lengthScale);
-
-    if (result.status && result.audio) {
-      return result.audio;
-    } else {
-      logger.warn('Coqui TTS failed, falling back to Google TTS');
-      return await this.generateWithGoogleTTS(text, clipDescriptionType);
-    }
-  }
-
-  /**
-   * Generate speech using Google TTS (existing logic)
-   */
-  private static async generateWithGoogleTTS(text: string, clipDescriptionType: string): Promise<Buffer> {
-    const voiceName = clipDescriptionType === 'Visual' ? 'en-US-Wavenet-D' : 'en-US-Wavenet-C';
-
-    const [response] = await this.textToSpeechClient.synthesizeSpeech({
-      input: { text },
-      voice: {
-        languageCode: 'en-US',
-        name: voiceName,
-        ssmlGender: 'NEUTRAL',
-      },
-      audioConfig: {
-        audioEncoding: 'MP3',
-        speakingRate: 1.0,
-      },
-    });
-
-    return response.audioContent as Buffer;
-  }
-
   static async generateMp3forDescriptionText(
     adId: string,
     youtubeVideoId: string,
@@ -211,21 +158,28 @@ class AudioClipService {
     clipDescriptionType: string,
   ): Promise<TextToSpeechResponse> {
     try {
-      const audioBuffer = await this.generateSpeechWithEngine(clipDescriptionText, clipDescriptionType);
-
-      const engine = CONFIG.app.ttsEngine;
-      const fileExtension = engine === 'coqui' ? 'wav' : 'mp3';
-      const expectedMimeType = engine === 'coqui' ? 'audio/wav' : 'audio/mpeg';
+      const voiceName = clipDescriptionType === 'Visual' ? 'en-US-Studio-O' : 'en-US-Studio-Q';
+      const [response] = await this.textToSpeechClient.synthesizeSpeech({
+        input: { text: clipDescriptionText },
+        voice: {
+          languageCode: 'en-US',
+          name: voiceName,
+        },
+        audioConfig: {
+          audioEncoding: 'MP3',
+          speakingRate: 1.25,
+        },
+      });
 
       const uniqueId = uuidv4();
       const type = clipDescriptionType === 'Visual' ? 'nonOCR' : 'OCR';
-      const fileName = `${type}-${uniqueId}.${fileExtension}`;
+      const fileName = `${type}-${uniqueId}.mp3`;
       const dir = `${CONFIG.app.audioDirectory}/audio/${youtubeVideoId}/${adId}`;
 
       FileManagementService.ensureDirectoryExists(dir);
 
       const filepath = `${dir}/${fileName}`;
-      await fs.promises.writeFile(filepath, audioBuffer);
+      await fs.promises.writeFile(filepath, response.audioContent, 'binary');
 
       const fileMimeType = mime.lookup(filepath);
       const fileSizeBytes = fs.statSync(filepath).size;
@@ -235,7 +189,7 @@ class AudioClipService {
         status: true,
         filepath: servingFilepath,
         filename: fileName,
-        file_mime_type: fileMimeType || expectedMimeType,
+        file_mime_type: fileMimeType || 'audio/mpeg',
         file_size_bytes: fileSizeBytes,
       };
     } catch (error) {
@@ -260,16 +214,10 @@ class AudioClipService {
     requestedPlaybackType?: 'extended' | 'inline',
   ): Promise<PlaybackAnalysisResponse> {
     try {
-      // ALWAYS respect any explicitly requested type (whether extended or inline)
-      if (requestedPlaybackType) {
-        logger.info(`Preserving user-selected playback type: ${requestedPlaybackType}`);
-        return {
-          message: `Success - preserving user selection: ${requestedPlaybackType}`,
-          data: requestedPlaybackType,
-        };
+      if (requestedPlaybackType === 'extended') {
+        return { message: 'Success - using requested extended type', data: 'extended' };
       }
 
-      // Only execute calculation logic if no requested type is specified
       const overlappingDialogs = await MongoDialog_Timestamps_Model.find({
         video: videoId,
         $and: [{ dialog_start_time: { $lte: endTime } }, { dialog_end_time: { $gte: startTime } }],
@@ -493,15 +441,7 @@ class ClipProcessingService {
 
       const currentPlaybackType = audioClip.playback_type as 'extended' | 'inline';
 
-      const playbackType = await AudioClipService.analyzePlaybackType(
-        clipStartTime,
-        clipEndTime,
-        data.video_id,
-        data.ad_id,
-        data.clip_id,
-        true,
-        currentPlaybackType,
-      );
+      const playbackType = await AudioClipService.analyzePlaybackType(clipStartTime, clipEndTime, data.video_id, data.ad_id, data.clip_id, true);
 
       if (!playbackType.data) {
         return {
