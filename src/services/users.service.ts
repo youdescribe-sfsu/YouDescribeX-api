@@ -559,6 +559,52 @@ class UserService {
     }
   }
 
+  public async requestAiDescriptionsWithLana(userData: IUser, youtube_id: string) {
+    const userId = userData._id;
+    try {
+      logger.info(`Starting AI description request for video ${youtube_id}`, { userId });
+
+      // Validate the YouTube video exists
+      const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
+      if (!youtubeVideoData) {
+        throw new VideoNotFoundError(`No data found for YouTube ID: ${youtube_id}`);
+      }
+
+      logger.info(`Video data retrieved for ${youtube_id}`, { videoTitle: youtubeVideoData.title });
+
+      await cacheService.invalidateByPrefix(`ai_requests_${userData._id}`);
+      logger.info(`Invalidated cache for user ${userData._id} after requesting AI description`);
+
+      // Check if we already have an AI description for this video
+      const aiAudioDescriptions = await this.checkIfVideoHasAudioDescription(youtube_id, AI_USER_ID, userId);
+      if (aiAudioDescriptions) {
+        // Handle existing description case
+        logger.info(`Existing AI description found for ${youtube_id}`);
+        return await this.handleExistingAudioDescription(userData, youtube_id, null, youtubeVideoData, aiAudioDescriptions);
+      }
+
+      // Queue the video for processing instead of calling API directly
+      return await this.queueVideoForProcessing(userData, youtube_id, null, youtubeVideoData);
+    } catch (error) {
+      logger.error(`Error in requestAiDescriptionsWithLana: ${error.message}`, {
+        userId: userId,
+        youtubeId: youtube_id,
+        error: error,
+      });
+
+      if (error instanceof VideoNotFoundError) {
+        throw new HttpException(404, error.message);
+      } else if (error instanceof AIProcessingError) {
+        throw new HttpException(503, 'AI processing service is currently unavailable');
+      } else if (error instanceof HttpException) {
+        throw error;
+      } else {
+        logger.error(`Unexpected error: ${error.message}`);
+        throw new HttpException(500, 'An unexpected error occurred');
+      }
+    }
+  }
+
   // Add this method after requestAiDescriptionsWithGpu
   private async queueVideoForProcessing(userData: IUser, youtube_id: string, ydx_app_host: string, youtubeVideoData: any): Promise<any> {
     try {
@@ -577,7 +623,8 @@ class UserService {
 
       // Start processing the queue if not already processing
       if (!this.isProcessingQueue) {
-        this.processNextInQueue();
+        //this.processNextInQueue();
+        this.processNextInQueueLana();
       }
 
       return {
@@ -610,6 +657,87 @@ class UserService {
       logger.info(`Immediate operations completed for video ${youtube_id}, user ${userData._id}`);
     } catch (error) {
       logger.error(`Error in immediate operations for ${youtube_id}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  //******** LANA CHANGE *********/
+  private async processNextInQueueLana() {
+    if (this.videoProcessingQueue.length === 0) {
+      this.isProcessingQueue = false;
+      return;
+    }
+
+    this.isProcessingQueue = true;
+    const nextItem = this.videoProcessingQueue[0]; // Peek at the current item
+
+    try {
+      // 1. Check MongoDB for ANY video currently in 'processing' status
+      // This ensures only one video is handled by the API service at a time
+      const activeProcessing = await MongoAICaptionRequestModel.findOne({
+        status: { $in: ['processing'] },
+      });
+
+      if (activeProcessing) {
+        logger.info(`System busy: ${activeProcessing.youtube_id} is still ${activeProcessing.status}. Waiting...`);
+        // Wait 30 seconds before checking the queue again
+        setTimeout(() => this.processNextInQueueLana(), 30000);
+        return;
+      }
+
+      // 2. If no video is processing, check if THIS specific video is already completed
+      const currentVideoStatus = await MongoAICaptionRequestModel.findOne({
+        youtube_id: nextItem.youtubeId,
+        ai_user_id: nextItem.aiUserId,
+      });
+
+      if (currentVideoStatus?.status === 'completed') {
+        logger.info(`Video ${nextItem.youtubeId} already completed. Skipping.`);
+        this.videoProcessingQueue.shift();
+        return this.processNextInQueueLana();
+      }
+
+      // 3. Trigger the API service
+      const user = await MongoUsersModel.findById(nextItem.userId);
+      if (user) {
+        logger.info(`Calling API service for video: ${nextItem.youtubeId}`);
+
+        // Update status to 'processing' immediately to lock the queue
+        await MongoAICaptionRequestModel.updateOne(
+          { youtube_id: nextItem.youtubeId, ai_user_id: nextItem.aiUserId },
+          { $set: { status: 'processing' } },
+          { upsert: true },
+        );
+
+        await this.sendToApiService(user, nextItem.youtubeId, nextItem.aiUserId);
+
+        // Remove from the local Node queue
+        this.videoProcessingQueue.shift();
+      }
+    } catch (error) {
+      logger.error(`Error in queue processing: ${error.message}`);
+      // If it's a real failure, remove it to prevent a stuck queue
+      if (error.code !== 'ECONNABORTED') {
+        this.videoProcessingQueue.shift();
+      }
+    }
+
+    // Check the queue again after a short delay
+    setTimeout(() => this.processNextInQueueLana(), 5000);
+  }
+
+  private async sendToApiService(user: IUser, youtube_id: string, aiUserId: string): Promise<void> {
+    try {
+      // Call to your server API
+      const response = await axios.post(`http://54.215.47.112:8000/api/generate-ai-description`, {
+        youtube_id: youtube_id,
+        user_id: user._id,
+        ai_user_id: aiUserId,
+      });
+
+      logger.info(`API service response for ${youtube_id}: ${JSON.stringify(response.data)}`);
+    } catch (error) {
+      logger.error(`Error sending to API service: ${error.message}`);
       throw error;
     }
   }
