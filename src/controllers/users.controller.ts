@@ -293,6 +293,19 @@ class UsersController {
     }
   };
 
+  public requestAiDescriptionsWithLana = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // const userData = req.user as unknown as IUser;
+      const youtube_id = req.body.youtube_id;
+      const userData = req.user as IUser;
+      // const hostname = req.headers.origin;
+      const returnData = await this.userService.requestAiDescriptionsWithLana(userData, youtube_id);
+      res.status(201).json(returnData);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   public aiDescriptionStatus = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userData = req.user as unknown as IUser;
@@ -415,19 +428,6 @@ class UsersController {
       const failureData: PipelineFailureDto = req.body;
       await this.userService.handlePipelineFailure(failureData);
       res.status(200).json({ message: 'Pipeline failure handled successfully' });
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  public requestAiDescriptionsWithLana = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      // const userData = req.user as unknown as IUser;
-      const youtube_id = req.body.youtube_id;
-      const userData = req.user as IUser;
-      // const hostname = req.headers.origin;
-      const returnData = await this.userService.requestAiDescriptionsWithLana(userData, youtube_id);
-      res.status(201).json(returnData);
     } catch (error) {
       next(error);
     }
