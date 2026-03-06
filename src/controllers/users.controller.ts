@@ -308,7 +308,10 @@ class UsersController {
 
   public aiDescriptionStatus = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userData = req.user as unknown as IUser;
+      let userData = req.user as unknown as IUser;
+      if (!userData && req.headers.authorization) {
+        userData = await MongoUsersModel.findById(req.headers.authorization);
+      }
       const youtube_id = req.body.youtube_id;
 
       if (!userData) {
