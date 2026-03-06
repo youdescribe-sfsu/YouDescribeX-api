@@ -180,7 +180,7 @@ export const CONFIG = {
   app: {
     nodeEnv: ENV.nodeEnv,
     audioDirectory: process.env.AUDIO_DIRECTORY || '/public/audio',
-    aiUserId: process.env.AI_USER_ID || '650506db3ff1c2140ea10ece',
+    aiUserId: process.env.AI_USER_ID || '69a9f939c790c5b449fa3350',
     currentYdxHost: process.env.CURRENT_YDX_HOST,
     email: {
       user: process.env.GMAIL_USER,
