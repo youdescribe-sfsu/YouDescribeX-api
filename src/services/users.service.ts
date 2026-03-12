@@ -2,7 +2,7 @@ import { google } from '@google-cloud/text-to-speech/build/protos/protos';
 import { CreateUserAudioDescriptionDto, CreateUserDto, NewUserDto } from '../dtos/users.dto';
 import { HttpException } from '../exceptions/HttpException';
 import { getYouTubeVideoStatus, isEmpty, nowUtc } from '../utils/util';
-import { CURRENT_DATABASE, CURRENT_YDX_HOST, GPU_URL, AI_USER_ID } from '../config';
+import { CURRENT_DATABASE, CURRENT_YDX_HOST, GPU_URL, AI_USER_ID, AI_SERVICE_URL, DOWNLOADER_SERVICE_URL } from '../config';
 import { PostGres_Users, UsersAttributes } from '../models/postgres/init-models';
 import {
   MongoAICaptionRequestModel,
@@ -25,6 +25,8 @@ import { VideoNotFoundError, AIProcessingError } from '../utils/customErrors';
 import moment from 'moment';
 import { PipelineFailureDto } from '../dtos/pipelineFailure.dto';
 import cacheService from '../utils/cacheService';
+import { VideoQueryRequestDto } from '../dtos/videoQueryRequest.dto';
+import { DownloadCallbackDto } from '../dtos/downloadCallback.dto';
 
 class UserService {
   private videoProcessingQueue: Array<{
@@ -1387,6 +1389,184 @@ class UserService {
     } catch (error) {
       logger.error('Error fetching video history:', error);
       throw error;
+    }
+  }
+
+  // ===================================================================
+  // AI PIPELINE METHODS (Video Query + Hybrid Download/AI Pipeline)
+  // ===================================================================
+
+  /**
+   * Forward a question about a video frame to the AI service for visual Q&A.
+   */
+  public async queryVideoFrame(request: VideoQueryRequestDto) {
+    try {
+      const { youtubeVideoId, question, timeStamp } = request;
+
+      const requestBody = {
+        video_id: youtubeVideoId,
+        question,
+        current_time: timeStamp.toString(),
+      };
+
+      logger.info(`Video query request for ${youtubeVideoId} at ${timeStamp}s`);
+      const response = await axios.post(`${AI_SERVICE_URL}/api/query-video-frame`, requestBody, { timeout: 60000 });
+
+      if (response?.data?.status === 'success') {
+        logger.info(`Video query response received for ${youtubeVideoId}`);
+        return response.data.response;
+      } else {
+        logger.warn(`Video query returned non-success for ${youtubeVideoId}`);
+        return 'Not Found Description or Answer';
+      }
+    } catch (error) {
+      logger.error(`Error in queryVideoFrame: ${error.message}`);
+      throw new HttpException(500, 'Request for AI answer failed');
+    }
+  }
+
+  /**
+   * Trigger the hybrid pipeline: Downloader -> S3 -> Cloud AI.
+   * Step 1: Tell the downloader service to download the video and upload to S3.
+   * The downloader will call back /api/users/download-complete when done.
+   */
+  public async startAiDescriptionPipeline(userId: string, youtube_id: string) {
+    try {
+      logger.info(`Starting AI description pipeline for video ${youtube_id}`, { userId });
+
+      const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
+      if (!youtubeVideoData) {
+        throw new VideoNotFoundError(`No data found for YouTube ID: ${youtube_id}`);
+      }
+
+      logger.info(`Video data retrieved for ${youtube_id}: "${youtubeVideoData.title}"`);
+
+      const aiAudioDescriptions = await this.checkIfVideoHasAudioDescription(youtube_id, AI_USER_ID, userId);
+      if (aiAudioDescriptions) {
+        logger.info(`Existing AI description found for ${youtube_id}`);
+        return { status: 'exists', message: 'AI description already exists for this video' };
+      }
+
+      logger.info(`Triggering downloader at ${DOWNLOADER_SERVICE_URL} for ${youtube_id}`);
+      const response = await axios.post(
+        `${DOWNLOADER_SERVICE_URL}/api/download`,
+        {
+          youtube_id: youtube_id,
+          user_id: userId,
+          ai_user_id: AI_USER_ID,
+        },
+        { timeout: 30000 },
+      );
+
+      logger.info(`Downloader response for ${youtube_id}: ${JSON.stringify(response.data)}`);
+      return {
+        status: 'processing',
+        message: `Video download initiated for ${youtube_id}. AI pipeline will start after upload to S3.`,
+        download_status: response.data.status,
+      };
+    } catch (error) {
+      logger.error(`Error in startAiDescriptionPipeline: ${error.message}`, {
+        userId,
+        youtubeId: youtube_id,
+        error,
+      });
+
+      if (error instanceof VideoNotFoundError) {
+        throw new HttpException(404, error.message);
+      } else if (error instanceof HttpException) {
+        throw error;
+      } else {
+        throw new HttpException(500, 'An unexpected error occurred starting the AI pipeline');
+      }
+    }
+  }
+
+  /**
+   * Callback from the Youtube-Downloader: video is in S3.
+   * Step 2: Trigger the Cloud AI service to process the video from S3.
+   */
+  /**
+   * Clear AI-generated audio description for a video (for testing / re-running pipeline).
+   * By default removes only the AI user's audio_descriptions; pass clearAll: true to remove
+   * all audio_descriptions for this video (useful when multiple test runs have appended entries).
+   */
+  public async clearAiDescriptionForVideo(youtube_id: string, clearAll = false) {
+    const video = await MongoVideosModel.findOne({ youtube_id });
+    if (!video) {
+      throw new VideoNotFoundError(`No video found for YouTube ID: ${youtube_id}`);
+    }
+    const query: { video: mongoose.Types.ObjectId; user?: mongoose.Types.ObjectId } = { video: video._id };
+    if (!clearAll) {
+      query.user = new ObjectId(AI_USER_ID);
+    }
+    const aiDescriptions = await MongoAudio_Descriptions_Model.find(query);
+    if (aiDescriptions.length === 0) {
+      return { status: 'cleared', message: 'No matching audio description(s) found for this video', removed: 0 };
+    }
+    const adIds = aiDescriptions.map(ad => ad._id);
+    for (const ad of aiDescriptions) {
+      if (ad.audio_clips?.length) {
+        await MongoAudioClipsModel.deleteMany({ _id: { $in: ad.audio_clips } });
+      }
+    }
+    await MongoAudio_Descriptions_Model.deleteMany({ _id: { $in: adIds } });
+    await MongoVideosModel.updateOne({ _id: video._id }, { $pullAll: { audio_descriptions: adIds } });
+    logger.info(`Cleared audio description(s) for ${youtube_id}: removed ${aiDescriptions.length} (clearAll=${clearAll})`);
+    return { status: 'cleared', message: `Removed ${aiDescriptions.length} audio description(s) for ${youtube_id}`, removed: aiDescriptions.length };
+  }
+
+  /**
+   * Proxy pipeline status from the AI service.
+   * Frontend can poll this to track long-running video processing (30 min - hours).
+   */
+  public async getPipelineStatus(youtube_id: string) {
+    try {
+      const response = await axios.get(`${AI_SERVICE_URL}/api/pipeline-status/${youtube_id}`, { timeout: 10000 });
+      return response.data;
+    } catch (error) {
+      logger.error(`Failed to fetch pipeline status for ${youtube_id}: ${error.message}`);
+      return { status: 'unknown', message: 'Could not reach AI service for status' };
+    }
+  }
+
+  public async handleDownloadComplete(callbackData: DownloadCallbackDto) {
+    try {
+      const { youtube_id, user_id, ai_user_id, s3_paths, s3_bucket } = callbackData;
+
+      logger.info(`Download complete for ${youtube_id}. S3 paths: ${JSON.stringify(s3_paths)}`);
+
+      if (callbackData.status !== 'completed' || !s3_paths?.video) {
+        logger.error(`Download callback received with invalid status for ${youtube_id}`);
+        throw new HttpException(400, 'Download did not complete successfully');
+      }
+
+      // Step 2: Trigger the Cloud AI pipeline
+      logger.info(`Triggering AI pipeline at ${AI_SERVICE_URL} for ${youtube_id}`);
+      const aiResponse = await axios.post(
+        `${AI_SERVICE_URL}/api/generate-ai-description`,
+        {
+          youtube_id: youtube_id,
+          user_id: user_id,
+          ai_user_id: ai_user_id || AI_USER_ID,
+          s3_bucket: s3_bucket,
+          s3_video_path: s3_paths.video,
+          s3_metadata_path: s3_paths.metadata,
+        },
+        { timeout: 30000 },
+      );
+
+      logger.info(`Cloud AI pipeline response for ${youtube_id}: ${JSON.stringify(aiResponse.data)}`);
+      return {
+        status: 'ai_processing',
+        message: `Cloud AI pipeline started for ${youtube_id}`,
+        ai_response: aiResponse.data,
+      };
+    } catch (error) {
+      logger.error(`Error in handleDownloadComplete: ${error.message}`);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(500, 'Failed to trigger AI pipeline after download');
     }
   }
 }

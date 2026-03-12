@@ -12,6 +12,8 @@ import { getYouTubeVideoStatus } from '../utils/util';
 import { deepCopyAudioClip } from '../utils/audioClips.util';
 import { deepCopyAudioDescriptionWithoutNewClips, updateAutoClips, updateContributions } from '../utils/audiodescriptions.util';
 import { PipelineFailureDto } from '../dtos/pipelineFailure.dto';
+import { VideoQueryRequestDto } from '../dtos/videoQueryRequest.dto';
+import { DownloadCallbackDto } from '../dtos/downloadCallback.dto';
 
 class UsersController {
   public userService = new userService();
@@ -415,6 +417,81 @@ class UsersController {
       const failureData: PipelineFailureDto = req.body;
       await this.userService.handlePipelineFailure(failureData);
       res.status(200).json({ message: 'Pipeline failure handled successfully' });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Forward a question about a video frame to the AI service for visual Q&A.
+   */
+  public queryVideoFrame = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const requestBody: VideoQueryRequestDto = req.body;
+      const response = await this.userService.queryVideoFrame(requestBody);
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Start the AI description pipeline: Downloader -> S3 -> AI Service.
+   */
+  public startAiDescriptionPipeline = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const youtube_id = req.body.youtube_id;
+      const user_id = req.body.user_id;
+      const returnData = await this.userService.startAiDescriptionPipeline(user_id, youtube_id);
+      res.status(201).json(returnData);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Callback from Youtube-Downloader: video downloaded and uploaded to S3.
+   * Triggers the cloud AI pipeline.
+   */
+  public handleDownloadComplete = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const callbackData: DownloadCallbackDto = req.body;
+      const response = await this.userService.handleDownloadComplete(callbackData);
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Check pipeline processing status for a video.
+   * Proxies to the AI service's /api/pipeline-status endpoint.
+   * Useful for frontend polling (processing can take 30 min to several hours).
+   */
+  public getPipelineStatus = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const youtube_id = req.params.youtube_id;
+      const response = await this.userService.getPipelineStatus(youtube_id);
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Clear AI-generated audio description for a video (for testing / re-running E2E pipeline).
+   * Body: { youtube_id: string }
+   */
+  public clearAiDescriptionForVideo = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const youtube_id = req.body?.youtube_id;
+      if (!youtube_id) {
+        res.status(400).json({ status: 'error', message: 'Missing youtube_id in body' });
+        return;
+      }
+      const clearAll = req.body?.clear_all === true;
+      const result = await this.userService.clearAiDescriptionForVideo(youtube_id, clearAll);
+      res.status(200).json(result);
     } catch (error) {
       next(error);
     }

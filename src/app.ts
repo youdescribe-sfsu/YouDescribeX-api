@@ -1,9 +1,10 @@
 import compression from 'compression';
+import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import cookieSession from 'cookie-session';
 import passport from 'passport';
 import express, { Application } from 'express';
-import { NODE_ENV, PORT, CURRENT_DATABASE, AUDIO_DIRECTORY } from './config';
+import { NODE_ENV, PORT, CURRENT_DATABASE, AUDIO_DIRECTORY, ORIGIN } from './config';
 import { testDataBaseConnection } from './databases';
 import { Routes } from './interfaces/routes.interface';
 import errorMiddleware from './middlewares/error.middleware';
@@ -41,11 +42,18 @@ class App {
   }
 
   public listen() {
-    this.app.listen(this.port, () => {
+    const server = this.app.listen(this.port, () => {
       logger.info(`=================================`);
       logger.info(`======= ENV: ${this.env} =======`);
       logger.info(`🚀 App listening on the port ${this.port}`);
       logger.info(`=================================`);
+    });
+    server.on('error', (err: NodeJS.ErrnoException) => {
+      logger.error('Server failed to start:', err.message);
+      if (err.code === 'EADDRINUSE') {
+        logger.error(`Port ${this.port} is already in use. Try another port or stop the other process.`);
+      }
+      process.exit(1);
     });
   }
 
@@ -58,7 +66,26 @@ class App {
   }
 
   private async initializeMiddlewares() {
+    const configuredOrigins = ORIGIN
+      ? ORIGIN.split(',')
+          .map(origin => origin.trim())
+          .filter(Boolean)
+      : [];
+    const allowedOrigins = [...new Set([...configuredOrigins, 'http://localhost:3000'])];
+
     this.app.use(compression());
+    this.app.use(
+      cors({
+        origin(origin, callback) {
+          if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+            return;
+          }
+          callback(new Error(`Origin ${origin} not allowed by CORS`));
+        },
+        credentials: true,
+      }),
+    );
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
     this.app.use(cookieParser());

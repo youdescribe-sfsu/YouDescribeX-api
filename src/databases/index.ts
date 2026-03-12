@@ -1,5 +1,5 @@
 // Import configuration variables
-import { MONGO_DB_DATABASE, MONGO_DB_HOST, MONGO_DB_PORT, MONGO_DB_USER, MONGO_DB_PASSWORD, NODE_ENV } from '../config';
+import { MONGO_DB_URI, MONGO_DB_DATABASE, MONGO_DB_HOST, MONGO_DB_PORT, MONGO_DB_USER, MONGO_DB_PASSWORD, NODE_ENV } from '../config';
 import { POSTGRES_DB_NAME, POSTGRES_DB_USER, POSTGRES_DB_PASSWORD, POSTGRES_DB_HOST, POSTGRES_DB_PORT } from '../config';
 
 // Import database libraries
@@ -8,15 +8,14 @@ import { Sequelize, Options } from 'sequelize';
 
 import { CURRENT_DATABASE } from '../config';
 import { logger } from '../utils/logger';
-// MongoDB connection string
+// MongoDB connection string: use MONGO_DB_URI if set (e.g. Atlas), otherwise build from host/port
 const MONGODB_CONNECTION_STRING =
-  NODE_ENV === 'production'
+  MONGO_DB_URI ||
+  (NODE_ENV === 'production'
     ? `mongodb://${MONGO_DB_USER}:${MONGO_DB_PASSWORD}@${MONGO_DB_HOST}:${MONGO_DB_PORT}/${MONGO_DB_DATABASE}?replicaSet=rs0`
-    : `mongodb://${MONGO_DB_HOST}:${MONGO_DB_PORT}/${MONGO_DB_DATABASE}?replicaSet=rs0`;
+    : `mongodb://${MONGO_DB_HOST}:${MONGO_DB_PORT}/${MONGO_DB_DATABASE}?replicaSet=rs0`);
 
-logger.info(`NODE`);
-logger.info(process.env);
-logger.info(`MONGODB_CONNECTION_STRING: ${MONGODB_CONNECTION_STRING}`);
+logger.info('MongoDB connection configured');
 
 // PostgreSQL connection object
 const POSTGRESQL_OPTIONS: Options = {

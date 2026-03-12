@@ -31,6 +31,13 @@ class UsersRoute implements Routes {
     this.router.post(`${this.path}/save-Visited-Videos-History`, this.usersController.saveVisitedVideosHistory);
     this.router.get(`${this.path}/get-Visited-Videos-History`, this.usersController.getVisitedVideosHistory);
     this.router.post(`${this.path}/pipeline-failure`, this.usersController.handlePipelineFailure);
+
+    // AI pipeline routes
+    this.router.post(`${this.path}/query-video-frame`, this.usersController.queryVideoFrame);
+    this.router.post(`${this.path}/start-ai-description-pipeline`, this.usersController.startAiDescriptionPipeline);
+    this.router.post(`${this.path}/clear-ai-description-for-video`, this.usersController.clearAiDescriptionForVideo);
+    this.router.post(`${this.path}/download-complete`, this.usersController.handleDownloadComplete);
+    this.router.get(`${this.path}/pipeline-status/:youtube_id`, this.usersController.getPipelineStatus);
   }
 }
 

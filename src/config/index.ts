@@ -12,6 +12,7 @@ interface DatabaseConfig {
     user: string;
     password: string;
     currentDb: string;
+    uri: string;
   };
   postgres: {
     name: string;
@@ -86,6 +87,12 @@ interface GpuConfig {
   notifyEmails: string[];
 }
 
+interface PipelineServicesConfig {
+  aiServiceUrl: string;
+  downloaderUrl: string;
+  s3VideoBucket: string;
+}
+
 interface AppConfig {
   ttsEngine: string;
   nodeEnv: string;
@@ -126,6 +133,7 @@ export const CONFIG = {
       user: process.env.MONGO_DB_USER || '',
       password: process.env.MONGO_DB_PASSWORD || '',
       currentDb: process.env.CURRENT_MONGO_DB || 'YDX',
+      uri: process.env.MONGO_DB_URI || '',
     },
     postgres: {
       name: process.env.POSTGRES_DB_NAME || '',
@@ -176,6 +184,12 @@ export const CONFIG = {
     url: process.env.GPU_HOST && process.env.GPU_PIPELINE_PORT ? `http://${process.env.GPU_HOST}:${process.env.GPU_PIPELINE_PORT}` : null,
     notifyEmails: ['smirani1@mail.sfsu.edu'],
   } as GpuConfig,
+
+  pipelineServices: {
+    aiServiceUrl: process.env.AI_SERVICE_URL || 'http://localhost:8000',
+    downloaderUrl: process.env.DOWNLOADER_SERVICE_URL || 'http://localhost:8001',
+    s3VideoBucket: process.env.S3_VIDEO_BUCKET || 'youdescribe-downloaded-youtube-videos',
+  } as PipelineServicesConfig,
 
   app: {
     nodeEnv: ENV.nodeEnv,
@@ -267,6 +281,7 @@ export const {
   MONGO_DB_DATABASE,
   MONGO_DB_USER,
   MONGO_DB_PASSWORD,
+  MONGO_DB_URI,
   POSTGRES_DB_NAME,
   POSTGRES_DB_USER,
   POSTGRES_DB_PASSWORD,
@@ -289,6 +304,9 @@ export const {
   APPLE_CLIENT_ID,
   APPLE_TEAM_ID,
   APPLE_KEY_ID,
+  AI_SERVICE_URL,
+  DOWNLOADER_SERVICE_URL,
+  S3_VIDEO_BUCKET,
 } = {
   CREDENTIALS: CONFIG.server.credentials,
   HOST: CONFIG.server.host,
@@ -308,6 +326,7 @@ export const {
   MONGO_DB_DATABASE: CONFIG.database.mongo.database,
   MONGO_DB_USER: CONFIG.database.mongo.user,
   MONGO_DB_PASSWORD: CONFIG.database.mongo.password,
+  MONGO_DB_URI: CONFIG.database.mongo.uri,
   POSTGRES_DB_NAME: CONFIG.database.postgres.name,
   POSTGRES_DB_USER: CONFIG.database.postgres.user,
   POSTGRES_DB_PASSWORD: CONFIG.database.postgres.password,
@@ -330,6 +349,9 @@ export const {
   APPLE_CLIENT_ID: CONFIG.auth.appleClientId,
   APPLE_TEAM_ID: CONFIG.auth.appleTeamId,
   APPLE_KEY_ID: CONFIG.auth.appleKeyId,
+  AI_SERVICE_URL: CONFIG.pipelineServices.aiServiceUrl,
+  DOWNLOADER_SERVICE_URL: CONFIG.pipelineServices.downloaderUrl,
+  S3_VIDEO_BUCKET: CONFIG.pipelineServices.s3VideoBucket,
 };
 
 // Export NODE_ENV separately to avoid redeclaration
