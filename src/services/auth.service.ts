@@ -3,7 +3,14 @@ import { logger } from '../utils/logger';
 
 class AuthService {
   validateReturnUrl = url => {
-    const allowedDomains = ['ydx.youdescribe.org', 'localhost', 'ydx-dev.youdescribe.org', process.env.ALLOWED_REDIRECT_DOMAIN];
+    const allowedDomains = [
+      'ydx.youdescribe.org',
+      'youdescribe.org',
+      'www.youdescribe.org',
+      'localhost',
+      'ydx-dev.youdescribe.org',
+      process.env.ALLOWED_REDIRECT_DOMAIN,
+    ].filter(Boolean);
     try {
       const parsedUrl = new URL(url);
       return allowedDomains.includes(parsedUrl.hostname);
@@ -16,7 +23,7 @@ class AuthService {
     // If returnTo is a relative path, construct the full URL
     if (returnTo?.startsWith('/')) {
       // Use the configured frontend URL or default
-      const baseUrl = process.env.FRONTEND_URL || 'https://ydx.youdescribe.org';
+      const baseUrl = process.env.FRONTEND_URL;
       return `${baseUrl}${returnTo}`;
     }
 
