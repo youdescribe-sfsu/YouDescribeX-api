@@ -661,6 +661,8 @@ class UserService {
     }
   }
 
+  private static readonly STALE_PROCESSING_TIMEOUT_MS = 30 * 60 * 1000;
+
   //******** LANA CHANGE *********/
   private async processNextInQueueLana() {
     if (this.videoProcessingQueue.length === 0) {
@@ -669,23 +671,27 @@ class UserService {
     }
 
     this.isProcessingQueue = true;
-    const nextItem = this.videoProcessingQueue[0]; // Peek at the current item
+    const nextItem = this.videoProcessingQueue[0];
 
     try {
-      // 1. Check MongoDB for ANY video currently in 'processing' status
-      // This ensures only one video is handled by the API service at a time
       const activeProcessing = await MongoAICaptionRequestModel.findOne({
         status: { $in: ['processing'] },
       });
 
       if (activeProcessing) {
-        logger.info(`System busy: ${activeProcessing.youtube_id} is still ${activeProcessing.status}. Waiting...`);
-        // Wait 30 seconds before checking the queue again
-        setTimeout(() => this.processNextInQueueLana(), 30000);
-        return;
+        const updatedAt = (activeProcessing as any).updatedAt ? new Date((activeProcessing as any).updatedAt).getTime() : 0;
+        const staleDuration = Date.now() - updatedAt;
+
+        if (staleDuration > UserService.STALE_PROCESSING_TIMEOUT_MS) {
+          logger.warn(`Stale processing detected for ${activeProcessing.youtube_id} (stuck for ${Math.round(staleDuration / 60000)} min). Marking as failed.`);
+          await MongoAICaptionRequestModel.updateOne({ _id: activeProcessing._id }, { $set: { status: 'failed' } });
+        } else {
+          logger.info(`System busy: ${activeProcessing.youtube_id} is still ${activeProcessing.status}. Waiting...`);
+          setTimeout(() => this.processNextInQueueLana(), 30000);
+          return;
+        }
       }
 
-      // 2. If no video is processing, check if THIS specific video is already completed
       const currentVideoStatus = await MongoAICaptionRequestModel.findOne({
         youtube_id: nextItem.youtubeId,
         ai_user_id: nextItem.aiUserId,
@@ -697,12 +703,10 @@ class UserService {
         return this.processNextInQueueLana();
       }
 
-      // 3. Trigger the API service
       const user = await MongoUsersModel.findById(nextItem.userId);
       if (user) {
         logger.info(`Calling API service for video: ${nextItem.youtubeId}`);
 
-        // Update status to 'processing' immediately to lock the queue
         await MongoAICaptionRequestModel.updateOne(
           { youtube_id: nextItem.youtubeId, ai_user_id: nextItem.aiUserId },
           { $set: { status: 'processing' } },
@@ -711,25 +715,28 @@ class UserService {
 
         await this.sendToApiService(user, nextItem.youtubeId, nextItem.aiUserId);
 
-        // Remove from the local Node queue
         this.videoProcessingQueue.shift();
       }
     } catch (error) {
-      logger.error(`Error in queue processing: ${error.message}`);
-      // If it's a real failure, remove it to prevent a stuck queue
+      logger.error(`Error in queue processing for ${nextItem.youtubeId}: ${error.message}`);
+      try {
+        await MongoAICaptionRequestModel.updateOne({ youtube_id: nextItem.youtubeId, status: 'processing' }, { $set: { status: 'failed' } });
+      } catch (dbErr) {
+        logger.error(`Failed to reset status for ${nextItem.youtubeId}: ${dbErr.message}`);
+      }
       if (error.code !== 'ECONNABORTED') {
         this.videoProcessingQueue.shift();
       }
     }
 
-    // Check the queue again after a short delay
     setTimeout(() => this.processNextInQueueLana(), 5000);
   }
 
   private async sendToApiService(user: IUser, youtube_id: string, aiUserId: string): Promise<void> {
     try {
       // Call to your server API
-      const response = await axios.post(`http://54.215.47.112:8000/api/generate-ai-description`, {
+      const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+      const response = await axios.post(`${aiServiceUrl}/api/generate-ai-description`, {
         youtube_id: youtube_id,
         user_id: user._id,
         ai_user_id: aiUserId,

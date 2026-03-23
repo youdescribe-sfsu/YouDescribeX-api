@@ -8,11 +8,12 @@ import { Sequelize, Options } from 'sequelize';
 
 import { CURRENT_DATABASE } from '../config';
 import { logger } from '../utils/logger';
-// MongoDB connection string
+// MongoDB connection string - Use MONGO_DB_URI if available, otherwise construct from components
 const MONGODB_CONNECTION_STRING =
-  NODE_ENV === 'production'
+  process.env.MONGO_DB_URI ||
+  (NODE_ENV === 'production'
     ? `mongodb://${MONGO_DB_USER}:${MONGO_DB_PASSWORD}@${MONGO_DB_HOST}:${MONGO_DB_PORT}/${MONGO_DB_DATABASE}?replicaSet=rs0`
-    : `mongodb://${MONGO_DB_HOST}:${MONGO_DB_PORT}/${MONGO_DB_DATABASE}?replicaSet=rs0`;
+    : `mongodb://${MONGO_DB_HOST}:${MONGO_DB_PORT}/${MONGO_DB_DATABASE}?replicaSet=rs0`);
 
 logger.info(`NODE`);
 logger.info(process.env);

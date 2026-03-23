@@ -2,6 +2,7 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import cookieSession from 'cookie-session';
 import passport from 'passport';
+import cors from 'cors';
 import express, { Application } from 'express';
 import { NODE_ENV, PORT, CURRENT_DATABASE, AUDIO_DIRECTORY } from './config';
 import { testDataBaseConnection } from './databases';
@@ -58,6 +59,16 @@ class App {
   }
 
   private async initializeMiddlewares() {
+    // CORS configuration - Allow frontend origin
+    this.app.use(
+      cors({
+        origin: ['http://localhost:3000'],
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+      }),
+    );
+
     this.app.use(compression());
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
