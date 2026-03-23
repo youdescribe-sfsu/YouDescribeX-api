@@ -59,15 +59,16 @@ class App {
   }
 
   private async initializeMiddlewares() {
-    // CORS configuration - Allow frontend origin
-    this.app.use(
-      cors({
-        origin: ['http://localhost:3000'],
-        credentials: true,
-        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
-      }),
-    );
+    if (NODE_ENV === 'development') {
+      this.app.use(
+        cors({
+          origin: ['http://localhost:3000'],
+          credentials: true,
+          methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+          allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+        }),
+      );
+    }
 
     this.app.use(compression());
     this.app.use(express.json());
