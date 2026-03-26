@@ -12,6 +12,7 @@ export interface Audio_ClipsAttributes {
   clip_end_time?: number;
   clip_duration?: number;
   clip_audio_path?: string;
+  clip_speed?: number;
   is_recorded: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -25,6 +26,7 @@ export type Audio_ClipsOptionalAttributes =
   | 'clip_end_time'
   | 'clip_duration'
   | 'clip_audio_path'
+  | 'clip_speed'
   | 'createdAt'
   | 'updatedAt'
   | 'AudioDescriptionAdId';
@@ -40,6 +42,7 @@ export class Audio_Clips extends Model<Audio_ClipsAttributes, Audio_ClipsCreatio
   clip_end_time?: number;
   clip_duration?: number;
   clip_audio_path?: string;
+  clip_speed?: number;
   is_recorded!: boolean;
   createdAt: Date;
   updatedAt!: Date;
@@ -91,6 +94,11 @@ export class Audio_Clips extends Model<Audio_ClipsAttributes, Audio_ClipsCreatio
         clip_audio_path: {
           type: DataTypes.STRING(255),
           allowNull: true,
+        },
+        clip_speed: {
+          type: DataTypes.DOUBLE,
+          allowNull: true,
+          defaultValue: 1,
         },
         is_recorded: {
           type: DataTypes.BOOLEAN,

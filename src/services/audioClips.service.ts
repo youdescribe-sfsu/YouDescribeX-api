@@ -318,6 +318,17 @@ class AudioClipsService {
     }
   }
 
+  public async updateClipSpeed(clipId: string, speed: number): Promise<any> {
+    if (isEmpty(clipId)) throw new HttpException(400, 'Clip ID is empty');
+    if (CURRENT_DATABASE == 'mongodb') {
+      const result = await MongoAudioClipsModel.updateOne({ _id: clipId }, { $set: { speed } });
+      await updateParentAudioDescription(clipId);
+      return [result.matchedCount, result.modifiedCount];
+    } else {
+      return PostGres_Audio_Clips.update({ clip_speed: speed }, { where: { clip_id: clipId } });
+    }
+  }
+
   // Add this method to your AudioClipsService class
   public async switchToTTS(
     clipId: string,
@@ -500,7 +511,7 @@ class AudioClipsService {
     }
   }
 
-  public async updateAudioClipDescription(clipId: string, audioBody: UpdateAudioClipDescriptionDto): Promise<number[]> {
+  public async updateAudioClipDescription(clipId: string, audioBody: UpdateAudioClipDescriptionDto): Promise<Record<string, unknown>> {
     const { youtubeVideoId, clipDescriptionText, clipDescriptionType, userId, audioDescriptionId } = audioBody;
 
     if (isEmpty(clipId)) throw new HttpException(400, 'Clip ID is empty');
@@ -544,6 +555,7 @@ class AudioClipsService {
     if (playbackTypeStatus.data === null) throw new HttpException(409, playbackTypeStatus.message);
     const playbackType = playbackTypeStatus.data;
     const oldAudioFilePath = oldAudioFilePathStatus.data;
+    const clipAudioPath = newAudioClipName == null || newAudioClipName.length <= 0 ? newAudioClipPath : `${newAudioClipPath}/${newAudioClipName}`;
 
     if (CURRENT_DATABASE == 'mongodb') {
       const updatedAudioClip = await MongoAudioClipsModel.updateOne(
@@ -568,7 +580,18 @@ class AudioClipsService {
       const deletedFile = await deleteOldAudioFile(oldAudioFilePath);
       if (!deletedFile) throw new HttpException(409, "Old Audio File couldn't be deleted");
       await updateParentAudioDescription(clipId);
-      return [updatedAudioClip.matchedCount, updatedAudioClip.modifiedCount, updatedAudioClip.upsertedCount];
+      return {
+        clip_id: clipId,
+        clip_audio_path: clipAudioPath,
+        clip_duration: Number(parseFloat(updatedAudioDuration).toFixed(2)),
+        clip_end_time: updatedClipEndTime,
+        description_text: clipDescriptionText,
+        playback_type: playbackType,
+        is_recorded: false,
+        matched_count: updatedAudioClip.matchedCount,
+        modified_count: updatedAudioClip.modifiedCount,
+        upserted_count: updatedAudioClip.upsertedCount,
+      };
     } else {
       const updatedAudioClip = await PostGres_Audio_Clips.update(
         {
@@ -588,7 +611,16 @@ class AudioClipsService {
       if (!updatedAudioClip) throw new HttpException(409, "Audio Description couldn't be updated");
       const deletedFile = await deleteOldAudioFile(oldAudioFilePath);
       if (!deletedFile) throw new HttpException(409, "Audio Description couldn't be updated");
-      return updatedAudioClip;
+      return {
+        clip_id: clipId,
+        clip_audio_path: clipAudioPath,
+        clip_duration: Number(parseFloat(updatedAudioDuration).toFixed(2)),
+        clip_end_time: updatedClipEndTime,
+        description_text: clipDescriptionText,
+        playback_type: playbackType,
+        is_recorded: false,
+        update_result: updatedAudioClip,
+      };
     }
   }
 
@@ -682,7 +714,9 @@ class AudioClipsService {
   }
 
   public async addNewAudioClip(adId: string, audioBody: AddNewAudioClipDto, file: Express.Multer.File | null): Promise<string> {
-    const { isRecorded, newACDescriptionText, newACPlaybackType, newACStartTime, newACTitle, newACType, newACDuration, userId, youtubeVideoId } = audioBody;
+    const { isRecorded, newACDescriptionText, newACPlaybackType, newACStartTime, newACTitle, newACType, newACDuration, newACSpeed, userId, youtubeVideoId } =
+      audioBody;
+    const clipSpeed = newACSpeed ? Number(newACSpeed) : 1;
 
     if (isEmpty(adId)) throw new HttpException(400, 'Clip ID is empty');
     if (isEmpty(userId)) throw new HttpException(400, 'User ID is empty');
@@ -757,6 +791,7 @@ class AudioClipsService {
               file_mime_type: file_mime_type,
               file_size_bytes: file_size_bytes,
               is_recorded: isRecorded === 'true',
+              speed: clipSpeed,
               audio_description: adId,
               user: userId,
               video: videoId,
@@ -806,6 +841,7 @@ class AudioClipsService {
         clip_end_time: newClipEndTime,
         clip_duration: Number(newAudioDuration),
         clip_audio_path: newClipAudioFilePath,
+        clip_speed: clipSpeed,
         is_recorded: isRecorded === 'true',
         AudioDescriptionAdId: adId,
       });

@@ -43,6 +43,13 @@ export class AddNewAudioClipDto {
   newACTitle: string;
   newACType: string;
   newACDuration: string | null;
+  newACSpeed?: string;
   userId: string;
   youtubeVideoId: string;
+}
+
+export class UpdateClipSpeedDto {
+  clipSpeed: string;
+  youtubeVideoId: string;
+  audioDescriptionId: string;
 }

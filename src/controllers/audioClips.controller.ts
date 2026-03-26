@@ -80,6 +80,17 @@ export class AudioClipsController {
     }
   };
 
+  public updateClipSpeed = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const clipId: string = req.params.clipId;
+      const speed: number = parseFloat(req.body.speed);
+      const result = await this.audioClipsService.updateClipSpeed(clipId, speed);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   public updateAudioClipStartTime = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const clipId: string = req.params.clipId;
