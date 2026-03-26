@@ -1,9 +1,10 @@
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import cookieSession from 'cookie-session';
+import cors, { CorsOptions } from 'cors';
 import passport from 'passport';
 import express, { Application } from 'express';
-import { NODE_ENV, PORT, CURRENT_DATABASE, AUDIO_DIRECTORY } from './config';
+import { NODE_ENV, PORT, CURRENT_DATABASE, AUDIO_DIRECTORY, ORIGIN } from './config';
 import { testDataBaseConnection } from './databases';
 import { Routes } from './interfaces/routes.interface';
 import errorMiddleware from './middlewares/error.middleware';
@@ -31,7 +32,6 @@ class App {
     this.port = PORT || 3000;
     this.currentDatabase = CURRENT_DATABASE || 'mongo';
 
-    this.testDatabase();
     this.initializeMiddlewares();
     this.initializeRoutes(routes);
     this.initializeErrorHandling();
@@ -41,6 +41,22 @@ class App {
   }
 
   public listen() {
+    void this.startup();
+  }
+
+  public getServer() {
+    return this.app;
+  }
+
+  private async startup() {
+    const databaseReady = await this.testDatabase();
+
+    if (databaseReady && this.currentDatabase === 'mongodb') {
+      await this.createIndexes();
+    } else if (!databaseReady) {
+      logger.warn('Database initialization failed, starting server without prebuilt indexes');
+    }
+
     this.app.listen(this.port, () => {
       logger.info(`=================================`);
       logger.info(`======= ENV: ${this.env} =======`);
@@ -49,16 +65,34 @@ class App {
     });
   }
 
-  public getServer() {
-    return this.app;
+  private async testDatabase() {
+    return testDataBaseConnection();
   }
 
-  private testDatabase() {
-    testDataBaseConnection();
-  }
+  private initializeMiddlewares() {
+    const allowedOrigins = new Set([
+      ...ORIGIN.split(',')
+        .map(origin => origin.trim())
+        .filter(Boolean),
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+    ]);
 
-  private async initializeMiddlewares() {
+    const corsOptions: CorsOptions = {
+      credentials: true,
+      origin: (origin, callback) => {
+        // Allow server-to-server requests and the local dev frontends.
+        if (!origin || allowedOrigins.has(origin)) {
+          callback(null, true);
+          return;
+        }
+
+        callback(new Error(`CORS blocked for origin: ${origin}`));
+      },
+    };
+
     this.app.use(compression());
+    this.app.use(cors(corsOptions));
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
     this.app.use(cookieParser());
@@ -75,11 +109,7 @@ class App {
     this.app.use('/api/static', express.static(AUDIO_DIRECTORY));
 
     // Add a preflight handler for all routes
-    this.app.options('*', (req, res) => {
-      res.sendStatus(200);
-    });
-
-    await this.createIndexes();
+    this.app.options('*', cors(corsOptions));
   }
 
   private async createIndexes() {

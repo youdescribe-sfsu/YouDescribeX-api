@@ -1,4 +1,5 @@
 stages:
+  - validate
   - build
   - deploy
   - cleanup
@@ -9,6 +10,7 @@ variables:
   CI_REGISTRY: docker.io
   IMAGE_NAME: "${DOCKER_REGISTRY}/${CI_PROJECT_NAME}"
   LATEST_IMAGE: "${IMAGE_NAME}:latest"
+  BRANCH_IMAGE: "${IMAGE_NAME}:${CI_COMMIT_REF_SLUG}"
 
 services:
   - docker:24.0.5-dind
@@ -18,6 +20,43 @@ before_script:
   - docker-compose --version
   - echo "Logging into Docker..."
   - echo "$DOCKER_REGISTRY_PASSWORD" | docker login -u "$DOCKER_REGISTRY_USER" --password-stdin $CI_REGISTRY
+
+validate_branch:
+  stage: validate
+  script:
+    - echo "Validating feature branch pipeline for $CI_COMMIT_BRANCH"
+    - docker build --no-cache
+      --build-arg OPENAI_API_KEY="$OPENAI_API_KEY"
+      --build-arg NODE_ENV="$NODE_ENV"
+      --build-arg YOUTUBE_API_URL="$YOUTUBE_API_URL"
+      --build-arg YOUTUBE_API_KEY="$YOUTUBE_API_KEY"
+      --build-arg CURRENT_DATABASE="$CURRENT_DATABASE"
+      --build-arg MONGO_DB_URI="$MONGO_DB_URI"
+      --build-arg POSTGRES_DB_NAME="$POSTGRES_DB_NAME"
+      --build-arg POSTGRES_DB_USER="$POSTGRES_DB_USER"
+      --build-arg POSTGRES_DB_PASSWORD="$POSTGRES_DB_PASSWORD"
+      --build-arg POSTGRES_DB_PORT="$POSTGRES_DB_PORT"
+      --build-arg POSTGRES_DB_HOST="$POSTGRES_DB_HOST"
+      --build-arg MONGO_DB_DATABASE="$MONGO_DB_DATABASE"
+      --build-arg MONGO_DB_HOST="$MONGO_DB_HOST"
+      --build-arg MONGO_DB_PORT="$MONGO_DB_PORT"
+      --build-arg MONGO_DB_USER="$MONGO_DB_USER"
+      --build-arg MONGO_DB_PASSWORD="$MONGO_DB_PASSWORD"
+      --build-arg YOUTUBE_API_CREDENTIALS_FILE="$YOUTUBE_API_CREDENTIALS_FILE"
+      --build-arg YOUTUBE_API_CREDENTIALS_PATH="$YOUTUBE_API_CREDENTIALS_PATH"
+      --build-arg VISION_API_CREDENTIALS_FILE="$VISION_API_CREDENTIALS_FILE"
+      --build-arg VISION_API_CREDENTIALS_PATH="$VISION_API_CREDENTIALS_PATH"
+      --build-arg TTS_API_CREDENTIALS_FILE="$TTS_API_CREDENTIALS_FILE"
+      --build-arg TTS_API_CREDENTIALS_PATH="$TTS_API_CREDENTIALS_PATH"
+      --build-arg STT_API_CREDENTIALS_FILE="$STT_API_CREDENTIALS_FILE"
+      --build-arg STT_API_CREDENTIALS_PATH="$STT_API_CREDENTIALS_PATH"
+      -t $BRANCH_IMAGE .
+    - echo "Validation build complete. Open an MR and get Sanjay's review before merging to dev."
+  tags:
+    - backend
+    - dev
+  rules:
+    - if: '$CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != "dev" && $CI_COMMIT_BRANCH != "main"'
 
 .build_template: &build_template
   stage: build
@@ -29,6 +68,7 @@ before_script:
       --build-arg YOUTUBE_API_URL="$YOUTUBE_API_URL"
       --build-arg YOUTUBE_API_KEY="$YOUTUBE_API_KEY"
       --build-arg CURRENT_DATABASE="$CURRENT_DATABASE"
+      --build-arg MONGO_DB_URI="$MONGO_DB_URI"
       --build-arg POSTGRES_DB_NAME="$POSTGRES_DB_NAME"
       --build-arg POSTGRES_DB_USER="$POSTGRES_DB_USER"
       --build-arg POSTGRES_DB_PASSWORD="$POSTGRES_DB_PASSWORD"

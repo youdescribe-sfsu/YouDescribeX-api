@@ -6,6 +6,7 @@ import { logger } from '../utils/logger';
 // Type definitions for configuration
 interface DatabaseConfig {
   mongo: {
+    uri: string;
     host: string;
     port: string;
     database: string;
@@ -120,6 +121,7 @@ export const CONFIG = {
 
   database: {
     mongo: {
+      uri: process.env.MONGO_DB_URI || '',
       host: process.env.MONGO_DB_HOST || '',
       port: process.env.MONGO_DB_PORT || '',
       database: process.env.MONGO_DB_DATABASE || '',
@@ -267,6 +269,7 @@ export const {
   MONGO_DB_DATABASE,
   MONGO_DB_USER,
   MONGO_DB_PASSWORD,
+  MONGO_DB_URI,
   POSTGRES_DB_NAME,
   POSTGRES_DB_USER,
   POSTGRES_DB_PASSWORD,
@@ -308,6 +311,7 @@ export const {
   MONGO_DB_DATABASE: CONFIG.database.mongo.database,
   MONGO_DB_USER: CONFIG.database.mongo.user,
   MONGO_DB_PASSWORD: CONFIG.database.mongo.password,
+  MONGO_DB_URI: CONFIG.database.mongo.uri,
   POSTGRES_DB_NAME: CONFIG.database.postgres.name,
   POSTGRES_DB_USER: CONFIG.database.postgres.user,
   POSTGRES_DB_PASSWORD: CONFIG.database.postgres.password,

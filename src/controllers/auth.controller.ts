@@ -1,12 +1,48 @@
 import { NextFunction, Request, Response } from 'express';
+import crypto from 'crypto';
 import passport from 'passport';
 import { PASSPORT_REDIRECT_URL } from '../config';
 import { logger } from '../utils/logger';
 import { MongoUsersModel } from '../models/mongodb/init-models.mongo';
 import AuthService from '../services/auth.service';
+import { isValidObjectId } from 'mongoose';
+import { nowUtc } from '../utils/util';
 
 class AuthController {
   private readonly authService: AuthService = new AuthService();
+
+  private ensureLocalDevUser = async (preferredId?: string) => {
+    const devEmail = 'local-dev@youdescribe.local';
+    const query = preferredId && isValidObjectId(preferredId) ? { _id: preferredId } : { email: devEmail };
+
+    const user = await MongoUsersModel.findOneAndUpdate(
+      query,
+      {
+        $set: {
+          email: devEmail,
+          name: 'Local Dev User',
+          username: preferredId || 'local-dev-user',
+          picture: '/assets/img/YD_Icon_Navy.png',
+          token: crypto.randomUUID(),
+          updated_at: nowUtc(),
+          last_login: nowUtc(),
+          user_type: 'Volunteer',
+          admin_level: 0,
+          opt_in: false,
+          google_user_id: 'local-dev-user',
+        },
+        $setOnInsert: {
+          created_at: nowUtc(),
+        },
+      },
+      {
+        new: true,
+        upsert: true,
+      },
+    );
+
+    return user;
+  };
 
   public initAuthentication = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -75,23 +111,29 @@ class AuthController {
 
   public localLogIn = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      if (req.headers.authorization === undefined || req.headers.authorization === '') {
-        throw new Error('Authorization header not found');
+      const authorizationHeader = req.headers.authorization?.trim();
+      let user = authorizationHeader ? await MongoUsersModel.findById(authorizationHeader) : null;
+
+      if (!user) {
+        user = await this.ensureLocalDevUser(authorizationHeader);
       }
-      const user = await MongoUsersModel.findById(req.headers.authorization);
-      const ret = {
-        type: 'success',
-        code: 1012,
-        status: 200,
-        message: 'The user was successfully updated',
-        result: user,
-      };
+
+      if (!user) {
+        throw new Error('Unable to create local development user');
+      }
+
       req.logIn(user, function (err) {
         if (err) {
-          // console.log('error: ', err);
           return next(err);
         }
-        return res.redirect('/api/auth/login/success');
+
+        return res.status(200).json({
+          type: 'success',
+          code: 1012,
+          status: 200,
+          message: 'The user was successfully updated',
+          result: user,
+        });
       });
     } catch (error) {
       logger.error('Error with Google Callback: ', error);

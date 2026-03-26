@@ -1,22 +1,25 @@
 // Import configuration variables
-import { MONGO_DB_DATABASE, MONGO_DB_HOST, MONGO_DB_PORT, MONGO_DB_USER, MONGO_DB_PASSWORD, NODE_ENV } from '../config';
+import { MONGO_DB_DATABASE, MONGO_DB_HOST, MONGO_DB_PORT, MONGO_DB_USER, MONGO_DB_PASSWORD, MONGO_DB_URI, NODE_ENV } from '../config';
 import { POSTGRES_DB_NAME, POSTGRES_DB_USER, POSTGRES_DB_PASSWORD, POSTGRES_DB_HOST, POSTGRES_DB_PORT } from '../config';
 
 // Import database libraries
-import mongoose, { connect } from 'mongoose';
+import { connect } from 'mongoose';
 import { Sequelize, Options } from 'sequelize';
 
 import { CURRENT_DATABASE } from '../config';
 import { logger } from '../utils/logger';
+
 // MongoDB connection string
 const MONGODB_CONNECTION_STRING =
-  NODE_ENV === 'production'
+  MONGO_DB_URI ||
+  (NODE_ENV === 'production'
     ? `mongodb://${MONGO_DB_USER}:${MONGO_DB_PASSWORD}@${MONGO_DB_HOST}:${MONGO_DB_PORT}/${MONGO_DB_DATABASE}?replicaSet=rs0`
-    : `mongodb://${MONGO_DB_HOST}:${MONGO_DB_PORT}/${MONGO_DB_DATABASE}?replicaSet=rs0`;
+    : `mongodb://${MONGO_DB_HOST}:${MONGO_DB_PORT}/${MONGO_DB_DATABASE}?replicaSet=rs0`);
+
+const redactedMongoConnectionString = MONGODB_CONNECTION_STRING.replace(/\/\/([^:]+):([^@]+)@/, '//$1:***@');
 
 logger.info(`NODE`);
-logger.info(process.env);
-logger.info(`MONGODB_CONNECTION_STRING: ${MONGODB_CONNECTION_STRING}`);
+logger.info(`MONGODB_CONNECTION_STRING: ${redactedMongoConnectionString}`);
 
 // PostgreSQL connection object
 const POSTGRESQL_OPTIONS: Options = {
@@ -33,7 +36,10 @@ const POSTGRESQL_CONNECTION: Sequelize = new Sequelize(POSTGRES_DB_NAME, POSTGRE
  * Returns a MongoDB connection instance
 A Promise that resolves to a MongoDB connection instance
 */
-export const getMongoDbConnection = (): Promise<typeof import('mongoose')> => connect(MONGODB_CONNECTION_STRING);
+export const getMongoDbConnection = (): Promise<typeof import('mongoose')> =>
+  connect(MONGODB_CONNECTION_STRING, {
+    serverSelectionTimeoutMS: 10000,
+  });
 
 /**
  * Returns a PostgreSQL connection instance
@@ -41,31 +47,28 @@ export const getMongoDbConnection = (): Promise<typeof import('mongoose')> => co
  */
 export const getPostGresConnection = (): Sequelize => POSTGRESQL_CONNECTION;
 
-export const testDataBaseConnection = () => {
+export const testDataBaseConnection = async (): Promise<boolean> => {
   if (CURRENT_DATABASE === 'mongodb') {
     logger.info('Testing MongoDB connection');
-    getMongoDbConnection()
-      .then(result => {
-        logger.info(`Connected to MongoDB Database: ${result.connection.name}`);
-      })
-      .catch(err => {
-        logger.info(`Error connecting to MongoDB Database: ${err}`);
-      });
-  } else {
-    logger.info('Testing PostgreSQL connection');
-    getPostGresConnection()
-      .authenticate()
-      .then(() => logger.info(`Connected to ${POSTGRES_DB_NAME} Database`))
-      .then(() => {
-        // db.sync({ alter: true })
-        POSTGRESQL_CONNECTION.sync({ logging: false })
-          .then(() => {
-            logger.info(`Synced with ${POSTGRES_DB_NAME} Database`);
-          })
-          .catch(err => {
-            logger.info(err);
-          });
-      })
-      .catch(err => logger.info(`Error connecting to YDXAI Database: ${err}`));
+    try {
+      const result = await getMongoDbConnection();
+      logger.info(`Connected to MongoDB Database: ${result.connection.name}`);
+      return true;
+    } catch (err) {
+      logger.error(`Error connecting to MongoDB Database: ${err}`);
+      return false;
+    }
+  }
+
+  logger.info('Testing PostgreSQL connection');
+  try {
+    await getPostGresConnection().authenticate();
+    logger.info(`Connected to ${POSTGRES_DB_NAME} Database`);
+    await POSTGRESQL_CONNECTION.sync({ logging: false });
+    logger.info(`Synced with ${POSTGRES_DB_NAME} Database`);
+    return true;
+  } catch (err) {
+    logger.error(`Error connecting to YDXAI Database: ${err}`);
+    return false;
   }
 };
