@@ -32,7 +32,7 @@
   },
   "homepage": "https://github.com/bhavani-goruganthu/ydx-ai-backend#readme",
   "dependencies": {
-    "@google-cloud/text-to-speech": "^3.4.0",
+    "@google-cloud/text-to-speech": "^6.4.0",
     "@types/string-similarity": "^4.0.2",
     "axios": "^1.5.0",
     "class-validator": "^0.14.0",
@@ -111,5 +111,10 @@
     "tsc-alias": "^1.7.0",
     "tsconfig-paths": "^4.0.0",
     "typescript": "^4.9.5"
+  },
+  "overrides": {
+    "google-p12-pem": {
+      "node-forge": "^1.4.0"
+    }
   }
 }
