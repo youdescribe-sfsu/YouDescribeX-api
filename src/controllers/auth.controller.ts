@@ -23,16 +23,11 @@ class AuthController {
 
   public handleGoogleCallback = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const returnTo = req.session?.returnTo || PASSPORT_REDIRECT_URL;
-
       passport.authenticate('google', {
         successRedirect: req.session?.returnTo || PASSPORT_REDIRECT_URL,
         failureRedirect: PASSPORT_REDIRECT_URL,
         failureFlash: 'Sign In Unsuccessful. Please try again!',
-      })(req, res, (err: any) => {
-        if (err) return next(err);
-        res.redirect(returnTo);
-      });
+      })(req, res, next);
     } catch (error) {
       logger.error('Error with Google Callback: ', error);
       next(error);
@@ -69,7 +64,6 @@ class AuthController {
       req.logout((err: Error) => {
         if (err) {
           logger.error('Error during logout: ', err);
-          return next(err);
         }
       });
       console.log('req.user: ', req.query);
@@ -81,27 +75,26 @@ class AuthController {
 
   public localLogIn = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const authId = req.headers.authorization;
-      if (!authId) {
+      if (req.headers.authorization === undefined || req.headers.authorization === '') {
         throw new Error('Authorization header not found');
       }
-
-      const user = await MongoUsersModel.findById(authId);
-      if (!user) {
-        return res.status(401).json({
-          type: 'error',
-          code: 1013,
-          status: 401,
-          message: 'User not found',
-        });
-      }
-
-      req.logIn(user, err => {
-        if (err) return next(err);
+      const user = await MongoUsersModel.findById(req.headers.authorization);
+      const ret = {
+        type: 'success',
+        code: 1012,
+        status: 200,
+        message: 'The user was successfully updated',
+        result: user,
+      };
+      req.logIn(user, function (err) {
+        if (err) {
+          // console.log('error: ', err);
+          return next(err);
+        }
         return res.redirect('/api/auth/login/success');
       });
     } catch (error) {
-      logger.error('Error with local login: ', error);
+      logger.error('Error with Google Callback: ', error);
       next(error);
     }
   };
