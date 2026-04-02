@@ -62,14 +62,14 @@ class App {
     if (NODE_ENV === 'development') {
       this.app.use(
         cors({
-          origin: ['http://localhost:3000'],
+          origin: ['http://localhost:3000', 'https://ydx-dev.youdescribe.org'],
           credentials: true,
           methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
           allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
         }),
       );
     }
-
+    this.app.set('trust proxy', 1);
     this.app.use(compression());
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
@@ -80,6 +80,8 @@ class App {
         maxAge: 30 * 24 * 60 * 60 * 1000,
         secret: 'YouDescribe Secret',
         domain: process.env.SESSION_COOKIE_DOMAIN,
+        sameSite: 'none',
+        secure: true,
       }),
     );
     this.app.use(passport.initialize());
