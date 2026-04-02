@@ -23,11 +23,14 @@ class AuthController {
 
   public handleGoogleCallback = async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const returnTo = req.session?.returnTo || PASSPORT_REDIRECT_URL;
       passport.authenticate('google', {
-        successRedirect: req.session?.returnTo || PASSPORT_REDIRECT_URL,
+        //successRedirect: req.session?.returnTo || PASSPORT_REDIRECT_URL,
         failureRedirect: PASSPORT_REDIRECT_URL,
-        failureFlash: 'Sign In Unsuccessful. Please try again!',
-      })(req, res, next);
+      })(req, res, (err: any) => {
+        if (err) return next(err);
+        res.redirect(returnTo);
+      });
     } catch (error) {
       logger.error('Error with Google Callback: ', error);
       next(error);
@@ -64,7 +67,10 @@ class AuthController {
       req.logout((err: Error) => {
         if (err) {
           logger.error('Error during logout: ', err);
+          return next(err);
         }
+        res.clearCookie('connect.sid');
+        res.redirect((req.query['url'] as string) || PASSPORT_REDIRECT_URL);
       });
       console.log('req.user: ', req.query);
       res.redirect((req.query['url'] as string) || PASSPORT_REDIRECT_URL);
