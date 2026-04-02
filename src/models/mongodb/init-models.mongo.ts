@@ -116,7 +116,7 @@ export const initPassport = () => {
             user_type: 'Volunteer',
           });
           console.log('newUser.data:', JSON.stringify(newUser.data, null, 2));
-          return cb(null, newUser.data.result);
+          return cb(null, newUser.data);
         } catch (error) {
           return cb(error, null);
         }
