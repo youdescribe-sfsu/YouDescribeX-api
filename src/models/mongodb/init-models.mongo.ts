@@ -115,7 +115,7 @@ export const initPassport = () => {
             admin_level: 0,
             user_type: 'Volunteer',
           });
-          return cb(null, newUser.data);
+          return cb(null, newUser.data.result);
         } catch (error) {
           return cb(error, null);
         }
