@@ -65,7 +65,7 @@ class App {
           origin: ['http://localhost:3000', 'https://ydx-dev.youdescribe.org'],
           credentials: true,
           methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-          allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+          allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'audiodescription'],
         }),
       );
     }
