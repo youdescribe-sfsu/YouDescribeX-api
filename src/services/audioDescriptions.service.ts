@@ -250,7 +250,7 @@ class AudioDescriptionsService {
       await MongoAICaptionRequestModel.findOneAndUpdate({ youtube_id: youtube_id }, { status: 'completed' });
       try {
         const gpuUtils = new GpuUtilsService();
-        const ydx_app_host = 'http://localhost:3000';
+        const ydx_app_host = process.env.FRONTEND_URL || 'http://localhost:3000';
 
         await gpuUtils.notifyAiDescriptions(youtube_id, ad._id.toString(), ydx_app_host, []);
         logger.info(`Notification trigger for ${youtube_id} initiated successfully.`);
