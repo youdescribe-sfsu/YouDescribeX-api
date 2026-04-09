@@ -147,7 +147,7 @@ class AudioDescriptionsService {
     // if (isEmpty(dialogue_timestamps)) throw new HttpException(400, 'dialog is empty');
     if (isEmpty(audio_clips)) {
       if (youtube_id) {
-        await MongoAICaptionRequestModel.updateOne({ youtube_id, status: 'processing' }, { $set: { status: 'failed' } });
+        await MongoAICaptionRequestModel.updateOne({ youtube_id, status: 'processing' }, { $set: { status: 'completed' } });
       }
       throw new HttpException(400, 'audio clips is empty');
     }
