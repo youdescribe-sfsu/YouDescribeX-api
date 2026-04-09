@@ -23,7 +23,7 @@ class GpuUtilsService {
     const userIds = captionRequest.caption_requests;
 
     const videoTitle = youtubeVideoData.title;
-    const previewURL = `${ydx_app_host}/editor/${youtube_id}/${audio_description_id}`;
+    const previewURL = `${ydx_app_host}/video/${youtube_id}/${audio_description_id}`;
     const subject = `🎉 Audio Description Ready for "${videoTitle}"`;
 
     for (const user_id of userIds) {
