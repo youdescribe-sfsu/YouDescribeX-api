@@ -59,6 +59,8 @@ class App {
   }
 
   private async initializeMiddlewares() {
+    const isDevelopment = NODE_ENV === 'development';
+
     if (NODE_ENV === 'development') {
       this.app.use(
         cors({
@@ -79,9 +81,9 @@ class App {
         name: 'auth-session-dev',
         maxAge: 30 * 24 * 60 * 60 * 1000,
         secret: 'YouDescribe Secret',
-        domain: process.env.SESSION_COOKIE_DOMAIN,
-        sameSite: 'none',
-        secure: true,
+        domain: process.env.SESSION_COOKIE_DOMAIN || undefined,
+        sameSite: isDevelopment ? 'lax' : 'none',
+        secure: !isDevelopment,
       }),
     );
     this.app.use(passport.initialize());

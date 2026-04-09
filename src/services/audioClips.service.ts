@@ -582,7 +582,9 @@ class AudioClipsService {
       );
       if (!updatedAudioClip) throw new HttpException(409, "Audio Description couldn't be updated");
       const deletedFile = await deleteOldAudioFile(oldAudioFilePath);
-      if (!deletedFile) throw new HttpException(409, "Old Audio File couldn't be deleted");
+      if (!deletedFile) {
+        logger.warn(`Failed to delete old audio file after updating clip description: ${oldAudioFilePath}`);
+      }
       await updateParentAudioDescription(clipId);
       return [updatedAudioClip.matchedCount, updatedAudioClip.modifiedCount, updatedAudioClip.upsertedCount];
     } else {
@@ -603,7 +605,9 @@ class AudioClipsService {
       );
       if (!updatedAudioClip) throw new HttpException(409, "Audio Description couldn't be updated");
       const deletedFile = await deleteOldAudioFile(oldAudioFilePath);
-      if (!deletedFile) throw new HttpException(409, "Audio Description couldn't be updated");
+      if (!deletedFile) {
+        logger.warn(`Failed to delete old audio file after updating clip description: ${oldAudioFilePath}`);
+      }
       return updatedAudioClip;
     }
   }
@@ -649,8 +653,6 @@ class AudioClipsService {
     const oldAudioFilePathStatus = await getOldAudioFilePath(clipId);
     if (oldAudioFilePathStatus.data === null) throw new HttpException(409, oldAudioFilePathStatus.message);
     const old_audio_path = oldAudioFilePathStatus.data;
-    const deleteOldAudioFileStatus = await deleteOldAudioFile(old_audio_path);
-    if (!deleteOldAudioFileStatus) throw new HttpException(409, 'Problem Saving Audio!! Please try again');
     const newPlaybackType = playbackTypeStatus.data;
 
     if (CURRENT_DATABASE == 'mongodb') {
@@ -674,6 +676,10 @@ class AudioClipsService {
       );
       await updateParentAudioDescription(clipId);
       if (!updatedAudioClip) throw new HttpException(409, 'Problem Saving Audio!! Please try again');
+      const deleteOldAudioFileStatus = await deleteOldAudioFile(old_audio_path);
+      if (!deleteOldAudioFileStatus) {
+        logger.warn(`Failed to delete old audio file after replacing clip audio: ${old_audio_path}`);
+      }
       return [updatedAudioClip.matchedCount, updatedAudioClip.modifiedCount, updatedAudioClip.upsertedCount];
     } else {
       // All audio clip paths have the ./audio/ prefix so, need to find /audio/ and then add a . to the beginning
@@ -726,9 +732,10 @@ class AudioClipsService {
     } else {
       if (isEmpty(newACDescriptionText)) throw new HttpException(400, 'New Audio Clip Description Text is empty');
       const generatedMP3Response = await generateMp3forDescriptionText(adId, youtubeVideoId, newACDescriptionText, newACType);
-      if (!generatedMP3Response || generatedMP3Response.status === null) throw new HttpException(409, 'Unable to generate Text to Speech!! Please try again');
-      newClipAudioFilePath = generatedMP3Response.filepath as string;
-
+      if (!generatedMP3Response.status || generatedMP3Response.filepath === null) {
+        throw new HttpException(409, 'Unable to generate Text to Speech!! Please try again');
+      }
+      newClipAudioFilePath = generatedMP3Response.filepath;
       const newAudioClipName = generatedMP3Response.filename;
       const fullAudioClipPath = newAudioClipName == null || newAudioClipName.length <= 0 ? newClipAudioFilePath : newClipAudioFilePath + '/' + newAudioClipName;
       const clipDurationStatus = await getAudioDuration(fullAudioClipPath);
@@ -840,10 +847,6 @@ class AudioClipsService {
     }
 
     const oldAudioFilePathStatus = await getOldAudioFilePath(clipId);
-    if (oldAudioFilePathStatus.data === null) {
-      throw new HttpException(409, oldAudioFilePathStatus.message);
-    }
-
     const oldAudioPath = oldAudioFilePathStatus.data;
 
     if (CURRENT_DATABASE == 'mongodb') {
@@ -879,9 +882,13 @@ class AudioClipsService {
 
         await session.commitTransaction();
 
-        const deleteOldAudioFileStatus = await deleteOldAudioFile(oldAudioPath);
-        if (!deleteOldAudioFileStatus) {
-          logger.warn('File deletion failed but database transaction succeeded:', oldAudioPath);
+        if (oldAudioPath) {
+          const deleteOldAudioFileStatus = await deleteOldAudioFile(oldAudioPath);
+          if (!deleteOldAudioFileStatus) {
+            logger.warn('File deletion failed but database transaction succeeded:', oldAudioPath);
+          }
+        } else {
+          logger.warn(`Skipping old audio file deletion for clip ${clipId}: ${oldAudioFilePathStatus.message}`);
         }
 
         return 1;
@@ -918,9 +925,13 @@ class AudioClipsService {
           },
         );
 
-        const deleteOldAudioFileStatus = await deleteOldAudioFile(oldAudioPath);
-        if (!deleteOldAudioFileStatus) {
-          throw new HttpException(409, 'Problem deleting audio clip file. Please try again.');
+        if (oldAudioPath) {
+          const deleteOldAudioFileStatus = await deleteOldAudioFile(oldAudioPath);
+          if (!deleteOldAudioFileStatus) {
+            logger.warn('File deletion failed after deleting clip from database:', oldAudioPath);
+          }
+        } else {
+          logger.warn(`Skipping old audio file deletion for clip ${clipId}: ${oldAudioFilePathStatus.message}`);
         }
 
         return 1;

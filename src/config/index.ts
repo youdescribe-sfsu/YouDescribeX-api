@@ -3,6 +3,16 @@ import path from 'path';
 import { ENV } from '../utils/env-initializer';
 import { logger } from '../utils/logger';
 
+const repoRoot = path.resolve(__dirname, '../..');
+const fallbackTtsCredentialsPath = path.join(repoRoot, 'sa-text-to-speech.json');
+const resolvedTtsCredentialsPath = process.env.TTS_API_CREDENTIALS_PATH || (fs.existsSync(fallbackTtsCredentialsPath) ? fallbackTtsCredentialsPath : '');
+const configuredAudioDirectory = process.env.AUDIO_DIRECTORY || 'app/public';
+const resolvedConfiguredAudioDirectory = path.isAbsolute(configuredAudioDirectory)
+  ? configuredAudioDirectory
+  : path.resolve(repoRoot, configuredAudioDirectory);
+const fallbackAudioDirectory = path.resolve(repoRoot, '../YouDescribeX-app/public');
+const resolvedAudioDirectory = fs.existsSync(resolvedConfiguredAudioDirectory) ? resolvedConfiguredAudioDirectory : fallbackAudioDirectory;
+
 // Type definitions for configuration
 interface DatabaseConfig {
   mongo: {
@@ -149,7 +159,7 @@ export const CONFIG = {
       credentialsFile: process.env.VISION_API_CREDENTIALS_FILE || '',
     },
     textToSpeech: {
-      credentialsPath: process.env.TTS_API_CREDENTIALS_PATH || '',
+      credentialsPath: resolvedTtsCredentialsPath,
       credentialsFile: process.env.TTS_API_CREDENTIALS_FILE || '',
     },
     speechToText: {
@@ -179,7 +189,7 @@ export const CONFIG = {
 
   app: {
     nodeEnv: ENV.nodeEnv,
-    audioDirectory: process.env.AUDIO_DIRECTORY || '/public/audio',
+    audioDirectory: resolvedAudioDirectory,
     aiUserId: process.env.AI_USER_ID || '650506db3ff1c2140ea10ece',
     currentYdxHost: process.env.CURRENT_YDX_HOST,
     email: {

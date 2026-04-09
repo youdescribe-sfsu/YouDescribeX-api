@@ -6,8 +6,10 @@ import { existsSync, mkdirSync } from 'fs';
 export class EnvironmentInitializer {
   static initialize() {
     // Initialize environment configuration
-    const CURRENT_NODE_ENV = process.env.NODE_ENV || 'production';
-    const ENV_FILE = `.env.${CURRENT_NODE_ENV}.local`;
+    const CURRENT_NODE_ENV = process.env.NODE_ENV || 'development';
+    const preferredEnvFile = `.env.${CURRENT_NODE_ENV}.local`;
+    const fallbackEnvFile = '.env';
+    const ENV_FILE = existsSync(preferredEnvFile) ? preferredEnvFile : fallbackEnvFile;
 
     // Basic console log for initial loading
     console.log(`[Environment] Loading from: ${ENV_FILE}`);

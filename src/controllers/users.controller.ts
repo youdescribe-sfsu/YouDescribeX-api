@@ -16,6 +16,16 @@ import { PipelineFailureDto } from '../dtos/pipelineFailure.dto';
 class UsersController {
   public userService = new userService();
   public audioClipsService = new AudioClipsService();
+
+  private resolveRequestUser = async (req: Request): Promise<IUser | null> => {
+    let userData = req.user as unknown as IUser;
+
+    if (!userData && req.headers.authorization) {
+      userData = await MongoUsersModel.findById(req.headers.authorization);
+    }
+
+    return userData || null;
+  };
   /**
    * @swagger
    * /users/get-all-users:
@@ -196,11 +206,10 @@ class UsersController {
         });
         return;
       }
-      // deep copy audio description
+
       const deepCopiedAudioDescriptionId = await deepCopyAudioDescriptionWithoutNewClips(audio_description_id, user._id);
       const deepCopiedClipIds = await deepCopyAudioClip(audio_description_id, deepCopiedAudioDescriptionId, user._id, videoId);
       await updateAutoClips(deepCopiedAudioDescriptionId, deepCopiedClipIds);
-      // replace audio description clip id with deep copied clip id
       await repairMissingTtsAudio(deepCopiedAudioDescriptionId, videoId);
       res.status(201).json({
         message: `Successfully deeply copied Audio Description`,
@@ -330,10 +339,7 @@ class UsersController {
 
   public aiDescriptionStatus = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      let userData = req.user as unknown as IUser;
-      if (!userData && req.headers.authorization) {
-        userData = await MongoUsersModel.findById(req.headers.authorization);
-      }
+      const userData = await this.resolveRequestUser(req);
       const youtube_id = req.body.youtube_id;
 
       if (!userData) {
@@ -349,7 +355,7 @@ class UsersController {
 
   public getUserAiDescriptionRequests = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userData = req.user as unknown as IUser;
+      const userData = await this.resolveRequestUser(req);
       const pageNumber = req.query.page;
       const paginate = req.query.paginate !== 'false';
       if (!userData) {
@@ -396,7 +402,7 @@ class UsersController {
 
   public saveVisitedVideosHistory = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userData = req.user as unknown as IUser;
+      const userData = await this.resolveRequestUser(req);
       const youtubeId = req.body.youtube_id;
       const invalidate_cache = req.body.invalidate_cache;
       if (!userData) {
@@ -416,7 +422,7 @@ class UsersController {
 
   public getVisitedVideosHistory = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userData = req.user as unknown as IUser;
+      const userData = await this.resolveRequestUser(req);
       const pageNumber = req.query.page;
       const paginate = req.query.paginate !== 'false';
       if (!userData) {

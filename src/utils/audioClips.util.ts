@@ -1,4 +1,3 @@
-import { TextToSpeechClient } from '@google-cloud/text-to-speech';
 import fs from 'fs';
 import getMP3Duration from 'get-mp3-duration';
 import mime from 'mime-types';
@@ -167,9 +166,20 @@ class FileManagementService {
   }
 }
 class AudioClipService {
-  private static textToSpeechClient = new TextToSpeechClient({
-    keyFilename: CONFIG.google.textToSpeech.credentialsPath,
-  });
+  private static textToSpeechClient: any;
+
+  private static getTextToSpeechClient() {
+    if (!this.textToSpeechClient) {
+      // Lazily load the Google TTS client so backend startup does not fail
+      // when optional auth/transitive packages misbehave in local dev.
+      const { TextToSpeechClient } = require('@google-cloud/text-to-speech');
+      this.textToSpeechClient = new TextToSpeechClient({
+        keyFilename: CONFIG.google.textToSpeech.credentialsPath,
+      });
+    }
+
+    return this.textToSpeechClient;
+  }
 
   static async generateMp3forDescriptionText(
     adId: string,
@@ -179,7 +189,8 @@ class AudioClipService {
   ): Promise<TextToSpeechResponse> {
     try {
       const voiceName = clipDescriptionType === 'Visual' ? 'en-US-Studio-O' : 'en-US-Studio-Q';
-      const [response] = await this.textToSpeechClient.synthesizeSpeech({
+      const textToSpeechClient = this.getTextToSpeechClient();
+      const [response] = await textToSpeechClient.synthesizeSpeech({
         input: { text: clipDescriptionText },
         voice: {
           languageCode: 'en-US',
@@ -688,6 +699,10 @@ export const deepCopyAudioClip = async (
   videoId: string,
 ): Promise<string[] | null> => {
   return DeepCopyService.deepCopyAudioClip(audioDescriptionId, deepCopiedAudioDescriptionId, userIdTo, videoId);
+};
+
+export const repairMissingTtsAudio = async (audioDescriptionId: string, youtubeVideoId: string): Promise<number> => {
+  return DeepCopyService.repairMissingTtsAudio(audioDescriptionId, youtubeVideoId);
 };
 
 // Export types for external use

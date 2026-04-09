@@ -597,7 +597,6 @@ class AudioDescriptionsService {
       ];
 
       const result = await MongoAudio_Descriptions_Model.aggregate(pipeline).exec();
-
       const response = {
         total: result[0]?.total || 0,
         videos: result[0]?.videos || [],
