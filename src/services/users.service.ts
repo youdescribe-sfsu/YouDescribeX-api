@@ -3,6 +3,7 @@ import { CreateUserAudioDescriptionDto, CreateUserDto, NewUserDto } from '../dto
 import { HttpException } from '../exceptions/HttpException';
 import { getYouTubeVideoStatus, isEmpty, nowUtc } from '../utils/util';
 import { CURRENT_DATABASE, CURRENT_YDX_HOST, GPU_URL, AI_USER_ID } from '../config';
+import GpuUtilsService from './gpu_utils.service';
 import { PostGres_Users, UsersAttributes } from '../models/postgres/init-models';
 import {
   MongoAICaptionRequestModel,
@@ -685,6 +686,11 @@ class UserService {
         if (staleDuration > UserService.STALE_PROCESSING_TIMEOUT_MS) {
           logger.warn(`Stale processing detected for ${activeProcessing.youtube_id} (stuck for ${Math.round(staleDuration / 60000)} min). Marking as failed.`);
           await MongoAICaptionRequestModel.updateOne({ _id: activeProcessing._id }, { $set: { status: 'failed' } });
+          const gpuUtils = new GpuUtilsService();
+          await gpuUtils.notifyAiDescriptionFailure(
+            activeProcessing.youtube_id,
+            'The processing timed out. The server may have been busy or encountered an error.',
+          );
         } else {
           logger.info(`System busy: ${activeProcessing.youtube_id} is still ${activeProcessing.status}. Waiting...`);
           setTimeout(() => this.processNextInQueueLana(), 30000);
@@ -721,6 +727,8 @@ class UserService {
       logger.error(`Error in queue processing for ${nextItem.youtubeId}: ${error.message}`);
       try {
         await MongoAICaptionRequestModel.updateOne({ youtube_id: nextItem.youtubeId, status: 'processing' }, { $set: { status: 'failed' } });
+        const gpuUtils = new GpuUtilsService();
+        await gpuUtils.notifyAiDescriptionFailure(nextItem.youtubeId, 'An error occurred while processing your request.');
       } catch (dbErr) {
         logger.error(`Failed to reset status for ${nextItem.youtubeId}: ${dbErr.message}`);
       }

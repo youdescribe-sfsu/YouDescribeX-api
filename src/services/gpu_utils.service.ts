@@ -58,6 +58,51 @@ class GpuUtilsService {
 
     return { success: true, count: userIds.length };
   }
+
+  public async notifyAiDescriptionFailure(youtube_id: string, reason: string) {
+    try {
+      const youtubeVideoData = await getVideoDataByYoutubeId(youtube_id);
+      const captionRequest = await MongoAICaptionRequestModel.findOne({ youtube_id: youtube_id });
+      if (!captionRequest) return;
+
+      const userIds = captionRequest.caption_requests;
+      const videoTitle = youtubeVideoData?.title || youtube_id;
+      const ydx_app_host = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const videoURL = `${ydx_app_host}/video/${youtube_id}`;
+      const subject = `Audio Description Update for "${videoTitle}"`;
+
+      for (const user_id of userIds) {
+        try {
+          const email = await getEmailForUser(user_id.toString());
+          const user = await MongoUsersModel.findById(user_id);
+          const userName = user?.name || 'there';
+
+          const text = `
+            Dear ${userName},
+
+            We were unable to generate the AI audio description for "${videoTitle}".
+
+            Reason: ${reason}
+
+            You can try requesting it again here:
+            ${videoURL}
+
+            We apologize for the inconvenience. If the problem persists, please contact our support team.
+
+            Best regards,
+            The YouDescribe Team
+                  `;
+
+          await sendEmail(email, subject, text);
+          logger.info(`Failure notification sent to ${email} for ${youtube_id}`);
+        } catch (error) {
+          logger.error(`Failed to send failure email to user ${user_id}: ${error.message}`);
+        }
+      }
+    } catch (error) {
+      logger.error(`Failed to send failure notifications for ${youtube_id}: ${error.message}`);
+    }
+  }
 }
 
 export default GpuUtilsService;

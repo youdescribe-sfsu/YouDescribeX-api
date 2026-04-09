@@ -148,6 +148,8 @@ class AudioDescriptionsService {
     if (isEmpty(audio_clips)) {
       if (youtube_id) {
         await MongoAICaptionRequestModel.updateOne({ youtube_id, status: 'processing' }, { $set: { status: 'completed' } });
+        const gpuUtils = new GpuUtilsService();
+        await gpuUtils.notifyAiDescriptionFailure(youtube_id, 'The AI pipeline was unable to generate any audio descriptions for this video.');
       }
       throw new HttpException(400, 'audio clips is empty');
     }
