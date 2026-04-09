@@ -145,7 +145,12 @@ class AudioDescriptionsService {
   public async newAiDescription(newAIDescription: NewAiDescriptionDto): Promise<IAudioDescription | Audio_DescriptionsAttributes> {
     const { dialogue_timestamps, audio_clips, aiUserId = 'db72cc2a-b054-4b00-9f85-851b45649be0', youtube_id, video_name, video_length } = newAIDescription;
     // if (isEmpty(dialogue_timestamps)) throw new HttpException(400, 'dialog is empty');
-    if (isEmpty(audio_clips)) throw new HttpException(400, 'audio clips is empty');
+    if (isEmpty(audio_clips)) {
+      if (youtube_id) {
+        await MongoAICaptionRequestModel.updateOne({ youtube_id, status: 'processing' }, { $set: { status: 'failed' } });
+      }
+      throw new HttpException(400, 'audio clips is empty');
+    }
     if (isEmpty(youtube_id)) throw new HttpException(400, 'youtube video id is empty');
     if (isEmpty(video_name)) throw new HttpException(400, 'video name is empty');
     if (isEmpty(video_length)) throw new HttpException(400, 'video length is empty');
