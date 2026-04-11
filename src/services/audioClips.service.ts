@@ -931,8 +931,7 @@ class AudioClipsService {
     }
   }
 
-  // 1. Update return type to include | null
-  public async undoDeletedAudioClip(userId: string, videoId: string): Promise<{ youtubeId: string } | null> {
+  public async undoDeletedAudioClip(userId: string, videoId: string): Promise<any> {
     const userStacks = userUndoStacks[userId];
 
     if (!userStacks) {
@@ -945,6 +944,7 @@ class AudioClipsService {
       return null;
     }
 
+    // Start the database safety transaction
     const session = await mongoose.startSession();
     session.startTransaction();
 
@@ -955,11 +955,14 @@ class AudioClipsService {
         const clipToSave = restoredClip.toObject();
         delete clipToSave.__v;
 
-        const newClip = await MongoAudioClipsModel.create([clipToSave], { session });
+        // 1. Create the new clip
+        const newClipArray = await MongoAudioClipsModel.create([clipToSave], { session });
+        const newClip = newClipArray[0]; // Extract from the array
 
+        // 2. Add it to the Audio Description array
         const updatedAudioDescription = await MongoAudio_Descriptions_Model.findByIdAndUpdate(
           restoredClip.audio_description,
-          { $push: { audio_clips: newClip[0]._id } },
+          { $push: { audio_clips: newClip._id } },
           { new: true, session },
         );
 
@@ -967,25 +970,54 @@ class AudioClipsService {
           throw new HttpException(409, "Audio clip couldn't be restored to Audio Description.");
         }
 
-        await session.commitTransaction();
+        // 3. Regenerate the MP3 file (From your old code)
+        const regeneratedAudio = await generateMp3forDescriptionText(
+          newClip.audio_description.toString(),
+          newClip.video,
+          newClip.description_text,
+          newClip.description_type,
+        );
 
-        const video = await MongoVideosModel.findById(restoredClip.video);
+        if (!regeneratedAudio.status) {
+          throw new HttpException(500, 'Failed to regenerate audio file');
+        }
 
-        // 2. Add a null check for 'video' to satisfy the compiler
+        // 4. Update the restored clip with the new MP3 file information
+        await MongoAudioClipsModel.findByIdAndUpdate(
+          newClip._id,
+          {
+            file_path: regeneratedAudio.filepath,
+            file_name: regeneratedAudio.filename,
+            file_mime_type: regeneratedAudio.file_mime_type,
+            file_size_bytes: regeneratedAudio.file_size_bytes,
+          },
+          { session },
+        );
+
+        // 5. Fetch the video to get the youtube_id
+        const video = await MongoVideosModel.findById(restoredClip.video).session(session);
+
         if (!video) {
           throw new HttpException(404, 'Associated video not found');
         }
 
-        return { youtubeId: video.youtube_id };
+        // 6. Everything succeeded, commit the save to the database!
+        await session.commitTransaction();
+
+        // 7. Return the full object exactly how the frontend expects it
+        return {
+          ...newClip.toObject(),
+          youtubeId: video.youtube_id,
+        };
       }
 
       await session.commitTransaction();
       return null;
     } catch (error: any) {
-      // 3. Fix the 'unknown' error type
+      // If anything fails, abort the transaction so no bad data is saved
       await session.abortTransaction();
       logger.error(`Transaction aborted - undoDeletedAudioClip: ${error.message}`);
-      throw new HttpException(409, "Audio clip couldn't be restored.");
+      throw new HttpException(error.statusCode || 500, error.message);
     } finally {
       session.endSession();
     }
