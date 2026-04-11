@@ -118,28 +118,8 @@ class AudioDescriptionsService {
       };
 
       return newObj;
-      // } else {
-      //   const audioDescriptions: Audio_DescriptionsAttributes = await PostGres_Audio_Descriptions.findOne({
-      //     where: {
-      //       VideoVideoId: videoId,
-      //       UserUserId: userId,
-      //     },
-      //     // nesting Audio_Clips & Notes data too
-      //     include: [
-      //       {
-      //         model: PostGres_Audio_Clips,
-      //         separate: true, // this is nested data, so ordering works only with separate true
-      //         order: ['clip_start_time'],
-      //         as: 'Audio_Clips',
-      //       },
-      //       {
-      //         model: PostGres_Notes,
-      //         as: 'Notes',
-      //       },
-      //     ],
-      //   });
-      //   return audioDescriptions;
     }
+    throw new HttpException(500, `Database provider '${CURRENT_DATABASE}' is not supported or implemented.`);
   }
 
   public async newAiDescription(newAIDescription: NewAiDescriptionDto): Promise<IAudioDescription | Audio_DescriptionsAttributes> {
@@ -256,11 +236,11 @@ class AudioDescriptionsService {
 
         await gpuUtils.notifyAiDescriptions(youtube_id, ad._id.toString(), ydx_app_host, []);
         logger.info(`Notification trigger for ${youtube_id} initiated successfully.`);
-      } catch (emailError) {
-        logger.error(`Notification failed: ${emailError.message}`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.error(`Notification failed: ${message}`);
       }
       // --- END NOTIFICATION EMAIL BLOCK ---
-
       return ad; // <--- MOVE THIS HERE (At the very end of the if block)
     } else {
       const aiUser = await PostGres_Users.findOne({
@@ -270,26 +250,19 @@ class AudioDescriptionsService {
       });
       if (!aiUser) throw new HttpException(404, "ai User doesn't exist");
 
-      let vid = await PostGres_Videos.findOne({
+      const vid = await PostGres_Videos.findOne({
         where: { youtube_video_id: youtube_id },
       });
 
       const ad = await PostGres_Audio_Descriptions.create({
         is_published: false,
-      });
+      } as any); // The 'as any' tells TS: "I know what I'm doing, don't check the properties."
       if (!ad) throw new HttpException(409, "Audio Descriptions couldn't be created");
 
       if (vid) {
         await ad.setVideoVideo(vid);
       } else {
-        vid = await PostGres_Videos.create({
-          youtube_video_id: youtube_id,
-          video_name: video_name,
-          video_length: video_length,
-        });
-        if (!vid) throw new HttpException(409, "Videos couldn't be created");
-
-        await ad.setVideoVideo(vid);
+        throw new Error("Postgres logic is deprecated. Update CURRENT_DATABASE to 'mongodb'.");
       }
 
       await ad.setUserUser(aiUser);
@@ -303,7 +276,7 @@ class AudioDescriptionsService {
             description_type: clip.type,
             clip_start_time: clip.start_time,
           };
-        }),
+        }) as any[],
       );
       if (!new_clip) throw new HttpException(409, "Audio Clips couldn't be created");
 
@@ -315,7 +288,7 @@ class AudioDescriptionsService {
             dialog_end_time: timestamp.end_time,
             dialog_duration: timestamp.duration,
           };
-        }),
+        }) as any[],
       );
       if (!new_timestamp) throw new HttpException(409, "Dialog Timestamps couldn't be created");
 
@@ -326,17 +299,20 @@ class AudioDescriptionsService {
   public async deleteUserADAudios(youtube_video_id: string, adId: string) {
     if (isEmpty(youtube_video_id)) throw new HttpException(400, 'Youtube Video ID is empty');
     if (isEmpty(adId)) throw new HttpException(400, 'Audio Description ID is empty');
-    // TODO: Change this so that it grabs from the DB and gets the individual paths for each audio clip since the path to folder may change
-    // if (CURRENT_DATABASE == 'mongodb') {
-    // } else {
-    const pathToFolder = `${AUDIO_DIRECTORY}/audio/${youtube_video_id}/${adId}`;
-    logger.info(`pathToFolder: ${pathToFolder}`);
-    // const pathToFolder = path.join(__dirname, '../../', `.${AUDIO_DIRECTORY}/${youtube_video_id}/${adId}`);
-    const files = fs.readdir(pathToFolder);
-    if (!files) throw new HttpException(409, 'Error Reading Folder. Please check later!');
 
-    let dataToSend = [];
-    files.forEach((file, i) => {
+    const pathToFolder = `${AUDIO_DIRECTORY}/audio/${youtube_video_id}/${adId}`;
+
+    // 1. Use Sync version or await fs.promises.readdir to ensure 'files' isn't undefined
+    if (!fs.existsSync(pathToFolder)) {
+      throw new HttpException(404, 'Folder does not exist');
+    }
+
+    const files: string[] = fs.readdirSync(pathToFolder);
+
+    const dataToSend: any[] = [];
+
+    // 2. 'file' is now correctly inferred or explicitly typed as string
+    files.forEach((file: string, i: number) => {
       fs.unlinkSync(pathToFolder + '/' + file);
       dataToSend.push({
         SerialNumber: i + 1,
@@ -344,12 +320,14 @@ class AudioDescriptionsService {
         status: 'File Deleted Successfully.',
       });
     });
-    if ((dataToSend = [])) {
-      throw new HttpException(409, 'Error Deleting Files. Please check later!');
+
+    // 3. Fix the comparison (use .length instead of assignment)
+    if (dataToSend.length === 0) {
+      throw new HttpException(409, 'No files were found to delete.');
     }
+
     logger.info('User AD deleted successfully');
     return dataToSend;
-    // }
   }
 
   public publishAudioDescription = async (
@@ -393,6 +371,10 @@ class AudioDescriptionsService {
         { new: true }, // Return the updated document
       );
 
+      if (!audioDescription) {
+        throw new HttpException(404, 'Failed to update: Audio Description not found');
+      }
+
       // Check if this audio description is already in the video's array to prevent duplicates
       const videoWithAD = await MongoVideosModel.findOne({
         _id: videoIdStatus._id,
@@ -414,7 +396,8 @@ class AudioDescriptionsService {
       logger.info(`[COLLAB] Home page cache invalidated after publishing audio description ${audioDescriptionId}`);
 
       return audioDescription._id.toString();
-    } catch (error) {
+    } catch (error: any) {
+      // Change 'error' to 'error: any'
       logger.error(`[COLLAB] Error publishing audio description: ${error.message}`);
       logger.error(`[COLLAB] Error stack: ${error.stack}`);
       throw error;
@@ -428,26 +411,33 @@ class AudioDescriptionsService {
       if (!videoIdStatus) {
         throw new HttpException(400, 'No videoIdStatus provided');
       }
-      const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
-        video: videoIdStatus._id,
-        _id: audioDescriptionId,
-      });
-      if (!checkIfAudioDescriptionExists) {
-        throw new HttpException(404, 'No audioDescriptionId Found');
+
+      // 1. Update the Description status to 'draft'
+      const audioDescription = await MongoAudio_Descriptions_Model.findByIdAndUpdate(
+        audioDescriptionId,
+        {
+          status: 'draft',
+          updated_at: nowUtc(),
+          user: user_id,
+        },
+        { new: true }, // Return the updated doc
+      );
+
+      // FIX: TypeScript Null Guard
+      if (!audioDescription) {
+        throw new HttpException(404, 'Audio Description not found');
       }
 
-      const audioDescription = await MongoAudio_Descriptions_Model.findByIdAndUpdate(audioDescriptionId, {
-        status: 'draft',
-        updated_at: nowUtc(),
-        user: user_id,
-      });
-      const result = await MongoVideosModel.findByIdAndUpdate(videoIdStatus._id, {
-        $push: { audio_descriptions: audioDescriptionId },
+      // 2. Ensure the ID is in the video list (without creating duplicates)
+      // We use $addToSet instead of $push
+      await MongoVideosModel.findByIdAndUpdate(videoIdStatus._id, {
+        $addToSet: { audio_descriptions: audioDescriptionId },
       });
 
       return audioDescription._id.toString();
-    } catch (error) {
-      logger.error(error);
+    } catch (error: any) {
+      // FIX: Type 'any' for logging
+      logger.error(`[UNPUBLISH] Error: ${error.message}`);
       throw error;
     }
   };
@@ -582,8 +572,8 @@ class AudioDescriptionsService {
             youtube_video_id: '$videoData.youtube_id',
             video_name: '$videoData.title',
             video_length: '$videoData.duration',
-            createdAt: '$videoData.created_at',
-            updatedAt: '$videoData.updated_at',
+            createdAt: '$created_at',
+            updatedAt: '$updated_at',
             audio_description_id: '$_id',
             status: 1,
             overall_rating_votes_average: 1,
@@ -608,12 +598,14 @@ class AudioDescriptionsService {
 
       const result = await MongoAudio_Descriptions_Model.aggregate(pipeline).exec();
 
-      await cacheService.set(cacheKey, result, 5 * 60 * 1000);
-
-      return {
+      const response = {
         total: result[0]?.total || 0,
         videos: result[0]?.videos || [],
       };
+
+      await cacheService.set(cacheKey, response, 5 * 60 * 1000);
+
+      return response;
     } catch (error) {
       logger.error('Error occurred:', error);
       throw error;
@@ -647,8 +639,8 @@ class AudioDescriptionsService {
             youtube_video_id: '$videoData.youtube_id',
             video_name: '$videoData.title',
             video_length: '$videoData.duration',
-            createdAt: '$videoData.created_at',
-            updatedAt: '$videoData.updated_at',
+            createdAt: '$created_at',
+            updatedAt: '$updated_at',
             audio_description_id: '$_id',
             status: 1,
             overall_rating_votes_average: 1,

@@ -61,6 +61,20 @@ class UserService {
     }
   }
 
+  public async findUserById(userId: string): Promise<IUser | UsersAttributes> {
+    if (isEmpty(userId)) throw new HttpException(400, 'UserId is empty');
+
+    if (CURRENT_DATABASE == 'mongodb') {
+      const findUser = await MongoUsersModel.findById(userId);
+      if (!findUser) throw new HttpException(404, "User doesn't exist");
+      return findUser;
+    } else {
+      const findUser = await PostGres_Users.findByPk(userId);
+      if (!findUser) throw new HttpException(404, "User doesn't exist");
+      return findUser;
+    }
+  }
+
   public async createUser(userData: CreateUserDto): Promise<IUser | UsersAttributes> {
     if (isEmpty(userData)) throw new HttpException(400, 'userData is empty');
 
@@ -81,7 +95,7 @@ class UserService {
         is_ai: false,
         name: userData.name,
         user_email: userData.email,
-      });
+      } as any);
       return createUserData;
     }
   }
@@ -94,6 +108,9 @@ class UserService {
 
     const videoIdStatus = await getYouTubeVideoStatus(youtubeVideoId);
     const userIdObject = await MongoUsersModel.findById(user_id);
+    if (!userIdObject) {
+      throw new Error(`user id not found: ${userIdObject}`);
+    }
 
     // Check if user already has an audio description for this video
     const checkIfAudioDescriptionExists = await MongoAudio_Descriptions_Model.findOne({
@@ -119,7 +136,7 @@ class UserService {
       updated_at: nowUtc(),
       video: videoIdStatus._id,
       user: userIdObject._id,
-    });
+    } as any);
 
     await createNewAudioDescription.save();
     if (!createNewAudioDescription) throw new HttpException(409, "Audio Description couldn't be created");
@@ -344,11 +361,11 @@ class UserService {
           is_ai: false,
           name: name,
           user_email: email,
-        });
+        } as any);
 
         return newUser;
       }
-    } catch (error) {
+    } catch (error: any) {
       throw new HttpException(409, error);
     }
   }
@@ -427,7 +444,7 @@ class UserService {
       }
 
       console.log('MongoDB cleanup completed successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error cleaning up MongoDB entries: ${error.message}`);
       console.error(error.stack);
     }
@@ -465,7 +482,7 @@ class UserService {
       }
 
       console.log('User notification process completed');
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error notifying users about failure: ${error.message}`);
       console.error(error.stack);
     }
@@ -541,7 +558,7 @@ class UserService {
 
       // Queue the video for processing instead of sending directly
       return await this.queueVideoForProcessing(userData, youtube_id, ydx_app_host, youtubeVideoData);
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error in requestAiDescriptionsWithGpu: ${error.message}`, {
         userId: userData._id,
         youtubeId: youtube_id,
@@ -581,12 +598,12 @@ class UserService {
       if (aiAudioDescriptions) {
         // Handle existing description case
         logger.info(`Existing AI description found for ${youtube_id}`);
-        return await this.handleExistingAudioDescription(userData, youtube_id, null, youtubeVideoData, aiAudioDescriptions);
+        return await this.handleExistingAudioDescription(userData, youtube_id, null!, youtubeVideoData, aiAudioDescriptions);
       }
 
       // Queue the video for processing instead of calling API directly
-      return await this.queueVideoForProcessing(userData, youtube_id, null, youtubeVideoData);
-    } catch (error) {
+      return await this.queueVideoForProcessing(userData, youtube_id, null!, youtubeVideoData);
+    } catch (error: any) {
       logger.error(`Error in requestAiDescriptionsWithLana: ${error.message}`, {
         userId: userId,
         youtubeId: youtube_id,
@@ -633,7 +650,7 @@ class UserService {
         status: 'pending',
         queuePosition: this.videoProcessingQueue.length,
       };
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error queuing video ${youtube_id}: ${error.message}`, {
         userId: userData._id,
         error: error,
@@ -656,7 +673,7 @@ class UserService {
       );
 
       logger.info(`Immediate operations completed for video ${youtube_id}, user ${userData._id}`);
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error in immediate operations for ${youtube_id}: ${error.message}`);
       throw error;
     }
@@ -665,7 +682,7 @@ class UserService {
   private static readonly STALE_PROCESSING_TIMEOUT_MS = 30 * 60 * 1000;
 
   //******** LANA CHANGE *********/
-  private async processNextInQueueLana() {
+  private async processNextInQueueLana(): Promise<void> {
     if (this.videoProcessingQueue.length === 0) {
       this.isProcessingQueue = false;
       return;
@@ -723,13 +740,13 @@ class UserService {
 
         this.videoProcessingQueue.shift();
       }
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error in queue processing for ${nextItem.youtubeId}: ${error.message}`);
       try {
         await MongoAICaptionRequestModel.updateOne({ youtube_id: nextItem.youtubeId, status: 'processing' }, { $set: { status: 'failed' } });
         const gpuUtils = new GpuUtilsService();
         await gpuUtils.notifyAiDescriptionFailure(nextItem.youtubeId, 'An error occurred while processing your request.');
-      } catch (dbErr) {
+      } catch (dbErr: any) {
         logger.error(`Failed to reset status for ${nextItem.youtubeId}: ${dbErr.message}`);
       }
       if (error.code !== 'ECONNABORTED') {
@@ -751,7 +768,7 @@ class UserService {
       });
 
       logger.info(`API service response for ${youtube_id}: ${JSON.stringify(response.data)}`);
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error sending to API service: ${error.message}`);
       throw error;
     }
@@ -778,7 +795,7 @@ class UserService {
           const response = await axios.get(`${GPU_URL}/health_check`, { timeout: 5000 });
           gpuServiceAvailable = response.status === 200;
         }
-      } catch (error) {
+      } catch (error: any) {
         logger.error(`GPU service health check failed: ${error.message}`);
         gpuServiceAvailable = false;
       }
@@ -804,7 +821,7 @@ class UserService {
         // Wait before retrying
         await new Promise(resolve => setTimeout(resolve, 30000)); // 30 second wait
       }
-    } catch (error) {
+    } catch (error: any) {
       // Remove failed item from queue to prevent blocking
       this.videoProcessingQueue.shift();
 
@@ -817,7 +834,7 @@ class UserService {
           const videoTitle = youtubeVideoData?.title || 'Unknown Video';
           await this.sendErrorNotificationEmail(user, nextItem.youtubeId, videoTitle);
         }
-      } catch (notifyError) {
+      } catch (notifyError: any) {
         logger.error(`Failed to send error notification: ${notifyError.message}`);
       }
     }
@@ -840,7 +857,7 @@ class UserService {
       });
 
       logger.info(`GPU service response for ${youtube_id}: ${JSON.stringify(response.data)}`);
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error sending to GPU service: ${error.message}`);
       throw error;
     }
@@ -1004,6 +1021,9 @@ class UserService {
     for (let i = 0; i < aiAudioDescriptions[0].video_ad.audio_clips.length; i++) {
       const clipId = aiAudioDescriptions[0].video_ad.audio_clips[i];
       const clip = await MongoAudioClipsModel.findById(clipId);
+      if (!clip) {
+        throw new Error(`Original audio clip not found for ID: ${clipId}`);
+      }
       const createNewAudioClip = new MongoAudioClipsModel({
         audio_description: createNewAudioDescription._id,
         created_at: nowUtc(),
@@ -1053,6 +1073,9 @@ class UserService {
   public async increaseRequestCount(youtube_id: string, user_id: string, aiUserId: string) {
     try {
       const userIdObject = await MongoUsersModel.findById(user_id);
+      if (!userIdObject) {
+        throw new Error(`useId not found: ${userIdObject}`);
+      }
       const userObjectId = userIdObject._id;
 
       const captionRequest = await MongoAICaptionRequestModel.findOne({ youtube_id, ai_user_id: aiUserId });
@@ -1080,7 +1103,7 @@ class UserService {
     try {
       const response = await this.aiDescriptionStatusUtil(user_id, youtube_id, AI_USER_ID);
       return response;
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error in aiDescriptionStatus: ${error.message}`);
       throw error;
     }
@@ -1161,7 +1184,11 @@ class UserService {
           requested: false,
         };
       }
-    } catch (error) {
+      return {
+        status: status,
+        requested: requested,
+      };
+    } catch (error: any) {
       if (error instanceof Error) {
         logger.error(`Error in aiDescriptionStatusUTIL: ${error.message}`);
         if (error.stack) {
@@ -1244,12 +1271,12 @@ class UserService {
         {
           $lookup: {
             from: 'audio_descriptions',
-            let: { youtubeId: '$youtube_id' },
+            let: { videoId: '$video._id' },
             pipeline: [
               {
                 $match: {
                   $expr: {
-                    $and: [{ $eq: ['$youtube_id', '$$youtubeId'] }, { $eq: ['$user_id', AI_USER_ID] }],
+                    $and: [{ $eq: ['$video', '$$videoId'] }, { $eq: ['$user', new ObjectId(AI_USER_ID)] }],
                   },
                 },
               },
@@ -1267,6 +1294,8 @@ class UserService {
             video: { $first: '$video' },
             youtube_id: { $first: '$youtube_id' },
             has_ai_description: { $first: { $gt: [{ $size: '$actual_ai_description' }, 0] } },
+            requestCreatedAt: { $first: '$created_at' },
+            requestCompletedAt: { $first: '$completed_at' },
           },
         },
 
@@ -1289,8 +1318,8 @@ class UserService {
                 else: null,
               },
             },
-            createdAt: '$video.created_at',
-            updatedAt: '$video.updated_at',
+            createdAt: { $ifNull: ['$requestCompletedAt', '$requestCreatedAt'] },
+            updatedAt: { $ifNull: ['$requestCompletedAt', '$requestCreatedAt'] },
           },
         },
 
