@@ -25,9 +25,6 @@ import axios from 'axios';
 import AICaptionRequestSchema, { IAICaptionRequest } from './AICaptionRequests.mongo';
 import HistorySchema, { IHistory } from './History.mongo';
 import path from 'path';
-import jsonwebtoken from 'jsonwebtoken';
-
-const AppleStrategy = require('passport-apple');
 
 function initModels() {
   const VideosModel = model<IVideo>('Video', VideoSchema);
@@ -124,44 +121,53 @@ export const initPassport = () => {
     ),
   );
 
-  passport.use(
-    new AppleStrategy(
-      {
-        clientID: APPLE_CLIENT_ID,
-        teamID: APPLE_TEAM_ID,
-        keyID: APPLE_KEY_ID,
-        privateKeyLocation: path.join(__dirname, '../../../AuthKey_57HVXW9Y8Z.p8'),
-        callbackURL: APPLE_CALLBACK_URL,
-      },
-      async (req, accessToken, refreshToken, idToken, profile, cb) => {
-        const decodedToken = jsonwebtoken.decode(idToken);
-        const { sub, email } = decodedToken;
+  try {
+    // Load Apple auth dependencies lazily so a broken optional dependency chain
+    // does not prevent the whole API from booting in local development.
+    const AppleStrategy = require('passport-apple');
+    const jsonwebtoken = require('jsonwebtoken');
 
-        const firstTimeUser = typeof req.query['user'] === 'string' ? JSON.parse(req.query['user']) : undefined;
-        const newToken = crypto
-          .createHmac('sha256', CRYPTO_SECRET)
-          .update(CRYPTO_SEED + moment().utc().format('YYYYMMDDHHmmss'))
-          .digest('hex');
+    passport.use(
+      new AppleStrategy(
+        {
+          clientID: APPLE_CLIENT_ID,
+          teamID: APPLE_TEAM_ID,
+          keyID: APPLE_KEY_ID,
+          privateKeyLocation: path.join(__dirname, '../../../AuthKey_57HVXW9Y8Z.p8'),
+          callbackURL: APPLE_CALLBACK_URL,
+        },
+        async (req, accessToken, refreshToken, idToken, profile, cb) => {
+          const decodedToken = jsonwebtoken.decode(idToken);
+          const { sub, email } = decodedToken;
 
-        try {
-          const body_request = {
-            email,
-            name: firstTimeUser || '',
-            google_user_id: '',
-            apple_user_id: sub,
-            token: newToken,
-            opt_in: false,
-            admin_level: 0,
-            user_type: 'Volunteer',
-          };
-          const user = await axios.post(`http://localhost:${PORT}/api/users/create-user`, body_request);
-          return cb(null, user.data);
-        } catch (error) {
-          return cb(error, null);
-        }
-      },
-    ),
-  );
+          const firstTimeUser = typeof req.query['user'] === 'string' ? JSON.parse(req.query['user']) : undefined;
+          const newToken = crypto
+            .createHmac('sha256', CRYPTO_SECRET)
+            .update(CRYPTO_SEED + moment().utc().format('YYYYMMDDHHmmss'))
+            .digest('hex');
+
+          try {
+            const body_request = {
+              email,
+              name: firstTimeUser || '',
+              google_user_id: '',
+              apple_user_id: sub,
+              token: newToken,
+              opt_in: false,
+              admin_level: 0,
+              user_type: 'Volunteer',
+            };
+            const user = await axios.post(`http://localhost:${PORT}/api/users/create-user`, body_request);
+            return cb(null, user.data);
+          } catch (error) {
+            return cb(error, null);
+          }
+        },
+      ),
+    );
+  } catch (error) {
+    logger.warn(`Apple auth initialization skipped: ${error instanceof Error ? error.message : error}`);
+  }
 };
 
 export const {

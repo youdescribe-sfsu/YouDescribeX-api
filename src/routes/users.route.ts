@@ -15,7 +15,6 @@ class UsersRoute implements Routes {
   private initializeRoutes() {
     this.router.get(`${this.path}/get-all-users`, this.usersController.getUsers);
     this.router.get(`${this.path}/user-email`, this.usersController.getUserByEmail);
-    this.router.get(`${this.path}/:userId`, this.usersController.getUserById);
     this.router.post(`${this.path}/add-new-user`, this.usersController.createUser);
     this.router.post(`${this.path}/create-new-user-ad`, this.usersController.createNewUserAudioDescription);
     this.router.post(`${this.path}/create-collaborative-ad`, withTransaction(this.usersController.createCollaborativeDescription));
@@ -33,6 +32,7 @@ class UsersRoute implements Routes {
     this.router.get(`${this.path}/get-Visited-Videos-History`, this.usersController.getVisitedVideosHistory);
     this.router.post(`${this.path}/pipeline-failure`, this.usersController.handlePipelineFailure);
     this.router.post(`${this.path}/request-ai-descriptions-with-lana`, this.usersController.requestAiDescriptionsWithLana);
+    this.router.get(`${this.path}/:userId`, this.usersController.getUserById);
   }
 }
 

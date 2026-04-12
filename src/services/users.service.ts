@@ -1,4 +1,3 @@
-import { google } from '@google-cloud/text-to-speech/build/protos/protos';
 import { CreateUserAudioDescriptionDto, CreateUserDto, NewUserDto } from '../dtos/users.dto';
 import { HttpException } from '../exceptions/HttpException';
 import { getYouTubeVideoStatus, isEmpty, nowUtc } from '../utils/util';

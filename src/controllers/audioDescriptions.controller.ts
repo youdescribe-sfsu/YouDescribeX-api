@@ -9,6 +9,16 @@ import sendEmail from '../utils/emailService';
 class AudioDescripionsController {
   public audioDescriptionsService = new AudioDescriptionsService();
 
+  private resolveRequestUser = async (req: Request): Promise<IUser | null> => {
+    let userData = req.user as unknown as IUser;
+
+    if (!userData && req.headers.authorization) {
+      userData = await MongoUsersModel.findById(req.headers.authorization);
+    }
+
+    return userData || null;
+  };
+
   public getUserAudioDescriptionData = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const videoId: string = req.params.videoId;
@@ -123,7 +133,7 @@ class AudioDescripionsController {
 
   public getMyDescriptions = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userData = req.user as unknown as IUser;
+      const userData = await this.resolveRequestUser(req);
       const pageNumber = req.query.page;
       const paginate = req.query.paginate !== 'false';
 
@@ -141,7 +151,7 @@ class AudioDescripionsController {
 
   public getMyDraftDescriptions = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userData = req.user as unknown as IUser;
+      const userData = await this.resolveRequestUser(req);
       const pageNumber = req.query.page;
 
       if (!userData) {
@@ -158,7 +168,7 @@ class AudioDescripionsController {
 
   public getAllAIDescriptions = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userData = req.user as unknown as IUser;
+      const userData = await this.resolveRequestUser(req);
       const pageNumber = req.query.pageNumber;
 
       if (!userData) {
