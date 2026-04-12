@@ -701,9 +701,5 @@ export const deepCopyAudioClip = async (
   return DeepCopyService.deepCopyAudioClip(audioDescriptionId, deepCopiedAudioDescriptionId, userIdTo, videoId);
 };
 
-export const repairMissingTtsAudio = async (audioDescriptionId: string, youtubeVideoId: string): Promise<number> => {
-  return DeepCopyService.repairMissingTtsAudio(audioDescriptionId, youtubeVideoId);
-};
-
 // Export types for external use
 export type { TextToSpeechResponse, PlaybackAnalysisResponse, ClipStartTimeResponse, AudioPathResponse, ProcessClipResponse, NudgeStartTimeResult };
