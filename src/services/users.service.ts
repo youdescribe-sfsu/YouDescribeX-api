@@ -1294,7 +1294,7 @@ class UserService {
             video: { $first: '$video' },
             youtube_id: { $first: '$youtube_id' },
             has_ai_description: { $first: { $gt: [{ $size: '$actual_ai_description' }, 0] } },
-            requestCreatedAt: { $first: '$created_at' },
+            requestCreatedAt: { $first: { $ifNull: ['$created_at', '$createdAt'] } },
             requestCompletedAt: { $first: '$completed_at' },
           },
         },

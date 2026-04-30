@@ -393,6 +393,7 @@ class AudioDescriptionsService {
       logger.info(`[COLLAB] Audio description ${audioDescriptionId} published successfully`);
 
       await cacheService.invalidateByPrefix('home_videos');
+      await cacheService.invalidateByPrefix(`my_descriptions_${user_id}_`);
       logger.info(`[COLLAB] Home page cache invalidated after publishing audio description ${audioDescriptionId}`);
 
       return audioDescription._id.toString();
@@ -433,7 +434,8 @@ class AudioDescriptionsService {
       await MongoVideosModel.findByIdAndUpdate(videoIdStatus._id, {
         $addToSet: { audio_descriptions: audioDescriptionId },
       });
-
+      await cacheService.invalidateByPrefix(`my_descriptions_${user_id}_`);
+      await cacheService.invalidateByPrefix('home_videos');
       return audioDescription._id.toString();
     } catch (error: any) {
       // FIX: Type 'any' for logging

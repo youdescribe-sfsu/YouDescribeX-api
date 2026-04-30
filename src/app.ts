@@ -79,9 +79,9 @@ class App {
         name: 'auth-session-dev',
         maxAge: 30 * 24 * 60 * 60 * 1000,
         secret: 'YouDescribe Secret',
-        domain: process.env.SESSION_COOKIE_DOMAIN,
-        sameSite: 'none',
-        secure: true,
+        domain: process.env.SESSION_COOKIE_DOMAIN || undefined,
+        sameSite: NODE_ENV === 'production' ? 'none' : 'lax',
+        secure: NODE_ENV === 'production',
       }),
     );
     this.app.use(passport.initialize());
