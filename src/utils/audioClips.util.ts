@@ -554,6 +554,7 @@ class DeepCopyService {
             file_mime_type: fileMimeType,
             file_size_bytes: fileSizeBytes,
             audio_description: deepCopiedAudioDescriptionId,
+            prev_clip_id: audioClip._id,
             user: userIdTo,
             video: audioClip.video,
             created_at: nowUtc(),

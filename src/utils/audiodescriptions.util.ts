@@ -151,115 +151,132 @@ class PopulationService {
 // Contribution Service
 class ContributionService {
   static async updateContributions(audioDescriptionId: string, userId: string): Promise<void> {
-    console.log(`[COLLAB] Starting contribution update for audio description ${audioDescriptionId} by user ${userId}`);
+    logger.info(`[COLLAB] Starting contribution update for audio description ${audioDescriptionId} by user ${userId}`);
 
     try {
       const audioDescription = await MongoAudio_Descriptions_Model.findById(audioDescriptionId);
       if (!audioDescription) {
-        console.log(`[COLLAB] Audio Description ${audioDescriptionId} not found`);
         throw new HttpException(404, 'Audio Description not found');
       }
 
-      logger.info(`[COLLAB] Found audio description: ${audioDescriptionId}, user: ${audioDescription.user}, depth: ${audioDescription.depth || 1}`);
-
-      // Initialize contributions as a Record if it doesn't exist
-      if (!audioDescription.contributions) {
-        audioDescription.contributions = {};
-      }
-
-      // If no previous version, set single user with 100% contribution
+      // First-version case: no parent → 100% to current user
       if (!audioDescription.prev_audio_description) {
         audioDescription.contributions = { [userId]: 1 };
         await audioDescription.save();
         return;
       }
 
-      // Get text content for comparison
-      const prevText = await ContributionService.getConcatenatedAudioClips(audioDescription.prev_audio_description);
-      const newText = await ContributionService.getConcatenatedAudioClips(audioDescriptionId);
-
-      // If previous doc exists but no content to compare, initialize with original user
-      if (!prevText) {
-        const prevAudioDescription = await MongoAudio_Descriptions_Model.findById(audioDescription.prev_audio_description);
-
-        if (prevAudioDescription) {
-          if (prevAudioDescription.contributions) {
-            audioDescription.contributions = { ...prevAudioDescription.contributions };
-          } else {
-            audioDescription.contributions = {
-              [prevAudioDescription.user.toString()]: 1,
-            };
-          }
-        } else {
-          audioDescription.contributions = { [userId]: 1 };
-        }
-
+      const prevAudioDescription = await MongoAudio_Descriptions_Model.findById(audioDescription.prev_audio_description);
+      if (!prevAudioDescription) {
+        // Parent missing — fall back to current user owns 100%
+        audioDescription.contributions = { [userId]: 1 };
         await audioDescription.save();
         return;
       }
 
-      logger.info(`[COLLAB] Contributions BEFORE update: ${JSON.stringify(audioDescription.contributions || {})}`);
+      // Load all clips from both versions
+      const [prevClips, newClips] = await Promise.all([
+        MongoAudioClipsModel.find({ audio_description: audioDescription.prev_audio_description }).sort({ start_time: 1 }),
+        MongoAudioClipsModel.find({ audio_description: audioDescriptionId }).sort({ start_time: 1 }),
+      ]);
 
-      // FIX: Cast to Record<string, number> to allow dynamic string indexing (userIds)
-      const oldContributions: Record<string, number> = (audioDescription.contributions as Record<string, number>) || {};
+      // Build lookup of previous clips by ID for O(1) matching
+      const prevClipsById = new Map(prevClips.map(c => [c._id.toString(), c]));
+      const matchedPrevIds = new Set<string>();
+
+      // Per-clip retention weights (from MDCI paper)
+      const W_TEXT = 0.45;
+      const W_TIME = 0.45;
+      const W_PB = 0.05;
+      const W_VOICE = 0.05;
+      const TIME_THRESHOLD_SECONDS = 5.0;
+
+      let weightedRetentionSum = 0; // Σ(w_i · R_i) for matched clips
+      let totalWeight = 0; // Σ w_i + Σ w_j + Σ w_k (matched + deleted + inserted)
+
+      // Process each clip in the new version
+      for (const newClip of newClips) {
+        const w = Math.max(newClip.duration || 1, 0.1); // duration as weight, floor at 0.1
+        const prevId = newClip.prev_clip_id?.toString();
+        const matchedPrev = prevId ? prevClipsById.get(prevId) : undefined;
+
+        if (matchedPrev) {
+          // Matched clip — compute retention R_i
+          matchedPrevIds.add(prevId);
+
+          // S_text: 1 - normalized Levenshtein
+          const prevText = matchedPrev.description_text || '';
+          const newText = newClip.description_text || '';
+          const editDist = calculateEdittingDistance(prevText, newText);
+          const maxLen = Math.max(prevText.length, newText.length, 1);
+          const sText = 1 - editDist / maxLen;
+
+          // S_time: linear decay over threshold
+          const deltaTime = Math.abs((newClip.start_time || 0) - (matchedPrev.start_time || 0));
+          const sTime = Math.max(0, 1 - deltaTime / TIME_THRESHOLD_SECONDS);
+
+          // S_pb: binary
+          const sPb = newClip.playback_type === matchedPrev.playback_type ? 1 : 0;
+
+          // S_voice: binary
+          const sVoice = newClip.is_recorded === matchedPrev.is_recorded ? 1 : 0;
+
+          const R = W_TEXT * sText + W_TIME * sTime + W_PB * sPb + W_VOICE * sVoice;
+
+          weightedRetentionSum += w * R;
+          totalWeight += w;
+
+          logger.debug(
+            `[COLLAB] Matched clip ${newClip._id}: R=${R.toFixed(3)} (text=${sText.toFixed(2)}, time=${sTime.toFixed(2)}, pb=${sPb}, voice=${sVoice})`,
+          );
+        } else {
+          // Inserted clip — R = 0, weight goes into denominator only
+          totalWeight += w;
+          logger.debug(`[COLLAB] Inserted clip ${newClip._id}, weight ${w.toFixed(2)}`);
+        }
+      }
+
+      // Process deleted clips (in prev but not matched)
+      for (const prevClip of prevClips) {
+        if (!matchedPrevIds.has(prevClip._id.toString())) {
+          const w = Math.max(prevClip.duration || 1, 0.1);
+          totalWeight += w;
+          logger.debug(`[COLLAB] Deleted clip ${prevClip._id}, weight ${w.toFixed(2)}`);
+        }
+      }
+
+      // Aggregate
+      const C_AI_local = totalWeight > 0 ? weightedRetentionSum / totalWeight : 0;
+      const C_H_local = 1 - C_AI_local;
+
+      logger.info(`[COLLAB] Local contributions: AI(prev)=${(C_AI_local * 100).toFixed(2)}%, Human(current)=${(C_H_local * 100).toFixed(2)}%`);
+
+      // Cascade: scale parent's existing contributions by C_AI_local, give current user C_H_local
+      const parentContributions: Record<string, number> = (prevAudioDescription.contributions as Record<string, number>) || {};
       const newContributions: Record<string, number> = {};
 
-      // Calculate edit distance and contribution percentages
-      const editingDistance = calculateEdittingDistance(prevText, newText);
-      logger.info(`[COLLAB] Editing distance: ${editingDistance}`);
-
-      const oldLength = Math.max(1, prevText.length); // Avoid division by zero
-      const newContribution = editingDistance / (oldLength + editingDistance);
-      const oldContributionSum = 1 - newContribution;
-
-      logger.info(
-        `[COLLAB] New contribution percentage: ${(newContribution * 100).toFixed(2)}%, Old contributions scaled to: ${(oldContributionSum * 100).toFixed(2)}%`,
-      );
-
-      // Scale existing contributions or add original author
-      if (Object.keys(oldContributions).length === 0) {
-        const prevAudioDescription = await MongoAudio_Descriptions_Model.findById(audioDescription.prev_audio_description);
-        if (prevAudioDescription) {
-          const originalAuthorId = prevAudioDescription.user.toString();
-          newContributions[originalAuthorId] = oldContributionSum;
-          logger.info(`[COLLAB] Added original author ${originalAuthorId} with contribution ${oldContributionSum}`);
+      if (Object.keys(parentContributions).length === 0) {
+        // Parent has no contributions recorded → attribute to parent's user
+        newContributions[prevAudioDescription.user.toString()] = C_AI_local;
+      } else {
+        for (const [uid, share] of Object.entries(parentContributions)) {
+          newContributions[uid] = share * C_AI_local;
         }
-      } else {
-        Object.keys(oldContributions).forEach(key => {
-          newContributions[key] = oldContributions[key] * oldContributionSum;
-          logger.info(`[COLLAB] Scaled user ${key} contribution to ${newContributions[key]}`);
-        });
       }
 
-      // Add/Update new contribution for the current user
-      if (newContributions[userId]) {
-        newContributions[userId] += newContribution;
-        logger.info(`[COLLAB] Updated existing user ${userId} contribution to ${newContributions[userId]}`);
-      } else {
-        newContributions[userId] = newContribution;
-        logger.info(`[COLLAB] Added new user ${userId} contribution: ${newContribution}`);
-      }
+      // Add current user's share
+      newContributions[userId] = (newContributions[userId] || 0) + C_H_local;
 
-      // Explicitly set the new contributions object
-      audioDescription.contributions = newContributions;
+      logger.info(`[COLLAB] Final contributions: ${JSON.stringify(newContributions)}`);
 
-      logger.info(`[COLLAB] Final contributions to save: ${JSON.stringify(newContributions)}`);
+      await MongoAudio_Descriptions_Model.findByIdAndUpdate(audioDescriptionId, { $set: { contributions: newContributions } }, { new: true });
 
-      // Save using findByIdAndUpdate to ensure it persists
-      const updateResult = await MongoAudio_Descriptions_Model.findByIdAndUpdate(
-        audioDescriptionId,
-        { $set: { contributions: newContributions } },
-        { new: true },
-      );
-
-      logger.info(`[COLLAB] Update result: ${updateResult ? 'Success' : 'Failed'}`);
       logger.info(`[COLLAB] Successfully updated contributions for ${audioDescriptionId}`);
     } catch (error: any) {
       logger.error(`[COLLAB] Error updating contributions for ${audioDescriptionId}: ${error.message}`);
       throw error;
     }
   }
-
   static async getConcatenatedAudioClips(audioDescriptionId: string): Promise<string> {
     logger.info(`[COLLAB] Getting concatenated audio clips for ${audioDescriptionId}`);
 
