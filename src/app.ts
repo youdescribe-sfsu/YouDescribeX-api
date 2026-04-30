@@ -64,7 +64,7 @@ class App {
     this.app.use(cookieParser());
     this.app.use(
       cookieSession({
-        name: 'auth-session',
+        name: 'auth-session-v2',
         maxAge: 30 * 24 * 60 * 60 * 1000,
         secret: 'YouDescribe Secret',
         domain: process.env.SESSION_COOKIE_DOMAIN,
