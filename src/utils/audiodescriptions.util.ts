@@ -431,7 +431,7 @@ class AutoClipsService {
 
     const existingDraft = await MongoAudio_Descriptions_Model.findOne({
       prev_audio_description: audioDescription._id,
-      status: 'draft',
+      //status: 'draft',
       user: toUserId,
       video: audioDescription.video,
     });
