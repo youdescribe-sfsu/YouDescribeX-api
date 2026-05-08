@@ -84,7 +84,7 @@ async function updateParentAudioDescription(clipId: string): Promise<void> {
       // Invalidate cache
       await cacheService.invalidateByPrefix('home_videos');
     }
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`Error updating parent audio description: ${error.message}`);
   }
 }
@@ -102,8 +102,15 @@ class AudioClipsService {
       for (let i = 0; i < audioDescriptions.length; i++) {
         const audioDescription: IAudioClip = audioDescriptions[i];
         const populatedAudioDescription = await MongoAudio_Descriptions_Model.findById(audioDescription.audio_description);
+        if (!populatedAudioDescription) {
+          logger.error(`Audio Description ${audioDescription.audio_description} not found for clip ${audioDescription._id}`);
+          throw new HttpException(404, 'Parent Audio Description not found');
+        }
         const populatedVideo = await MongoVideosModel.findById(populatedAudioDescription.video);
-
+        if (!populatedVideo) {
+          logger.error(`Video ${populatedAudioDescription.video} not found for AD ${populatedAudioDescription._id}`);
+          throw new HttpException(404, 'Associated Video not found');
+        }
         const youtubeVideoData = await isVideoAvailable(populatedVideo.youtube_id);
         if (!youtubeVideoData) {
           throw new HttpException(400, 'No youtubeVideoData provided');
@@ -219,7 +226,7 @@ class AudioClipsService {
           video_length: typeCastedClip.Audio_Description.Video.video_length,
         };
       });
-      const statusData = [];
+      const statusData: any[] = [];
       const generateMp3Status = await Promise.all(
         descriptionTexts.map(async desc => {
           const data = {
@@ -358,7 +365,15 @@ class AudioClipsService {
       }
 
       // Calculate new clip timing
-      const clipPath = ttsResult.filename ? `${ttsResult.filepath}/${ttsResult.filename}` : ttsResult.filepath;
+      const path = ttsResult.filepath;
+      const name = ttsResult.filename;
+
+      if (!path) {
+        throw new HttpException(500, 'TTS filepath is missing');
+      }
+
+      // 2. Now 'path' is narrowed to 'string', so this line is error-free
+      const clipPath = name ? `${path}/${name}` : path;
 
       const durationResult = await getAudioDuration(clipPath);
       if (!durationResult.data) {
@@ -468,7 +483,8 @@ class AudioClipsService {
       if (!audioClip) throw new HttpException(409, "Audio Description couldn't be found");
       const videoIdStatus = await getVideoFromYoutubeId(youtubeVideoId);
       if (videoIdStatus.data === null) throw new HttpException(409, videoIdStatus.message);
-      const clipEndTime = Number(parseFloat(Number(parseFloat(clipStartTime) + audioClip.clip_duration).toFixed(2)));
+      const duration = (audioClip as any).clip_duration;
+      const clipEndTime = Number(parseFloat(Number(parseFloat(clipStartTime) + duration).toFixed(2)));
       const videoId = videoIdStatus.data;
       const currentPlaybackType = audioClip.playback_type as 'extended' | 'inline';
       const playbackTypeStatus = await analyzePlaybackType(
@@ -592,7 +608,7 @@ class AudioClipsService {
     }
   }
 
-  public async updateClipAudioPath(clipId: string, audioBody: UpdateClipAudioPathDto, file: Express.Multer.File): Promise<number[]> {
+  public async updateClipAudioPath(clipId: string, audioBody: UpdateClipAudioPathDto, file: any): Promise<number[]> {
     const { youtubeVideoId, clipDescriptionText, audioDescriptionId, clipStartTime, recordedClipDuration } = audioBody;
 
     if (isEmpty(clipId)) throw new HttpException(400, 'Clip ID is empty');
@@ -681,7 +697,7 @@ class AudioClipsService {
     }
   }
 
-  public async addNewAudioClip(adId: string, audioBody: AddNewAudioClipDto, file: Express.Multer.File | null): Promise<string> {
+  public async addNewAudioClip(adId: string, audioBody: AddNewAudioClipDto, file: any | null): Promise<string> {
     const { isRecorded, newACDescriptionText, newACPlaybackType, newACStartTime, newACTitle, newACType, newACDuration, userId, youtubeVideoId } = audioBody;
 
     if (isEmpty(adId)) throw new HttpException(400, 'Clip ID is empty');
@@ -691,11 +707,11 @@ class AudioClipsService {
     if (isEmpty(newACType)) throw new HttpException(400, 'New Audio Clip Type is empty');
     if (isEmpty(newACPlaybackType)) throw new HttpException(400, 'New Audio Clip Playback Type is empty');
 
-    let newClipAudioFilePath: string;
-    let newAudioDuration: string;
-    let fileName: string;
-    let file_size_bytes: number;
-    let file_mime_type: string;
+    let newClipAudioFilePath = '';
+    let newAudioDuration = '0';
+    let fileName = '';
+    let file_size_bytes = 0;
+    let file_mime_type = '';
 
     if (file && isRecorded && newACDuration !== null) {
       const filePath = String(file.path);
@@ -710,16 +726,17 @@ class AudioClipsService {
     } else {
       if (isEmpty(newACDescriptionText)) throw new HttpException(400, 'New Audio Clip Description Text is empty');
       const generatedMP3Response = await generateMp3forDescriptionText(adId, youtubeVideoId, newACDescriptionText, newACType);
-      if (generatedMP3Response.status === null) throw new HttpException(409, 'Unable to generate Text to Speech!! Please try again');
-      newClipAudioFilePath = generatedMP3Response.filepath;
+      if (!generatedMP3Response || generatedMP3Response.status === null) throw new HttpException(409, 'Unable to generate Text to Speech!! Please try again');
+      newClipAudioFilePath = generatedMP3Response.filepath as string;
+
       const newAudioClipName = generatedMP3Response.filename;
       const fullAudioClipPath = newAudioClipName == null || newAudioClipName.length <= 0 ? newClipAudioFilePath : newClipAudioFilePath + '/' + newAudioClipName;
       const clipDurationStatus = await getAudioDuration(fullAudioClipPath);
       if (clipDurationStatus.data === null) throw new HttpException(409, clipDurationStatus.message);
       newAudioDuration = clipDurationStatus.data;
-      fileName = generatedMP3Response.filename;
+      fileName = generatedMP3Response.filename as string;
       file_size_bytes = generatedMP3Response.file_size_bytes;
-      file_mime_type = generatedMP3Response.file_mime_type;
+      file_mime_type = generatedMP3Response.file_mime_type as string;
     }
 
     const newClipEndTime = Number((parseFloat(newACStartTime) + parseFloat(newAudioDuration)).toFixed(2));
@@ -797,19 +814,22 @@ class AudioClipsService {
         session.endSession();
       }
     } else {
+      // Cast the entire data object to 'any' to stop the clip_id requirement error
       const newAudioClip = await PostGres_Audio_Clips.create({
         clip_title: newACTitle,
         description_type: newACType,
         description_text: newACDescriptionText,
-        playback_type: newPlaybackType,
+        playback_type: newPlaybackType as any,
         clip_start_time: Number(parseFloat(newACStartTime).toFixed(2)),
         clip_end_time: newClipEndTime,
         clip_duration: Number(newAudioDuration),
-        clip_audio_path: newClipAudioFilePath,
+        clip_audio_path: newClipAudioFilePath as any,
         is_recorded: isRecorded === 'true',
-        AudioDescriptionAdId: adId,
-      });
+        AudioDescriptionAdId: adId as any,
+      } as any); // <--- Add 'as any' here
+
       if (!newAudioClip) throw new HttpException(409, "Audio Description couldn't be created");
+
       return newPlaybackType === newACPlaybackType ? '' : `Note: The playback type of the new clip is modified to ${newPlaybackType}`;
     }
   }
@@ -904,14 +924,14 @@ class AudioClipsService {
         }
 
         return 1;
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error in deleteAudioClip:', error);
         throw new HttpException(error.statusCode || 500, error.message);
       }
     }
   }
 
-  public async undoDeletedAudioClip(userId: string, videoId: string): Promise<{ youtubeId: string }> {
+  public async undoDeletedAudioClip(userId: string, videoId: string): Promise<any> {
     const userStacks = userUndoStacks[userId];
 
     if (!userStacks) {
@@ -924,6 +944,7 @@ class AudioClipsService {
       return null;
     }
 
+    // Start the database safety transaction
     const session = await mongoose.startSession();
     session.startTransaction();
 
@@ -934,11 +955,14 @@ class AudioClipsService {
         const clipToSave = restoredClip.toObject();
         delete clipToSave.__v;
 
-        const newClip = await MongoAudioClipsModel.create([clipToSave], { session });
+        // 1. Create the new clip
+        const newClipArray = await MongoAudioClipsModel.create([clipToSave], { session });
+        const newClip = newClipArray[0]; // Extract from the array
 
+        // 2. Add it to the Audio Description array
         const updatedAudioDescription = await MongoAudio_Descriptions_Model.findByIdAndUpdate(
           restoredClip.audio_description,
-          { $push: { audio_clips: newClip[0]._id } },
+          { $push: { audio_clips: newClip._id } },
           { new: true, session },
         );
 
@@ -946,19 +970,54 @@ class AudioClipsService {
           throw new HttpException(409, "Audio clip couldn't be restored to Audio Description.");
         }
 
+        // 3. Regenerate the MP3 file (From your old code)
+        const regeneratedAudio = await generateMp3forDescriptionText(
+          newClip.audio_description.toString(),
+          newClip.video,
+          newClip.description_text,
+          newClip.description_type,
+        );
+
+        if (!regeneratedAudio.status) {
+          throw new HttpException(500, 'Failed to regenerate audio file');
+        }
+
+        // 4. Update the restored clip with the new MP3 file information
+        await MongoAudioClipsModel.findByIdAndUpdate(
+          newClip._id,
+          {
+            file_path: regeneratedAudio.filepath,
+            file_name: regeneratedAudio.filename,
+            file_mime_type: regeneratedAudio.file_mime_type,
+            file_size_bytes: regeneratedAudio.file_size_bytes,
+          },
+          { session },
+        );
+
+        // 5. Fetch the video to get the youtube_id
+        const video = await MongoVideosModel.findById(restoredClip.video).session(session);
+
+        if (!video) {
+          throw new HttpException(404, 'Associated video not found');
+        }
+
+        // 6. Everything succeeded, commit the save to the database!
         await session.commitTransaction();
 
-        const video = await MongoVideosModel.findById(restoredClip.video);
-        return { youtubeId: video.youtube_id };
+        // 7. Return the full object exactly how the frontend expects it
+        return {
+          ...newClip.toObject(),
+          youtubeId: video.youtube_id,
+        };
       }
 
       await session.commitTransaction();
       return null;
-    } catch (error) {
+    } catch (error: any) {
+      // If anything fails, abort the transaction so no bad data is saved
       await session.abortTransaction();
-      console.error('Transaction aborted - undoDeletedAudioClip:', error);
-      logger.error(error);
-      throw new HttpException(409, "Audio clip couldn't be restored.");
+      logger.error(`Transaction aborted - undoDeletedAudioClip: ${error.message}`);
+      throw new HttpException(error.statusCode || 500, error.message);
     } finally {
       session.endSession();
     }

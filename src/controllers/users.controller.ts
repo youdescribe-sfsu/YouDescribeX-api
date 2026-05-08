@@ -9,8 +9,8 @@ import { IUser } from '../models/mongodb/User.mongo';
 import { MongoUsersModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import sendEmail from '../utils/emailService';
 import { getYouTubeVideoStatus } from '../utils/util';
-import { deepCopyAudioClip } from '../utils/audioClips.util';
-import { deepCopyAudioDescriptionWithoutNewClips, updateAutoClips, updateContributions } from '../utils/audiodescriptions.util';
+import { deepCopyAudioClip, repairMissingTtsAudio } from '../utils/audioClips.util';
+import { deepCopyAudioDescriptionWithoutNewClips, findExistingCollaborativeDraft, updateAutoClips, updateContributions } from '../utils/audiodescriptions.util';
 import { PipelineFailureDto } from '../dtos/pipelineFailure.dto';
 
 class UsersController {
@@ -82,6 +82,17 @@ class UsersController {
       const findOneUserData = await this.userService.findUserByEmail(userEmail);
 
       res.status(200).json({ data: findOneUserData, message: 'findOne' });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public getUserById = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId: string = req.params.userId;
+      const findOneUserData = await this.userService.findUserById(userId);
+
+      res.status(200).json({ result: findOneUserData, message: 'findOne' });
     } catch (error) {
       next(error);
     }
@@ -175,11 +186,22 @@ class UsersController {
       if (!user) throw new Error('User not found');
       const videoId: string = req.body.youtubeVideoId;
       const audio_description_id = req.body.oldDescriberId;
+      const existingCollaborativeDraftId = await findExistingCollaborativeDraft(audio_description_id, user._id);
+
+      if (existingCollaborativeDraftId) {
+        await repairMissingTtsAudio(existingCollaborativeDraftId, videoId);
+        res.status(201).json({
+          message: 'Successfully retrieved existing collaborative Audio Description',
+          url: `${videoId}/${existingCollaborativeDraftId}`,
+        });
+        return;
+      }
       // deep copy audio description
       const deepCopiedAudioDescriptionId = await deepCopyAudioDescriptionWithoutNewClips(audio_description_id, user._id);
       const deepCopiedClipIds = await deepCopyAudioClip(audio_description_id, deepCopiedAudioDescriptionId, user._id, videoId);
       await updateAutoClips(deepCopiedAudioDescriptionId, deepCopiedClipIds);
       // replace audio description clip id with deep copied clip id
+      await repairMissingTtsAudio(deepCopiedAudioDescriptionId, videoId);
       res.status(201).json({
         message: `Successfully deeply copied Audio Description`,
         url: `${videoId}/${deepCopiedAudioDescriptionId}`,
@@ -293,9 +315,25 @@ class UsersController {
     }
   };
 
+  public requestAiDescriptionsWithLana = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // const userData = req.user as unknown as IUser;
+      const youtube_id = req.body.youtube_id;
+      const userData = req.user as IUser;
+      // const hostname = req.headers.origin;
+      const returnData = await this.userService.requestAiDescriptionsWithLana(userData, youtube_id);
+      res.status(201).json(returnData);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   public aiDescriptionStatus = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userData = req.user as unknown as IUser;
+      let userData = req.user as unknown as IUser;
+      if (!userData && req.headers.authorization) {
+        userData = await MongoUsersModel.findById(req.headers.authorization);
+      }
       const youtube_id = req.body.youtube_id;
 
       if (!userData) {

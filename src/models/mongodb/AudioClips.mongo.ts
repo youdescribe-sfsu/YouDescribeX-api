@@ -14,6 +14,7 @@ interface ITranscript {
 interface IAudioClip extends Document {
   // _id: string;
   audio_description: Schema.Types.ObjectId;
+  prev_clip_id: Schema.Types.ObjectId | null;
   created_at: number;
   description_type: 'Visual' | 'Text on Screen';
   description_text: string;
@@ -39,6 +40,12 @@ const AudioClipSchema: Schema = new Schema(
       type: Schema.Types.ObjectId,
       ref: 'AudioDescription',
       required: true,
+    },
+    prev_clip_id: {
+      type: Schema.Types.ObjectId,
+      ref: 'AudioClips',
+      required: false,
+      default: null,
     },
     created_at: {
       type: Number,

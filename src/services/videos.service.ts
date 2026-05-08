@@ -27,6 +27,7 @@ import stringSimilarity from 'string-similarity';
 import mongoose from 'mongoose';
 import cacheService from '../utils/cacheService';
 import YoutubeCacheService from './youtube-cache.service';
+import { getResolvedVideoDurationSeconds } from '../utils/youtube-metadata.util';
 
 class VideosService {
   public async getVideobyYoutubeId(youtubeId: string): Promise<any> {
@@ -43,20 +44,22 @@ class VideosService {
       if (nullFields.length > 0) {
         const updatedData = await getVideoDataByYoutubeId(youtubeId);
         const update = await MongoVideosModel.findOneAndUpdate({ youtube_id: youtubeId }, { $set: updatedData }, { new: true });
+        const resolvedVideoLength = getResolvedVideoDurationSeconds(update);
         return {
           video_id: update._id,
           youtube_video_id: update.youtube_id,
           video_name: update.title,
-          video_length: update.duration,
+          video_length: resolvedVideoLength,
           createdAt: update.created_at,
           updatedAt: update.updated_at,
         };
       } else {
+        const resolvedVideoLength = getResolvedVideoDurationSeconds(findVideoById);
         return {
           video_id: findVideoById._id,
           youtube_video_id: findVideoById.youtube_id,
           video_name: findVideoById.title,
-          video_length: findVideoById.duration,
+          video_length: resolvedVideoLength,
           createdAt: findVideoById.created_at,
           updatedAt: findVideoById.updated_at,
         };
@@ -584,7 +587,7 @@ class VideosService {
             const videoDetails = await this.getYouTubeVideoDetails(video.youtube_id, youTubeApiKey);
 
             if (videoDetails) {
-              const { duration, tags, categoryId } = videoDetails;
+              const { duration, tags, categoryId, youtubeMetadata } = videoDetails;
               const category = await this.getYouTubeCategory(categoryId, youTubeApiKey);
 
               const toUpdate = {
@@ -592,6 +595,7 @@ class VideosService {
                 category_id: categoryId,
                 category: category,
                 duration: duration,
+                youtube_metadata: youtubeMetadata,
                 youtube_status: 'available',
               };
               await MongoVideosModel.findOneAndUpdate({ youtube_id: video.youtube_id }, { $set: toUpdate }, { new: true }).exec();
@@ -610,7 +614,15 @@ class VideosService {
     }, 1000);
   }
 
-  private async getYouTubeVideoDetails(videoId: string, apiKey: string): Promise<{ duration: number; tags: string[]; categoryId: string } | null> {
+  private async getYouTubeVideoDetails(
+    videoId: string,
+    apiKey: string,
+  ): Promise<{
+    duration: number;
+    tags: string[];
+    categoryId: string;
+    youtubeMetadata: any;
+  } | null> {
     try {
       const response = await axios.get(`${process.env.YOUTUBE_API_URL}/videos`, {
         params: {
@@ -624,11 +636,12 @@ class VideosService {
       const data = response.data;
 
       if (data.items.length > 0) {
-        const duration = convertISO8601ToSeconds(data.items[0].contentDetails.duration);
-        const tags = data.items[0].snippet.tags || [];
-        const categoryId = data.items[0].snippet.categoryId;
+        const youtubeMetadata = data.items[0];
+        const duration = convertISO8601ToSeconds(youtubeMetadata.contentDetails.duration);
+        const tags = youtubeMetadata.snippet.tags || [];
+        const categoryId = youtubeMetadata.snippet.categoryId;
 
-        return { duration, tags, categoryId };
+        return { duration, tags, categoryId, youtubeMetadata };
       } else {
         return null;
       }

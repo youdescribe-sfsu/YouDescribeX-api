@@ -104,14 +104,14 @@ class FileManagementService {
         } else if (fs.existsSync(mp3Path)) {
           finalPath = mp3Path;
         } else {
-          logger.error(`No audio file found for path: ${fullPath} (tried .wav and .mp3)`);
-          return false;
+          logger.warn(`No audio file found for path: ${fullPath} (tried .wav and .mp3). Skipping delete.`);
+          return true;
         }
       }
 
       if (!fs.existsSync(finalPath)) {
-        logger.error(`File does not exist: ${finalPath}`);
-        return false;
+        logger.warn(`File does not exist: ${finalPath}. Skipping delete.`);
+        return true;
       }
 
       fs.unlinkSync(finalPath);
@@ -144,65 +144,32 @@ class FileManagementService {
       return oldPath;
     }
   }
-}
+  static getAbsoluteAudioPath(filePath: string, fileName?: string | null): string {
+    const normalizedPath = filePath.replace(/^\./, '');
+    return fileName ? `${CONFIG.app.audioDirectory}${normalizedPath}/${fileName}` : `${CONFIG.app.audioDirectory}${normalizedPath}`;
+  }
 
+  static audioFileExists(filePath: string, fileName?: string | null): boolean {
+    if (!filePath) {
+      return false;
+    }
+
+    const absolutePath = this.getAbsoluteAudioPath(filePath, fileName);
+    if (fs.existsSync(absolutePath)) {
+      return true;
+    }
+
+    if (fileName) {
+      return false;
+    }
+
+    return fs.existsSync(`${absolutePath}.mp3`) || fs.existsSync(`${absolutePath}.wav`);
+  }
+}
 class AudioClipService {
   private static textToSpeechClient = new TextToSpeechClient({
     keyFilename: CONFIG.google.textToSpeech.credentialsPath,
   });
-
-  static async generateSpeechWithEngine(text: string, clipDescriptionType: string): Promise<Buffer> {
-    const engine = CONFIG.app.ttsEngine;
-    if (engine === 'coqui') {
-      return await this.generateWithCoquiTTS(text, clipDescriptionType);
-    } else {
-      return await this.generateWithGoogleTTS(text, clipDescriptionType);
-    }
-  }
-
-  /**
-   * Generate speech using Coqui TTS
-   */
-  private static async generateWithCoquiTTS(text: string, clipDescriptionType: string): Promise<Buffer> {
-    // Check if Coqui TTS is healthy
-    const isHealthy = await CoquiTTSService.healthCheck();
-    if (!isHealthy) {
-      logger.warn('Coqui TTS unhealthy, falling back to Google TTS');
-      return await this.generateWithGoogleTTS(text, clipDescriptionType);
-    }
-
-    const lengthScale = clipDescriptionType === 'Visual' ? 0.3 : 0.6;
-    const result = await CoquiTTSService.generateSpeech(text, 'visual', lengthScale);
-
-    if (result.status && result.audio) {
-      return result.audio;
-    } else {
-      logger.warn('Coqui TTS failed, falling back to Google TTS');
-      return await this.generateWithGoogleTTS(text, clipDescriptionType);
-    }
-  }
-
-  /**
-   * Generate speech using Google TTS (existing logic)
-   */
-  private static async generateWithGoogleTTS(text: string, clipDescriptionType: string): Promise<Buffer> {
-    const voiceName = clipDescriptionType === 'Visual' ? 'en-US-Wavenet-D' : 'en-US-Wavenet-C';
-
-    const [response] = await this.textToSpeechClient.synthesizeSpeech({
-      input: { text },
-      voice: {
-        languageCode: 'en-US',
-        name: voiceName,
-        ssmlGender: 'NEUTRAL',
-      },
-      audioConfig: {
-        audioEncoding: 'MP3',
-        speakingRate: 1.0,
-      },
-    });
-
-    return response.audioContent as Buffer;
-  }
 
   static async generateMp3forDescriptionText(
     adId: string,
@@ -211,21 +178,28 @@ class AudioClipService {
     clipDescriptionType: string,
   ): Promise<TextToSpeechResponse> {
     try {
-      const audioBuffer = await this.generateSpeechWithEngine(clipDescriptionText, clipDescriptionType);
-
-      const engine = CONFIG.app.ttsEngine;
-      const fileExtension = engine === 'coqui' ? 'wav' : 'mp3';
-      const expectedMimeType = engine === 'coqui' ? 'audio/wav' : 'audio/mpeg';
+      const voiceName = clipDescriptionType === 'Visual' ? 'en-US-Studio-O' : 'en-US-Studio-Q';
+      const [response] = await this.textToSpeechClient.synthesizeSpeech({
+        input: { text: clipDescriptionText },
+        voice: {
+          languageCode: 'en-US',
+          name: voiceName,
+        },
+        audioConfig: {
+          audioEncoding: 'MP3',
+          speakingRate: 1.25,
+        },
+      });
 
       const uniqueId = uuidv4();
       const type = clipDescriptionType === 'Visual' ? 'nonOCR' : 'OCR';
-      const fileName = `${type}-${uniqueId}.${fileExtension}`;
+      const fileName = `${type}-${uniqueId}.mp3`;
       const dir = `${CONFIG.app.audioDirectory}/audio/${youtubeVideoId}/${adId}`;
 
       FileManagementService.ensureDirectoryExists(dir);
 
       const filepath = `${dir}/${fileName}`;
-      await fs.promises.writeFile(filepath, audioBuffer);
+      await fs.promises.writeFile(filepath, response.audioContent, 'binary');
 
       const fileMimeType = mime.lookup(filepath);
       const fileSizeBytes = fs.statSync(filepath).size;
@@ -235,7 +209,7 @@ class AudioClipService {
         status: true,
         filepath: servingFilepath,
         filename: fileName,
-        file_mime_type: fileMimeType || expectedMimeType,
+        file_mime_type: fileMimeType || 'audio/mpeg',
         file_size_bytes: fileSizeBytes,
       };
     } catch (error) {
@@ -260,16 +234,10 @@ class AudioClipService {
     requestedPlaybackType?: 'extended' | 'inline',
   ): Promise<PlaybackAnalysisResponse> {
     try {
-      // ALWAYS respect any explicitly requested type (whether extended or inline)
-      if (requestedPlaybackType) {
-        logger.info(`Preserving user-selected playback type: ${requestedPlaybackType}`);
-        return {
-          message: `Success - preserving user selection: ${requestedPlaybackType}`,
-          data: requestedPlaybackType,
-        };
+      if (requestedPlaybackType === 'extended') {
+        return { message: 'Success - using requested extended type', data: 'extended' };
       }
 
-      // Only execute calculation logic if no requested type is specified
       const overlappingDialogs = await MongoDialog_Timestamps_Model.find({
         video: videoId,
         $and: [{ dialog_start_time: { $lte: endTime } }, { dialog_end_time: { $gte: startTime } }],
@@ -493,15 +461,7 @@ class ClipProcessingService {
 
       const currentPlaybackType = audioClip.playback_type as 'extended' | 'inline';
 
-      const playbackType = await AudioClipService.analyzePlaybackType(
-        clipStartTime,
-        clipEndTime,
-        data.video_id,
-        data.ad_id,
-        data.clip_id,
-        true,
-        currentPlaybackType,
-      );
+      const playbackType = await AudioClipService.analyzePlaybackType(clipStartTime, clipEndTime, data.video_id, data.ad_id, data.clip_id, true);
 
       if (!playbackType.data) {
         return {
@@ -559,8 +519,29 @@ class DeepCopyService {
 
       const copiedClips = await Promise.all(
         audioClips.map(async audioClip => {
-          const newPath = FileManagementService.copyFile(audioClip.file_path, videoId, audioClip.file_name, deepCopiedAudioDescriptionId);
+          let newPath = FileManagementService.copyFile(audioClip.file_path, videoId, audioClip.file_name, deepCopiedAudioDescriptionId);
+          let newFileName = audioClip.file_name;
+          let fileMimeType = audioClip.file_mime_type;
+          let fileSizeBytes = audioClip.file_size_bytes;
 
+          const copiedFileExists = FileManagementService.audioFileExists(newPath, newFileName);
+          const shouldRegenerateTts = !copiedFileExists && !audioClip.is_recorded && !!audioClip.description_text?.trim();
+
+          if (shouldRegenerateTts) {
+            const regeneratedAudio = await AudioClipService.generateMp3forDescriptionText(
+              deepCopiedAudioDescriptionId,
+              videoId,
+              audioClip.description_text,
+              audioClip.description_type || 'Visual',
+            );
+
+            if (regeneratedAudio.status && regeneratedAudio.filepath && regeneratedAudio.filename) {
+              newPath = regeneratedAudio.filepath;
+              newFileName = regeneratedAudio.filename;
+              fileMimeType = regeneratedAudio.file_mime_type;
+              fileSizeBytes = regeneratedAudio.file_size_bytes;
+            }
+          }
           return MongoAudioClipsModel.create({
             description_type: audioClip.description_type || 'Visual',
             description_text: audioClip.description_text,
@@ -569,10 +550,11 @@ class DeepCopyService {
             end_time: audioClip.end_time,
             duration: audioClip.duration,
             file_path: newPath,
-            file_name: audioClip.file_name,
-            file_mime_type: audioClip.file_mime_type,
-            file_size_bytes: audioClip.file_size_bytes,
+            file_name: newFileName,
+            file_mime_type: fileMimeType,
+            file_size_bytes: fileSizeBytes,
             audio_description: deepCopiedAudioDescriptionId,
+            prev_clip_id: audioClip._id,
             user: userIdTo,
             video: audioClip.video,
             created_at: nowUtc(),
@@ -588,6 +570,50 @@ class DeepCopyService {
       logger.error('Deep copy error:', error);
       return null;
     }
+  }
+  static async repairMissingTtsAudio(audioDescriptionId: string, youtubeVideoId: string): Promise<number> {
+    const clips = await MongoAudioClipsModel.find({
+      audio_description: audioDescriptionId,
+      is_recorded: false,
+    });
+
+    let repairedCount = 0;
+
+    for (const clip of clips) {
+      const audioExists = FileManagementService.audioFileExists(clip.file_path, clip.file_name);
+      if (audioExists || !clip.description_text?.trim()) {
+        continue;
+      }
+
+      const regeneratedAudio = await AudioClipService.generateMp3forDescriptionText(
+        audioDescriptionId,
+        youtubeVideoId,
+        clip.description_text,
+        clip.description_type || 'Visual',
+      );
+
+      if (!regeneratedAudio.status || !regeneratedAudio.filepath || !regeneratedAudio.filename) {
+        logger.warn(`Unable to repair missing audio for clip ${clip._id}`);
+        continue;
+      }
+
+      await MongoAudioClipsModel.updateOne(
+        { _id: clip._id },
+        {
+          $set: {
+            file_path: regeneratedAudio.filepath,
+            file_name: regeneratedAudio.filename,
+            file_mime_type: regeneratedAudio.file_mime_type,
+            file_size_bytes: regeneratedAudio.file_size_bytes,
+            updated_at: nowUtc(),
+          },
+        },
+      );
+
+      repairedCount += 1;
+    }
+
+    return repairedCount;
   }
 }
 
@@ -616,6 +642,9 @@ export const analyzePlaybackType = async (
   return AudioClipService.analyzePlaybackType(currentClipStartTime, currentClipEndTime, videoId, adId, clipId, processingAllClips, requestedPlaybackType);
 };
 
+export const repairMissingTtsAudio = async (audioDescriptionId: string, youtubeVideoId: string): Promise<number> => {
+  return DeepCopyService.repairMissingTtsAudio(audioDescriptionId, youtubeVideoId);
+};
 export const getAudioDuration = async (filepath: string): Promise<{ message: string; data: string | null }> => {
   return FileManagementService.getAudioDuration(filepath);
 };

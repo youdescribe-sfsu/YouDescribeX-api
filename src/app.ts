@@ -2,6 +2,7 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import cookieSession from 'cookie-session';
 import passport from 'passport';
+import cors from 'cors';
 import express, { Application } from 'express';
 import { NODE_ENV, PORT, CURRENT_DATABASE, AUDIO_DIRECTORY } from './config';
 import { testDataBaseConnection } from './databases';
@@ -58,16 +59,29 @@ class App {
   }
 
   private async initializeMiddlewares() {
+    if (NODE_ENV === 'development') {
+      this.app.use(
+        cors({
+          origin: ['http://localhost:3000', 'https://ydx-dev.youdescribe.org'],
+          credentials: true,
+          methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+          allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'audiodescription'],
+        }),
+      );
+    }
+    this.app.set('trust proxy', 1);
     this.app.use(compression());
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
     this.app.use(cookieParser());
     this.app.use(
       cookieSession({
-        name: 'auth-session-v2',
+        name: 'auth-session-dev-v2',
         maxAge: 30 * 24 * 60 * 60 * 1000,
         secret: 'YouDescribe Secret',
-        domain: process.env.SESSION_COOKIE_DOMAIN,
+        domain: process.env.SESSION_COOKIE_DOMAIN || undefined,
+        sameSite: NODE_ENV === 'production' ? 'none' : 'lax',
+        secure: NODE_ENV === 'production',
       }),
     );
     this.app.use(passport.initialize());

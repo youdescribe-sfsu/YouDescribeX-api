@@ -11,10 +11,10 @@ export const GOOGLE_SERVICES = {
   },
   TEXT_TO_SPEECH: {
     VOICES: {
-      VISUAL: 'en-US-Wavenet-D', // Male voice for Visual descriptions
-      OCR: 'en-US-Wavenet-C', // Female voice for OCR descriptions
+      VISUAL: 'en-US-Studio-Q', // Male voice for Visual descriptions
+      OCR: 'en-US-Standard-H', // Female voice for OCR descriptions
     },
-    DEFAULT_SPEAKING_RATE: 1.25,
+    DEFAULT_SPEAKING_RATE: 1.5,
     DEFAULT_ENCODING: 'MP3',
   },
 };

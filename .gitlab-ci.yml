@@ -47,12 +47,15 @@ before_script:
       --build-arg TTS_API_CREDENTIALS_PATH="$TTS_API_CREDENTIALS_PATH"
       --build-arg STT_API_CREDENTIALS_FILE="$STT_API_CREDENTIALS_FILE"
       --build-arg STT_API_CREDENTIALS_PATH="$STT_API_CREDENTIALS_PATH"
+      --build-arg AI_SERVICE_URL="$AI_SERVICE_URL"
       -t $LATEST_IMAGE .
     - docker push $LATEST_IMAGE
     - echo "Build complete"
 
 build_dev:
   <<: *build_template
+  variables:
+    AI_SERVICE_URL: $AI_SERVICE_URL_DEV
   tags:
     - backend
     - dev
@@ -61,6 +64,8 @@ build_dev:
 
 build_prod:
   <<: *build_template
+  variables:
+    AI_SERVICE_URL: $AI_SERVICE_URL_PROD
   tags:
     - backend
     - prod
@@ -94,6 +99,7 @@ deploy_dev:
     ALLOWED_REDIRECT_DOMAIN: $ALLOWED_REDIRECT_DOMAIN_DEV
     APPLE_REDIRECT_URL: $APPLE_REDIRECT_URL_DEV
     SESSION_COOKIE_DOMAIN: $SESSION_COOKIE_DOMAIN
+    AI_SERVICE_URL: $AI_SERVICE_URL_DEV
   tags:
     - backend
     - dev
@@ -117,6 +123,7 @@ deploy_prod:
     ALLOWED_REDIRECT_DOMAIN: $ALLOWED_REDIRECT_DOMAIN_PROD
     APPLE_REDIRECT_URL: $APPLE_REDIRECT_URL_PROD
     SESSION_COOKIE_DOMAIN: $SESSION_COOKIE_DOMAIN
+    AI_SERVICE_URL: $AI_SERVICE_URL_PROD
   tags:
     - backend
     - prod

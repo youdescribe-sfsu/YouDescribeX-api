@@ -3,6 +3,7 @@ import { logger } from '../utils/logger';
 import axios from 'axios';
 import { MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import { YOUTUBE_API_KEY } from '../config';
+import { getDurationSecondsFromYouTubeMetadata } from '../utils/youtube-metadata.util';
 
 class YouTubeCacheService {
   private memoryCache: LRUCache<string, any>;
@@ -98,6 +99,8 @@ class YouTubeCacheService {
 
     try {
       const bulkOps = youtubeData.items.map(item => {
+        const durationSeconds = getDurationSecondsFromYouTubeMetadata(item);
+
         return {
           updateOne: {
             filter: { youtube_id: item.id },
@@ -106,6 +109,7 @@ class YouTubeCacheService {
                 youtube_metadata: item,
                 youtube_status: 'available',
                 updated_at: Date.now(),
+                ...(durationSeconds !== null ? { duration: durationSeconds } : {}),
               },
             },
             upsert: true,

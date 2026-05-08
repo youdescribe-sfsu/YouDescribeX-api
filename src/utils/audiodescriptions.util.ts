@@ -119,8 +119,13 @@ class PopulationService {
 
     for (const audioClip of audioDescriptions) {
       const audioDesc = await MongoAudio_Descriptions_Model.findById(audioClip.audio_description);
+      if (!audioDesc) {
+        throw new HttpException(404, 'Parent Audio Description not found');
+      }
       const video = await MongoVideosModel.findById(audioDesc.video);
-
+      if (!video) {
+        throw new HttpException(404, 'Associated Video not found');
+      }
       const videoAvailable = await isVideoAvailable(video.youtube_id);
       if (!videoAvailable) {
         throw new HttpException(400, `Video not available: ${video.youtube_id}`);
@@ -146,124 +151,132 @@ class PopulationService {
 // Contribution Service
 class ContributionService {
   static async updateContributions(audioDescriptionId: string, userId: string): Promise<void> {
-    console.log(`[COLLAB] Starting contribution update for audio description ${audioDescriptionId} by user ${userId}`);
+    logger.info(`[COLLAB] Starting contribution update for audio description ${audioDescriptionId} by user ${userId}`);
 
     try {
       const audioDescription = await MongoAudio_Descriptions_Model.findById(audioDescriptionId);
       if (!audioDescription) {
-        console.log(`[COLLAB] Audio Description ${audioDescriptionId} not found`);
         throw new HttpException(404, 'Audio Description not found');
       }
 
-      logger.info(`[COLLAB] Found audio description: ${audioDescriptionId}, user: ${audioDescription.user}, depth: ${audioDescription.depth || 1}`);
-      logger.debug(`[COLLAB] Initial contributions state: ${JSON.stringify(audioDescription.contributions || {})}`);
-
-      // Initialize contributions as an object if it doesn't exist
-      if (!audioDescription.contributions) {
-        audioDescription.contributions = {};
-      }
-
-      // If no previous version, set single user with 100% contribution
+      // First-version case: no parent → 100% to current user
       if (!audioDescription.prev_audio_description) {
         audioDescription.contributions = { [userId]: 1 };
         await audioDescription.save();
         return;
       }
 
-      // Get text content for comparison
-      const prevText = await ContributionService.getConcatenatedAudioClips(audioDescription.prev_audio_description);
-      const newText = await ContributionService.getConcatenatedAudioClips(audioDescriptionId);
-
-      // If previous doc exists but no content to compare, initialize with original user
-      if (!prevText) {
-        const prevAudioDescription = await MongoAudio_Descriptions_Model.findById(audioDescription.prev_audio_description);
-
-        if (prevAudioDescription) {
-          // Copy previous contributions if they exist
-          if (prevAudioDescription.contributions) {
-            audioDescription.contributions = { ...prevAudioDescription.contributions };
-          } else {
-            // Start with original user having 100% contribution
-            audioDescription.contributions = {
-              [prevAudioDescription.user.toString()]: 1,
-            };
-          }
-        } else {
-          // Fallback if previous document not found
-          audioDescription.contributions = { [userId]: 1 };
-        }
-
+      const prevAudioDescription = await MongoAudio_Descriptions_Model.findById(audioDescription.prev_audio_description);
+      if (!prevAudioDescription) {
+        // Parent missing — fall back to current user owns 100%
+        audioDescription.contributions = { [userId]: 1 };
         await audioDescription.save();
         return;
       }
 
-      // Log the contributions BEFORE calculation
-      logger.info(`[COLLAB] Contributions BEFORE update: ${JSON.stringify(audioDescription.contributions || {})}`);
+      // Load all clips from both versions
+      const [prevClips, newClips] = await Promise.all([
+        MongoAudioClipsModel.find({ audio_description: audioDescription.prev_audio_description }).sort({ start_time: 1 }),
+        MongoAudioClipsModel.find({ audio_description: audioDescriptionId }).sort({ start_time: 1 }),
+      ]);
 
-      // Create a completely new contributions object
-      const newContributions = {};
-      const oldContributions = audioDescription.contributions || {};
+      // Build lookup of previous clips by ID for O(1) matching
+      const prevClipsById = new Map(prevClips.map(c => [c._id.toString(), c]));
+      const matchedPrevIds = new Set<string>();
 
-      // Calculate edit distance and contribution percentages
-      const editingDistance = calculateEdittingDistance(prevText, newText);
-      logger.info(`[COLLAB] Editing distance: ${editingDistance}`);
+      // Per-clip retention weights (from MDCI paper)
+      const W_TEXT = 0.45;
+      const W_TIME = 0.45;
+      const W_PB = 0.05;
+      const W_VOICE = 0.05;
+      const TIME_THRESHOLD_SECONDS = 5.0;
 
-      const oldLength = Math.max(1, prevText.length); // Avoid division by zero
-      const newContribution = editingDistance / (oldLength + editingDistance);
-      const oldContributionSum = 1 - newContribution;
+      let weightedRetentionSum = 0; // Σ(w_i · R_i) for matched clips
+      let totalWeight = 0; // Σ w_i + Σ w_j + Σ w_k (matched + deleted + inserted)
 
-      logger.info(
-        `[COLLAB] New contribution percentage: ${(newContribution * 100).toFixed(2)}%, Old contributions scaled to: ${(oldContributionSum * 100).toFixed(2)}%`,
-      );
+      // Process each clip in the new version
+      for (const newClip of newClips) {
+        const w = Math.max(newClip.duration || 1, 0.1); // duration as weight, floor at 0.1
+        const prevId = newClip.prev_clip_id?.toString();
+        const matchedPrev = prevId ? prevClipsById.get(prevId) : undefined;
 
-      // KEY CHANGE: Check if oldContributions is empty, and if so, add the original author
-      if (Object.keys(oldContributions).length === 0) {
-        // Get the previous audio description to find the original author
-        const prevAudioDescription = await MongoAudio_Descriptions_Model.findById(audioDescription.prev_audio_description);
-        if (prevAudioDescription) {
-          const originalAuthorId = prevAudioDescription.user.toString();
-          newContributions[originalAuthorId] = oldContributionSum;
-          logger.info(`[COLLAB] Added original author ${originalAuthorId} with contribution ${oldContributionSum}`);
+        if (matchedPrev) {
+          // Matched clip — compute retention R_i
+          matchedPrevIds.add(prevId);
+
+          // S_text: 1 - normalized Levenshtein
+          const prevText = matchedPrev.description_text || '';
+          const newText = newClip.description_text || '';
+          const editDist = calculateEdittingDistance(prevText, newText);
+          const maxLen = Math.max(prevText.length, newText.length, 1);
+          const sText = 1 - editDist / maxLen;
+
+          // S_time: linear decay over threshold
+          const deltaTime = Math.abs((newClip.start_time || 0) - (matchedPrev.start_time || 0));
+          const sTime = Math.max(0, 1 - deltaTime / TIME_THRESHOLD_SECONDS);
+
+          // S_pb: binary
+          const sPb = newClip.playback_type === matchedPrev.playback_type ? 1 : 0;
+
+          // S_voice: binary
+          const sVoice = newClip.is_recorded === matchedPrev.is_recorded ? 1 : 0;
+
+          const R = W_TEXT * sText + W_TIME * sTime + W_PB * sPb + W_VOICE * sVoice;
+
+          weightedRetentionSum += w * R;
+          totalWeight += w;
+
+          logger.debug(
+            `[COLLAB] Matched clip ${newClip._id}: R=${R.toFixed(3)} (text=${sText.toFixed(2)}, time=${sTime.toFixed(2)}, pb=${sPb}, voice=${sVoice})`,
+          );
+        } else {
+          // Inserted clip — R = 0, weight goes into denominator only
+          totalWeight += w;
+          logger.debug(`[COLLAB] Inserted clip ${newClip._id}, weight ${w.toFixed(2)}`);
         }
-      } else {
-        // Scale existing contributions as before
-        Object.keys(oldContributions).forEach(key => {
-          newContributions[key] = oldContributions[key] * oldContributionSum;
-          logger.info(`[COLLAB] Scaled user ${key} contribution to ${newContributions[key]}`);
-        });
       }
 
-      // Add new contribution
-      if (newContributions[userId]) {
-        newContributions[userId] += newContribution;
-        logger.info(`[COLLAB] Updated existing user ${userId} contribution to ${newContributions[userId]}`);
-      } else {
-        newContributions[userId] = newContribution;
-        logger.info(`[COLLAB] Added new user ${userId} contribution: ${newContribution}`);
+      // Process deleted clips (in prev but not matched)
+      for (const prevClip of prevClips) {
+        if (!matchedPrevIds.has(prevClip._id.toString())) {
+          const w = Math.max(prevClip.duration || 1, 0.1);
+          totalWeight += w;
+          logger.debug(`[COLLAB] Deleted clip ${prevClip._id}, weight ${w.toFixed(2)}`);
+        }
       }
 
-      // Explicitly set the new contributions object
-      audioDescription.contributions = newContributions;
+      // Aggregate
+      const C_AI_local = totalWeight > 0 ? weightedRetentionSum / totalWeight : 0;
+      const C_H_local = 1 - C_AI_local;
 
-      // Log final contributions before saving
-      logger.info(`[COLLAB] Final contributions to save: ${JSON.stringify(newContributions)}`);
+      logger.info(`[COLLAB] Local contributions: AI(prev)=${(C_AI_local * 100).toFixed(2)}%, Human(current)=${(C_H_local * 100).toFixed(2)}%`);
 
-      // Save using findByIdAndUpdate to ensure it persists
-      const updateResult = await MongoAudio_Descriptions_Model.findByIdAndUpdate(
-        audioDescriptionId,
-        { $set: { contributions: newContributions } },
-        { new: true },
-      );
+      // Cascade: scale parent's existing contributions by C_AI_local, give current user C_H_local
+      const parentContributions: Record<string, number> = (prevAudioDescription.contributions as Record<string, number>) || {};
+      const newContributions: Record<string, number> = {};
 
-      logger.info(`[COLLAB] Update result: ${updateResult ? 'Success' : 'Failed'}`);
+      if (Object.keys(parentContributions).length === 0) {
+        // Parent has no contributions recorded → attribute to parent's user
+        newContributions[prevAudioDescription.user.toString()] = C_AI_local;
+      } else {
+        for (const [uid, share] of Object.entries(parentContributions)) {
+          newContributions[uid] = share * C_AI_local;
+        }
+      }
+
+      // Add current user's share
+      newContributions[userId] = (newContributions[userId] || 0) + C_H_local;
+
+      logger.info(`[COLLAB] Final contributions: ${JSON.stringify(newContributions)}`);
+
+      await MongoAudio_Descriptions_Model.findByIdAndUpdate(audioDescriptionId, { $set: { contributions: newContributions } }, { new: true });
+
       logger.info(`[COLLAB] Successfully updated contributions for ${audioDescriptionId}`);
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`[COLLAB] Error updating contributions for ${audioDescriptionId}: ${error.message}`);
-      logger.error(`[COLLAB] Error stack: ${error.stack}`);
       throw error;
     }
   }
-
   static async getConcatenatedAudioClips(audioDescriptionId: string): Promise<string> {
     logger.info(`[COLLAB] Getting concatenated audio clips for ${audioDescriptionId}`);
 
@@ -291,7 +304,7 @@ class ContributionService {
 
       logger.info(`[COLLAB] Concatenated text length: ${result.length} chars for ${audioDescriptionId}`);
       return result;
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`[COLLAB] Error getting concatenated audio clips for ${audioDescriptionId}: ${error.message}`);
       logger.error(`[COLLAB] Stack trace: ${error.stack}`);
       return '';
@@ -400,13 +413,30 @@ class AutoClipsService {
       const audioDescription = await MongoAudio_Descriptions_Model.findById(audioDescriptionId);
       if (!audioDescription) {
         logger.error('Audio Description not found');
-        return null;
+        return;
       }
       audioDescription.audio_clips = newClips;
       await audioDescription.save();
     } catch (error) {
       logger.error('Update auto clips error:', error);
     }
+  }
+
+  static async findExistingCollaborativeDraft(audioDescriptionId: string, toUserId: string): Promise<string | null> {
+    const audioDescription = await MongoAudio_Descriptions_Model.findById(audioDescriptionId);
+
+    if (!audioDescription) {
+      return null;
+    }
+
+    const existingDraft = await MongoAudio_Descriptions_Model.findOne({
+      prev_audio_description: audioDescription._id,
+      //status: 'draft',
+      user: toUserId,
+      video: audioDescription.video,
+    });
+
+    return existingDraft ? existingDraft._id.toString() : null;
   }
 
   static async deepCopyAudioDescriptionWithoutNewClips(audioDescriptionId: string, toUserId: string): Promise<string | null> {
@@ -423,13 +453,14 @@ class AutoClipsService {
       logger.debug(`[COLLAB] Original contributions: ${JSON.stringify(audioDescription.contributions || {})}`);
 
       // Initialize contributions as a plain JavaScript object
-      let initialContributions = {};
+      // 1. Initialize with the correct type
+      let initialContributions: Record<string, number> = {};
 
       if (audioDescription.contributions && typeof audioDescription.contributions === 'object') {
-        // Clone the existing contributions object
-        initialContributions = { ...audioDescription.contributions };
+        // 2. Cast the spread object to satisfy the Record type
+        initialContributions = { ...(audioDescription.contributions as Record<string, number>) };
       } else {
-        // Start with original user having 100% contribution
+        // 3. This is now safe because initialContributions has a string index signature
         initialContributions[audioDescription.user.toString()] = 1;
       }
 
@@ -458,7 +489,7 @@ class AutoClipsService {
       });
       logger.info(`[COLLAB] Created new audio description ${newAudioDescription._id} with depth ${newAudioDescription.depth}`);
       return newAudioDescription._id.toString();
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`[COLLAB] Error in deep copy: ${error.message}`);
       logger.error(`[COLLAB] Error stack: ${error.stack}`);
       return null;
@@ -479,6 +510,7 @@ export const updateAudioDescription = async (id: string, updateData: any) => {
 export { AudioDescriptionProcessingService, PopulationService, ContributionService, AIAudioDescriptionService, AutoClipsService };
 
 // Export functions for backward compatibility
+export const findExistingCollaborativeDraft = AutoClipsService.findExistingCollaborativeDraft;
 export const deepCopyAudioDescriptionWithoutNewClips = AutoClipsService.deepCopyAudioDescriptionWithoutNewClips;
 export const updateAutoClips = AutoClipsService.updateAutoClips;
 export const newAIAudioDescription = AIAudioDescriptionService.createNewDescription;
