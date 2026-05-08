@@ -111,5 +111,10 @@
     "tsc-alias": "^1.7.0",
     "tsconfig-paths": "^4.0.0",
     "typescript": "^4.9.5"
+  },
+  "overrides": {
+    "google-p12-pem": {
+      "node-forge": "^1.4.0"
+    }
   }
 }
