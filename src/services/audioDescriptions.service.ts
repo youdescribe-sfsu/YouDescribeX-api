@@ -718,7 +718,7 @@ class AudioDescriptionsService {
             updatedAt: '$video.updated_at',
           },
         },
-        { $sort: { createdAt: -1 } },
+        { $sort: { updatedAt: -1, _id: -1 } },
         {
           $facet: {
             videos: [{ $skip: skipCount }, { $limit: perPage }],
