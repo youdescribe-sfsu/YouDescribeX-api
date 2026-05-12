@@ -5,6 +5,7 @@ import { MongoAICaptionRequestModel, MongoUsersModel, MongoVideosModel } from '.
 import { logger } from '../utils/logger';
 import { IUser } from '../models/mongodb/User.mongo';
 import sendEmail from '../utils/emailService';
+import GpuUtilsService from '../services/gpu_utils.service';
 
 class AudioDescripionsController {
   public audioDescriptionsService = new AudioDescriptionsService();
@@ -39,6 +40,22 @@ class AudioDescripionsController {
       res.status(200).json(newAIDescription);
     } catch (error) {
       logger.error(error);
+      next(error);
+    }
+  };
+
+  public aidescriptionFailure = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { youtube_id, reason } = req.body;
+      if (!youtube_id) {
+        return res.status(400).json({ message: 'youtube_id required' });
+      }
+
+      const gpuUtils = new GpuUtilsService();
+      await gpuUtils.notifyAiDescriptionFailure(youtube_id, reason || 'Unknown failure');
+
+      return res.status(200).json({ success: true });
+    } catch (error) {
       next(error);
     }
   };

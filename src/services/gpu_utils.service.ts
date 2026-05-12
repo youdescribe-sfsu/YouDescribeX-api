@@ -99,6 +99,9 @@ class GpuUtilsService {
           logger.error(`Failed to send failure email to user ${user_id}: ${error.message}`);
         }
       }
+      // Delete the row so user can re-request
+      await MongoAICaptionRequestModel.deleteOne({ youtube_id });
+      logger.info(`Deleted caption request for ${youtube_id} after failure`);
     } catch (error) {
       logger.error(`Failed to send failure notifications for ${youtube_id}: ${error.message}`);
     }

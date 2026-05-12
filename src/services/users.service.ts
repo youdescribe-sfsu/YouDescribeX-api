@@ -697,22 +697,9 @@ class UserService {
       });
 
       if (activeProcessing) {
-        const updatedAt = (activeProcessing as any).updatedAt ? new Date((activeProcessing as any).updatedAt).getTime() : 0;
-        const staleDuration = Date.now() - updatedAt;
-
-        if (staleDuration > UserService.STALE_PROCESSING_TIMEOUT_MS) {
-          logger.warn(`Stale processing detected for ${activeProcessing.youtube_id} (stuck for ${Math.round(staleDuration / 60000)} min). Marking as failed.`);
-          await MongoAICaptionRequestModel.updateOne({ _id: activeProcessing._id }, { $set: { status: 'failed' } });
-          const gpuUtils = new GpuUtilsService();
-          await gpuUtils.notifyAiDescriptionFailure(
-            activeProcessing.youtube_id,
-            'The processing timed out. The server may have been busy or encountered an error.',
-          );
-        } else {
-          logger.info(`System busy: ${activeProcessing.youtube_id} is still ${activeProcessing.status}. Waiting...`);
-          setTimeout(() => this.processNextInQueueLana(), 30000);
-          return;
-        }
+        logger.info(`System busy: ${activeProcessing.youtube_id} is still processing. Waiting...`);
+        setTimeout(() => this.processNextInQueueLana(), 30000);
+        return;
       }
 
       const currentVideoStatus = await MongoAICaptionRequestModel.findOne({
