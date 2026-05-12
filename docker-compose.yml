@@ -67,6 +67,7 @@ services:
       - COQUI_TTS_URL=${COQUI_TTS_URL:-http://localhost:5002}
       - TTS_ENGINE=${TTS_ENGINE:-google}
       - COQUI_TTS_TIMEOUT=${COQUI_TTS_TIMEOUT:-15000}
+      - AI_SERVICE_URL=${AI_SERVICE_URL_DEV}
     logging:
       driver: "json-file"
       options:
