@@ -6,12 +6,12 @@ volumes:
 services:
   backend:
     container_name: youdescribex-backend
-    image: "${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:latest"
+    image: '${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:latest'
     ports:
-      - "${PORT}:${PORT}"
-      - "${GPU_PIPELINE_PORT}:${GPU_PIPELINE_PORT}"
+      - '${PORT}:${PORT}'
+      - '${GPU_PIPELINE_PORT}:${GPU_PIPELINE_PORT}'
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - 'host.docker.internal:host-gateway'
     network_mode: host
     depends_on:
       - coqui-tts
@@ -69,10 +69,10 @@ services:
       - COQUI_TTS_TIMEOUT=${COQUI_TTS_TIMEOUT:-15000}
       - AI_SERVICE_URL=${AI_SERVICE_URL}
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "200k"
-        max-file: "10"
+        max-size: '200k'
+        max-file: '10'
 
   # Coqui TTS Service with Persistent Model Storage
   coqui-tts:
@@ -84,17 +84,21 @@ services:
     environment:
       - MODEL_NAME=tts_models/en/ljspeech/vits
       - COQUI_TOS_AGREED=1
-    entrypoint: ["/bin/bash"]
-    command: ["-c", "if [ ! -d '/root/.local/share/tts/tts_models--en--ljspeech--vits' ]; then echo 'Model not found, will download...'; else echo 'Model exists, skipping download'; fi; python3 TTS/server/server.py --model_name tts_models/en/ljspeech/vits --port 5002"]
+    entrypoint: ['/bin/bash']
+    command:
+      [
+        '-c',
+        "if [ ! -d '/root/.local/share/tts/tts_models--en--ljspeech--vits' ]; then echo 'Model not found, will download...'; else echo 'Model exists, skipping download'; fi; python3 TTS/server/server.py --model_name tts_models/en/ljspeech/vits --port 5002",
+      ]
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5002"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:5002']
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "200k"
-        max-file: "10"
+        max-size: '200k'
+        max-file: '10'
