@@ -311,73 +311,61 @@ class VideosService {
 
       const videosPerPage = 20;
       const skipValue = (pgNumber - 1) * videosPerPage;
-      const normalizedQuery = query.toLowerCase();
-      const regexQuery = '\\b' + normalizedQuery + '\\b';
+      const normalizedQuery = query.toLowerCase().trim();
 
-      const matchQuery: any = {
-        $or: [
-          { 'language.name': { $regex: regexQuery, $options: 'i' } },
-          { category: { $regex: regexQuery, $options: 'i' } },
-          { title: { $regex: regexQuery, $options: 'i' } },
-          {
-            tags: {
-              $elemMatch: { $regex: regexQuery, $options: 'i' },
-            },
-          },
-          {
-            custom_tags: {
-              $elemMatch: { $regex: regexQuery, $options: 'i' },
-            },
-          },
-        ],
-        'populated_audio_descriptions.status': 'published',
-      };
+      // Escape regex special chars helper
+      const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+      // Tokenize: split on whitespace, drop empties and very short stopwords-ish
+      const tokens = normalizedQuery.split(/\s+/).filter(t => t.length > 0);
+
+      if (tokens.length === 0) {
+        return { total: 0, videos: [] };
+      }
+
+      // Build an $and of per-token $or clauses:
+      // every token must appear in at least one searchable field
+      const tokenClauses = tokens.map(token => {
+        const r = escapeRegex(token);
+        return {
+          $or: [
+            { title: { $regex: r, $options: 'i' } },
+            { description: { $regex: r, $options: 'i' } },
+            { category: { $regex: r, $options: 'i' } },
+            { 'language.name': { $regex: r, $options: 'i' } },
+            { tags: { $elemMatch: { $regex: r, $options: 'i' } } },
+            { custom_tags: { $elemMatch: { $regex: r, $options: 'i' } } },
+          ],
+        };
+      });
+
+      // Whole-phrase fallback for describer name matching
+      // (keep your existing describer logic but tighten it)
       const allUsers = await MongoUsersModel.find({ name: { $exists: true } }, { _id: 1, name: 1 });
-      const usernames = allUsers.map(user => user.name.toLowerCase());
 
-      // First: Try direct partial match (contains) for describer names
-      const partialMatchUserIds = allUsers.filter(user => user.name.toLowerCase().includes(normalizedQuery)).map(user => user._id);
-
-      console.log(`Search query: "${normalizedQuery}"`);
-      console.log(`Partial match user IDs found: ${partialMatchUserIds.length}`);
-      console.log(`Matched users: ${allUsers.filter(user => user.name.toLowerCase().includes(normalizedQuery)).map(u => u.name)}`);
-
-      // Add partial matches to the query
-      if (partialMatchUserIds.length > 0) {
-        matchQuery.$or.push({
-          'populated_audio_descriptions.user._id': { $in: partialMatchUserIds },
-        });
+      let describerUserIds: any[] = [];
+      if (normalizedQuery.length >= 3) {
+        describerUserIds = allUsers.filter(user => user.name.toLowerCase().includes(normalizedQuery)).map(user => user._id);
       }
 
-      // Second: Try fuzzy matching for typos/misspellings (fallback)
-      const matches = stringSimilarity.findBestMatch(normalizedQuery, usernames);
+      // YouTube ID exact match
+      const youtubeIdClause = /^[a-zA-Z0-9-_]{11}$/.test(query) ? [{ youtube_id: query }] : [];
 
-      const similarUserIds = Array.from(
-        new Set(
-          matches.ratings
-            .filter(({ rating }) => rating > 0.5)
-            .map(({ target }) => {
-              const normalizedTarget = target.toLowerCase();
-              return allUsers.filter(user => user.name.toLowerCase() === normalizedTarget).map(user => user._id);
-            })
-            .flat(),
-        ),
-      );
-
-      // Add fuzzy matches that weren't already added by partial matching
-      if (similarUserIds.length > 0) {
-        const partialMatchStrings = partialMatchUserIds.map(id => id.toString());
-        const newFuzzyIds = similarUserIds.filter(id => !partialMatchStrings.includes(id.toString()));
-
-        if (newFuzzyIds.length > 0) {
-          matchQuery.$or.push({ 'populated_audio_descriptions.user._id': { $in: newFuzzyIds } });
-        }
-      }
-
-      if (/^[a-zA-Z0-9-_]{11}$/.test(query)) {
-        matchQuery.$or.push({ youtube_id: query });
-      }
+      // Final matchQuery: video matches if
+      //   (all tokens hit somewhere) OR (describer name matches) OR (youtube id matches)
+      // AND audio description is published
+      const matchQuery: any = {
+        $and: [
+          {
+            $or: [
+              { $and: tokenClauses },
+              ...(describerUserIds.length > 0 ? [{ 'populated_audio_descriptions.user._id': { $in: describerUserIds } }] : []),
+              ...youtubeIdClause,
+            ],
+          },
+          { 'populated_audio_descriptions.status': 'published' },
+        ],
+      };
 
       const result = await MongoVideosModel.aggregate([
         {
@@ -388,9 +376,7 @@ class VideosService {
             as: 'populated_audio_descriptions',
           },
         },
-        {
-          $unwind: '$populated_audio_descriptions',
-        },
+        { $unwind: '$populated_audio_descriptions' },
         {
           $lookup: {
             from: 'audio_clips',
@@ -414,12 +400,8 @@ class VideosService {
             },
           },
         },
-        {
-          $match: matchQuery,
-        },
-        {
-          $sort: { 'populated_audio_descriptions.updated_at': -1 },
-        },
+        { $match: matchQuery },
+        { $sort: { 'populated_audio_descriptions.updated_at': -1 } },
         {
           $group: {
             _id: '$_id',
@@ -437,6 +419,14 @@ class VideosService {
             youtube_id: { $first: '$youtube_id' },
             youtube_status: { $first: '$youtube_status' },
             __v: { $first: '$__v' },
+          },
+        },
+        // Now sort videos by their latest description's updated_at — DETERMINISTIC order
+        // Add _id as tiebreaker to guarantee stable pagination
+        {
+          $sort: {
+            'audio_descriptions.updated_at': -1,
+            _id: 1,
           },
         },
         {
