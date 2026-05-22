@@ -1,5 +1,5 @@
 import { ObjectId } from 'mongodb';
-import { AUDIO_DIRECTORY, CURRENT_DATABASE } from '../config';
+import { AI_USER_ID, AUDIO_DIRECTORY, CURRENT_DATABASE } from '../config';
 import { NewAiDescriptionDto } from '../dtos/audioDescriptions.dto';
 import { HttpException } from '../exceptions/HttpException';
 import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
@@ -687,25 +687,21 @@ class AudioDescriptionsService {
       const perPage = 5;
       const skipCount = (page - 1) * perPage;
       const pipeline: any[] = [
-        { $match: { status: 'completed' } },
+        {
+          $match: {
+            user: new ObjectId(AI_USER_ID),
+            status: 'published',
+          },
+        },
         {
           $lookup: {
             from: 'videos',
-            localField: 'youtube_id',
-            foreignField: 'youtube_id',
+            localField: 'video',
+            foreignField: '_id',
             as: 'video',
           },
         },
         { $unwind: '$video' },
-        {
-          $group: {
-            _id: '$_id',
-            status: { $first: '$status' },
-            video: { $first: '$video' },
-            requestCreatedAt: { $first: '$created_at' },
-            requestCompletedAt: { $first: '$completed_at' },
-          },
-        },
         {
           $project: {
             _id: 1,
@@ -714,11 +710,10 @@ class AudioDescriptionsService {
             youtube_id: '$video.youtube_id',
             video_name: '$video.title',
             video_length: '$video.duration',
-            createdAt: '$requestCompletedAt',
-            updatedAt: '$video.updated_at',
+            updated_at: 1,
           },
         },
-        { $sort: { updatedAt: -1, _id: -1 } },
+        { $sort: { updated_at: -1, _id: -1 } },
         {
           $facet: {
             videos: [{ $skip: skipCount }, { $limit: perPage }],
@@ -732,7 +727,7 @@ class AudioDescriptionsService {
           },
         },
       ];
-      const result = await MongoAICaptionRequestModel.aggregate(pipeline).exec();
+      const result = await MongoAudio_Descriptions_Model.aggregate(pipeline);
       return {
         result: result[0]?.videos || [],
         totalVideos: result[0]?.total || 0,
