@@ -123,8 +123,8 @@ class AudioDescriptionsService {
   }
 
   public async newAiDescription(newAIDescription: NewAiDescriptionDto): Promise<IAudioDescription | Audio_DescriptionsAttributes> {
-    const { dialogue_timestamps, audio_clips, aiUserId = 'db72cc2a-b054-4b00-9f85-851b45649be0', youtube_id, video_name, video_length } = newAIDescription;
-    // if (isEmpty(dialogue_timestamps)) throw new HttpException(400, 'dialog is empty');
+    const { dialogue_timestamps, audio_clips, aiUserId = '6845e4375506faa0752b8d62', youtube_id, video_name, video_length } = newAIDescription;
+
     if (isEmpty(audio_clips)) {
       if (youtube_id) {
         await MongoAICaptionRequestModel.updateOne({ youtube_id, status: 'processing' }, { $set: { status: 'completed' } });
@@ -138,114 +138,123 @@ class AudioDescriptionsService {
     if (isEmpty(video_length)) throw new HttpException(400, 'video length is empty');
 
     const youtubeVideoData = await isVideoAvailable(youtube_id);
-
     if (!youtubeVideoData) {
       throw new HttpException(400, 'No youtubeVideoData provided');
     }
 
     if (CURRENT_DATABASE == 'mongodb') {
-      // console.log('aiUserId', aiUserId);
-      const aiUserObjectId = new ObjectId(aiUserId);
-      const aiUser = await MongoUsersModel.findById(aiUserObjectId);
-      if (!aiUser) throw new HttpException(404, "ai User doesn't exist");
-      let vid: any = await getYouTubeVideoStatus(youtube_id);
-      const ad = new MongoAudio_Descriptions_Model();
-      if (!ad) throw new HttpException(409, "Audio Descriptions couldn't be created");
-      if (vid) {
-        ad.set('video', vid._id);
-        // Add Audio Description to Video Audio Description Array for consistency with old MongodB and YD Classic logic
-        await MongoVideosModel.findByIdAndUpdate(vid._id, {
-          $push: {
-            audio_descriptions: {
-              $each: [{ _id: ad._id }],
-            },
-          },
-        }).catch(err => {
-          logger.error(err);
-          throw new HttpException(409, "Video couldn't be updated.");
-        });
-      } else {
-        const newVid = new MongoVideosModel({
-          audio_descriptions: [],
-          category: '',
-          category_id: 0,
-          youtube_id: youtube_id,
-          title: video_name,
-          duration: video_length,
-          description: '',
-          tags: [],
-          custom_tags: [],
-          views: 0,
-          youtube_status: 'ready',
-          updated_at: nowUtc(),
-        });
-        const newSavedVideo = await newVid.save();
-        if (!newSavedVideo) throw new HttpException(409, "Video couldn't be created");
-        await MongoVideosModel.findByIdAndUpdate(newVid._id, {
-          $push: {
-            audio_descriptions: {
-              $each: [{ _id: ad._id }],
-            },
-          },
-        }).catch(err => {
-          logger.error(err);
-          throw new HttpException(409, "Video couldn't be updated.");
-        });
-        ad.set('video', newSavedVideo._id);
-        vid = newSavedVideo;
-      }
-      ad.set('user', aiUser);
-      const new_clip = await MongoAudioClipsModel.insertMany(
-        audio_clips.map(clip => {
-          return {
-            audio_description: ad._id,
-            user: aiUser._id,
-            video: vid._id,
-            description_text: clip.text,
-            description_type: clip.type,
-            label: `scene ${clip.scene_number}`,
-            playback_type: 'extended',
-            start_time: clip.start_time,
-          };
-        }),
-      );
-      if (!new_clip) throw new HttpException(409, "Audio Clips couldn't be created");
-      ad.set(
-        'audio_clips',
-        new_clip.map(clip => clip._id),
-      );
-
-      const new_timestamp = await MongoDialog_Timestamps_Model.create(
-        dialogue_timestamps.map(timestamp => {
-          return {
-            video: vid,
-            dialog_sequence_num: timestamp.sequence_num,
-            dialog_start_time: timestamp.start_time,
-            dialog_end_time: timestamp.end_time,
-            dialog_duration: timestamp.duration,
-          };
-        }),
-      );
-      if (!new_timestamp) throw new HttpException(409, "Dialog Timestamps couldn't be created");
-      // console.log('new_timestamp', ad);
-      await ad.save();
-      await MongoAICaptionRequestModel.findOneAndUpdate({ youtube_id: youtube_id }, { status: 'completed' });
       try {
-        const gpuUtils = new GpuUtilsService();
-        const ydx_app_host = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const aiUserObjectId = new ObjectId(aiUserId);
+        const aiUser = await MongoUsersModel.findById(aiUserObjectId);
+        if (!aiUser) throw new HttpException(404, "ai User doesn't exist");
+        let vid: any = await getYouTubeVideoStatus(youtube_id);
+        const ad = new MongoAudio_Descriptions_Model();
+        if (!ad) throw new HttpException(409, "Audio Descriptions couldn't be created");
+        if (vid) {
+          ad.set('video', vid._id);
+          await MongoVideosModel.findByIdAndUpdate(vid._id, {
+            $push: {
+              audio_descriptions: {
+                $each: [{ _id: ad._id }],
+              },
+            },
+          }).catch(err => {
+            logger.error(err);
+            throw new HttpException(409, "Video couldn't be updated.");
+          });
+        } else {
+          const newVid = new MongoVideosModel({
+            audio_descriptions: [],
+            category: '',
+            category_id: 0,
+            youtube_id: youtube_id,
+            title: video_name,
+            duration: video_length,
+            description: '',
+            tags: [],
+            custom_tags: [],
+            views: 0,
+            youtube_status: 'ready',
+            updated_at: nowUtc(),
+          });
+          const newSavedVideo = await newVid.save();
+          if (!newSavedVideo) throw new HttpException(409, "Video couldn't be created");
+          await MongoVideosModel.findByIdAndUpdate(newVid._id, {
+            $push: {
+              audio_descriptions: {
+                $each: [{ _id: ad._id }],
+              },
+            },
+          }).catch(err => {
+            logger.error(err);
+            throw new HttpException(409, "Video couldn't be updated.");
+          });
+          ad.set('video', newSavedVideo._id);
+          vid = newSavedVideo;
+        }
+        ad.set('user', aiUser);
+        const new_clip = await MongoAudioClipsModel.insertMany(
+          audio_clips.map(clip => {
+            return {
+              audio_description: ad._id,
+              user: aiUser._id,
+              video: vid._id,
+              description_text: clip.text,
+              description_type: clip.type,
+              label: `scene ${clip.scene_number}`,
+              playback_type: 'extended',
+              start_time: clip.start_time,
+            };
+          }),
+        );
+        if (!new_clip) throw new HttpException(409, "Audio Clips couldn't be created");
+        ad.set(
+          'audio_clips',
+          new_clip.map(clip => clip._id),
+        );
 
-        await gpuUtils.notifyAiDescriptions(youtube_id, ad._id.toString(), ydx_app_host, []);
-        logger.info(`Notification trigger for ${youtube_id} initiated successfully.`);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        logger.error(`Notification failed: ${message}`);
+        const new_timestamp = await MongoDialog_Timestamps_Model.create(
+          dialogue_timestamps.map(timestamp => {
+            return {
+              video: vid,
+              dialog_sequence_num: timestamp.sequence_num,
+              dialog_start_time: timestamp.start_time,
+              dialog_end_time: timestamp.end_time,
+              dialog_duration: timestamp.duration,
+            };
+          }),
+        );
+        if (!new_timestamp) throw new HttpException(409, "Dialog Timestamps couldn't be created");
+
+        await ad.save();
+        const result = await MongoAICaptionRequestModel.updateOne({ youtube_id, ai_user_id: aiUserId }, { $set: { status: 'completed' } });
+        if (result.matchedCount === 0) {
+          logger.error(`No caption request matched for ${youtube_id} / ${aiUserId}`);
+        } else {
+          logger.info(`Marked caption request ${youtube_id} as completed`);
+        }
+        try {
+          const gpuUtils = new GpuUtilsService();
+          const ydx_app_host = process.env.FRONTEND_URL || 'http://localhost:3000';
+          await gpuUtils.notifyAiDescriptions(youtube_id, ad._id.toString(), ydx_app_host, []);
+          logger.info(`Notification trigger for ${youtube_id} initiated successfully.`);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          logger.error(`Notification failed: ${message}`);
+        }
+
+        return ad;
+      } catch (err: any) {
+        logger.error(`Fatal error in newAiDescription for ${youtube_id}: ${err.message}`);
+        await MongoAICaptionRequestModel.updateOne({ youtube_id, ai_user_id: aiUserId }, { $set: { status: 'failed' } }).catch(e =>
+          logger.error(`Failed to mark ${youtube_id} as failed: ${e.message}`),
+        );
+        throw err;
       }
-      // --- END NOTIFICATION EMAIL BLOCK ---
-      return ad; // <--- MOVE THIS HERE (At the very end of the if block)
     } else {
       const aiUser = await PostGres_Users.findOne({
         where: {
-          user_id: aiUserId, // AI User ID
+          user_id: aiUserId,
         },
       });
       if (!aiUser) throw new HttpException(404, "ai User doesn't exist");
@@ -256,7 +265,7 @@ class AudioDescriptionsService {
 
       const ad = await PostGres_Audio_Descriptions.create({
         is_published: false,
-      } as any); // The 'as any' tells TS: "I know what I'm doing, don't check the properties."
+      } as any);
       if (!ad) throw new HttpException(409, "Audio Descriptions couldn't be created");
 
       if (vid) {
@@ -707,6 +716,16 @@ class AudioDescriptionsService {
           },
         },
         {
+          $addFields: {
+            sortTier: {
+              $cond: [{ $ne: ['$requestUpdatedAt', null] }, 0, { $cond: [{ $ne: ['$requestCreatedAt', null] }, 1, 2] }],
+            },
+            sortDate: {
+              $ifNull: ['$requestUpdatedAt', '$requestCreatedAt'],
+            },
+          },
+        },
+        {
           $project: {
             _id: 1,
             status: 1,
@@ -716,12 +735,18 @@ class AudioDescriptionsService {
             video_length: '$video.duration',
             createdAt: '$requestCreatedAt',
             updatedAt: '$requestUpdatedAt',
+            sortTier: 1,
+            sortDate: 1,
           },
         },
-        { $sort: { updatedAt: -1, _id: -1 } },
+        { $sort: { sortTier: 1, sortDate: -1, youtube_id: 1, _id: -1 } },
         {
           $facet: {
-            videos: [{ $skip: skipCount }, { $limit: perPage }],
+            videos: [
+              { $skip: skipCount },
+              { $limit: perPage },
+              { $project: { sortTier: 0, sortDate: 0 } }, // hide internal sort fields
+            ],
             totalCount: [{ $count: 'count' }],
           },
         },
