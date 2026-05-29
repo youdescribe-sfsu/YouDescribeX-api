@@ -18,6 +18,7 @@ import { initPassport, MongoAICaptionRequestModel, MongoVideosModel } from './mo
 import { checkAndNotify, gpuStatusCronJob, videoStatusCheckJob } from './utils/cron.utils';
 import moment from 'moment';
 import YouTubeProxyRoute from './routes/youtube-proxy.route';
+import mongoose from 'mongoose';
 
 class App {
   public static numOfVideosFromYoutube = 0;
@@ -99,6 +100,12 @@ class App {
 
   private async createIndexes() {
     try {
+      if (mongoose.connection.readyState !== 1) {
+        await new Promise<void>((resolve, reject) => {
+          mongoose.connection.once('connected', () => resolve());
+          mongoose.connection.once('error', err => reject(err));
+        });
+      }
       const aiRequestsCollection = MongoAICaptionRequestModel.collection;
       const videosCollection = MongoVideosModel.collection;
 
