@@ -4,7 +4,12 @@ import { logger } from '../utils/logger';
 
 const errorMiddleware = (error: HttpException, req: Request, res: Response, next: NextFunction) => {
   try {
-    const status: number = error.status || 500;
+    let status: number = error.status || 500;
+    // Map semantic error types (from utils/customErrors) to HTTP status codes.
+    // Without this, a thrown AuthenticationError has no `.status` and falls
+    // through to 500 instead of the correct 401/403.
+    if (error.name === 'AuthenticationError') status = 401;
+    if (error.name === 'AuthorizationError') status = 403;
     const message: string = error.message || 'Something went wrong';
     const stack = new Error().stack;
     const details = stack?.split('\n')[2]?.trim().split(' (')[1]?.slice(0, -1);

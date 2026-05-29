@@ -12,6 +12,7 @@ import { getYouTubeVideoStatus } from '../utils/util';
 import { deepCopyAudioClip, repairMissingTtsAudio } from '../utils/audioClips.util';
 import { deepCopyAudioDescriptionWithoutNewClips, findExistingCollaborativeDraft, updateAutoClips, updateContributions } from '../utils/audiodescriptions.util';
 import { PipelineFailureDto } from '../dtos/pipelineFailure.dto';
+import { AuthenticationError } from '../utils/customErrors';
 
 class UsersController {
   public userService = new userService();
@@ -353,7 +354,7 @@ class UsersController {
       const pageNumber = req.query.page;
       const paginate = req.query.paginate !== 'false';
       if (!userData) {
-        throw new Error('User not logged in');
+        throw new AuthenticationError('User not logged in');
       }
       const user = await MongoUsersModel.findById(userData._id);
       if (!user) {
@@ -400,7 +401,7 @@ class UsersController {
       const youtubeId = req.body.youtube_id;
       const invalidate_cache = req.body.invalidate_cache;
       if (!userData) {
-        throw new Error('User not logged in');
+        throw new AuthenticationError('User not logged in');
       }
       const user = await MongoUsersModel.findById(userData._id);
       if (!user) {
@@ -420,7 +421,7 @@ class UsersController {
       const pageNumber = req.query.page;
       const paginate = req.query.paginate !== 'false';
       if (!userData) {
-        throw new Error('User not logged in');
+        throw new AuthenticationError('User not logged in');
       }
       const user = await MongoUsersModel.findById(userData._id);
       if (!user) {
