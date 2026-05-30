@@ -16,6 +16,7 @@ import yaml from 'js-yaml';
 import fs from 'fs';
 import { initPassport, MongoAICaptionRequestModel, MongoVideosModel } from './models/mongodb/init-models.mongo';
 import { checkAndNotify, gpuStatusCronJob, videoStatusCheckJob } from './utils/cron.utils';
+import { stuckProcessingSweeperJob } from './utils/aiRequestSweeper.utils';
 import moment from 'moment';
 import YouTubeProxyRoute from './routes/youtube-proxy.route';
 import mongoose from 'mongoose';
@@ -147,6 +148,7 @@ class App {
     checkAndNotify();
     gpuStatusCronJob.start();
     videoStatusCheckJob.start();
+    stuckProcessingSweeperJob.start();
     this.setupVideoCountIntervals();
   }
 

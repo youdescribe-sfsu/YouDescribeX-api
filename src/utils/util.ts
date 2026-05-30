@@ -75,7 +75,9 @@ export const getYouTubeVideoStatus = async (youtube_id: string): Promise<IVideo>
 export const checkGPUServerStatus = async (): Promise<boolean> => {
   try {
     if (GPU_URL === null) throw new Error('GPU_URL is not defined');
-    await axios.get(`${GPU_URL}/health_check`);
+    // AI service exposes GET /health (see AI-generated-AD server.py); the old
+    // /health_check path 404s, which made this always return false.
+    await axios.get(`${GPU_URL}/health`);
     return true;
   } catch (error) {
     console.error('Error checking GPU server status:', error.code);
