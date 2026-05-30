@@ -6,6 +6,7 @@ import { logger } from '../utils/logger';
 import { IUser } from '../models/mongodb/User.mongo';
 import sendEmail from '../utils/emailService';
 import GpuUtilsService from '../services/gpu_utils.service';
+import { AuthenticationError } from '../utils/customErrors';
 
 class AudioDescripionsController {
   public audioDescriptionsService = new AudioDescriptionsService();
@@ -145,7 +146,7 @@ class AudioDescripionsController {
       const paginate = req.query.paginate !== 'false';
 
       if (!userData) {
-        throw new Error('User not logged in');
+        throw new AuthenticationError('User not logged in');
       }
 
       const audioDescription = await this.audioDescriptionsService.getMyDescriptions(userData._id, <string>pageNumber, paginate);
@@ -162,7 +163,7 @@ class AudioDescripionsController {
       const pageNumber = req.query.page;
 
       if (!userData) {
-        throw new Error('User not logged in');
+        throw new AuthenticationError('User not logged in');
       }
 
       const audioDescription = await this.audioDescriptionsService.getMyDraftDescriptions(userData._id, <string>pageNumber);
@@ -179,7 +180,7 @@ class AudioDescripionsController {
       const pageNumber = req.query.pageNumber;
 
       if (!userData) {
-        throw new Error('User not logged in');
+        throw new AuthenticationError('User not logged in');
       }
 
       const audioDescription = await this.audioDescriptionsService.getAllAIDescriptions(userData._id, <string>pageNumber);
