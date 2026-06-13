@@ -2,7 +2,7 @@ import { google } from '@google-cloud/text-to-speech/build/protos/protos';
 import { CreateUserAudioDescriptionDto, CreateUserDto, NewUserDto } from '../dtos/users.dto';
 import { HttpException } from '../exceptions/HttpException';
 import { getYouTubeVideoStatus, isEmpty, nowUtc } from '../utils/util';
-import { CURRENT_DATABASE, CURRENT_YDX_HOST, GPU_URL, AI_USER_ID } from '../config';
+import { CURRENT_DATABASE, CURRENT_YDX_HOST, GPU_URL, AI_USER_ID, AI_PIPELINE_CONCURRENCY } from '../config';
 import GpuUtilsService from './gpu_utils.service';
 import { PostGres_Users, UsersAttributes } from '../models/postgres/init-models';
 import {
@@ -34,7 +34,8 @@ class UserService {
     aiUserId: string;
     ydx_app_host: string;
   }> = [];
-  private isProcessingQueue = false;
+  private isProcessingQueue = false; // legacy: used only by processNextInQueue (non-Lana)
+  private isDispatching = false; // new: used by processNextInQueueLana
   public audioClipsService = new AudioClipsService();
 
   public async findAllUser(): Promise<IUser[] | UsersAttributes[]> {
@@ -691,41 +692,59 @@ class UserService {
 
   private static readonly STALE_PROCESSING_TIMEOUT_MS = 30 * 60 * 1000;
 
+  private async recoverStaleProcessing(): Promise<void> {
+    const staleThreshold = new Date(Date.now() - UserService.STALE_PROCESSING_TIMEOUT_MS);
+    const staleRecords = await MongoAICaptionRequestModel.find({
+      status: 'processing',
+      updatedAt: { $lt: staleThreshold },
+    });
+
+    for (const record of staleRecords) {
+      const staleDuration = Date.now() - new Date((record as any).updatedAt).getTime();
+      logger.warn(`Stale processing detected for ${record.youtube_id} (stuck for ${Math.round(staleDuration / 60000)} min). Marking as failed.`);
+      await MongoAICaptionRequestModel.updateOne({ _id: record._id }, { $set: { status: 'failed' } });
+      const gpuUtils = new GpuUtilsService();
+      await gpuUtils.notifyAiDescriptionFailure(record.youtube_id, 'The processing timed out. The server may have been busy or encountered an error.');
+    }
+  }
+
   //******** LANA CHANGE *********/
   private async processNextInQueueLana(): Promise<void> {
-    if (this.videoProcessingQueue.length === 0) {
-      this.isProcessingQueue = false;
-      return;
-    }
+    // Re-entry guard: only one dispatch loop active at a time.
+    if (this.isDispatching) return;
+    if (this.videoProcessingQueue.length === 0) return;
 
-    this.isProcessingQueue = true;
-    const nextItem = this.videoProcessingQueue[0];
-
+    this.isDispatching = true;
     try {
-      const activeProcessing = await MongoAICaptionRequestModel.findOne({
-        status: { $in: ['processing'] },
-      });
+      // 1. Recover any stale 'processing' records so they don't permanently block dispatch.
+      await this.recoverStaleProcessing();
 
-      if (activeProcessing) {
-        logger.info(`System busy: ${activeProcessing.youtube_id} is still processing. Waiting...`);
-        setTimeout(() => this.processNextInQueueLana(), 30000);
-        return;
-      }
+      // 2. Read in-flight count. Mongo is the source of truth — survives api restarts.
+      let inFlight = await MongoAICaptionRequestModel.countDocuments({ status: 'processing' });
 
-      const currentVideoStatus = await MongoAICaptionRequestModel.findOne({
-        youtube_id: nextItem.youtubeId,
-        ai_user_id: nextItem.aiUserId,
-      });
+      // 3. Dispatch as many items as slots allow.
+      while (this.videoProcessingQueue.length > 0 && inFlight < AI_PIPELINE_CONCURRENCY) {
+        const nextItem = this.videoProcessingQueue[0];
 
-      if (currentVideoStatus?.status === 'completed') {
-        logger.info(`Video ${nextItem.youtubeId} already completed. Skipping.`);
-        this.videoProcessingQueue.shift();
-        return this.processNextInQueueLana();
-      }
+        // Skip items whose video has already been completed (e.g. by a parallel path).
+        const currentVideoStatus = await MongoAICaptionRequestModel.findOne({
+          youtube_id: nextItem.youtubeId,
+          ai_user_id: nextItem.aiUserId,
+        });
+        if (currentVideoStatus?.status === 'completed') {
+          logger.info(`Video ${nextItem.youtubeId} already completed. Skipping.`);
+          this.videoProcessingQueue.shift();
+          continue;
+        }
 
-      const user = await MongoUsersModel.findById(nextItem.userId);
-      if (user) {
-        logger.info(`Calling API service for video: ${nextItem.youtubeId}`);
+        const user = await MongoUsersModel.findById(nextItem.userId);
+        if (!user) {
+          logger.warn(`User ${nextItem.userId} not found for queued video ${nextItem.youtubeId}; dropping.`);
+          this.videoProcessingQueue.shift();
+          continue;
+        }
+
+        logger.info(`Dispatching ${nextItem.youtubeId} to AI service (inFlight=${inFlight}/${AI_PIPELINE_CONCURRENCY})`);
 
         await MongoAICaptionRequestModel.updateOne(
           { youtube_id: nextItem.youtubeId, ai_user_id: nextItem.aiUserId },
@@ -733,25 +752,29 @@ class UserService {
           { upsert: true },
         );
 
-        await this.sendToApiService(user, nextItem.youtubeId, nextItem.aiUserId);
-
-        this.videoProcessingQueue.shift();
+        try {
+          await this.sendToApiService(user, nextItem.youtubeId, nextItem.aiUserId);
+          this.videoProcessingQueue.shift();
+          inFlight++;
+        } catch (dispatchErr: any) {
+          logger.warn(`Dispatch failed for ${nextItem.youtubeId}: ${dispatchErr.message}. Will retry next tick.`);
+          await MongoAICaptionRequestModel.updateOne({ youtube_id: nextItem.youtubeId, ai_user_id: nextItem.aiUserId }, { $set: { status: 'failed' } });
+          const gpuUtils = new GpuUtilsService();
+          await gpuUtils.notifyAiDescriptionFailure(nextItem.youtubeId, 'An error occurred while dispatching your request.');
+          this.videoProcessingQueue.shift();
+          break;
+        }
       }
     } catch (error: any) {
-      logger.error(`Error in queue processing for ${nextItem.youtubeId}: ${error.message}`);
-      try {
-        await MongoAICaptionRequestModel.updateOne({ youtube_id: nextItem.youtubeId, status: 'processing' }, { $set: { status: 'failed' } });
-        const gpuUtils = new GpuUtilsService();
-        await gpuUtils.notifyAiDescriptionFailure(nextItem.youtubeId, 'An error occurred while processing your request.');
-      } catch (dbErr: any) {
-        logger.error(`Failed to reset status for ${nextItem.youtubeId}: ${dbErr.message}`);
-      }
-      if (error.code !== 'ECONNABORTED') {
-        this.videoProcessingQueue.shift();
-      }
+      logger.error(`Error in queue dispatcher: ${error.message}`);
+    } finally {
+      this.isDispatching = false;
     }
 
-    setTimeout(() => this.processNextInQueueLana(), 5000);
+    // Re-schedule a tick if there's more work and we're capacity-bound.
+    if (this.videoProcessingQueue.length > 0) {
+      setTimeout(() => this.processNextInQueueLana(), 5000);
+    }
   }
 
   private async sendToApiService(user: IUser, youtube_id: string, aiUserId: string): Promise<void> {
