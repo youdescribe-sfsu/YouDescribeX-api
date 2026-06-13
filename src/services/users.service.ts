@@ -628,14 +628,22 @@ class UserService {
     try {
       logger.info(`Adding video ${youtube_id} to processing queue for user ${userData._id}`);
 
-      this.videoProcessingQueue.push({
+      const queueItem = {
         youtubeId: youtube_id,
         userId: userData._id.toString(),
         aiUserId: AI_USER_ID,
         ydx_app_host,
-      });
+      };
+      this.videoProcessingQueue.push(queueItem);
 
-      await this.performImmediateOperations(userData, youtube_id, ydx_app_host, youtubeVideoData);
+      try {
+        await this.performImmediateOperations(userData, youtube_id, ydx_app_host, youtubeVideoData);
+      } catch (preflightErr) {
+        // Roll back: remove the item we just enqueued so the dispatcher doesn't pick up a ghost
+        const idx = this.videoProcessingQueue.indexOf(queueItem);
+        if (idx >= 0) this.videoProcessingQueue.splice(idx, 1);
+        throw preflightErr;
+      }
 
       this.processNextInQueueLana();
 

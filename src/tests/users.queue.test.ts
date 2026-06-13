@@ -29,9 +29,8 @@ describe('UserService.computeVideosAhead', () => {
 });
 
 describe('UserService.getNewAudioDescriptionEmailBody', () => {
-  const svc = new UserService() as any;
-
   it('says "next in line" when videosAhead is 0', () => {
+    const svc = new UserService() as any;
     const body: string = svc.getNewAudioDescriptionEmailBody('Alex', 'My Test Video', 0, 0);
     expect(body).toContain('Alex');
     expect(body).toContain('My Test Video');
@@ -40,6 +39,7 @@ describe('UserService.getNewAudioDescriptionEmailBody', () => {
   });
 
   it('includes the videosAhead count when greater than 0', () => {
+    const svc = new UserService() as any;
     const body: string = svc.getNewAudioDescriptionEmailBody('Alex', 'My Test Video', 3, 2);
     expect(body).toContain('3 video');
     expect(body).toMatch(/2 being processed/);
