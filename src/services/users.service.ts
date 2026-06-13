@@ -757,11 +757,17 @@ class UserService {
           this.videoProcessingQueue.shift();
           inFlight++;
         } catch (dispatchErr: any) {
-          logger.warn(`Dispatch failed for ${nextItem.youtubeId}: ${dispatchErr.message}. Will retry next tick.`);
-          await MongoAICaptionRequestModel.updateOne({ youtube_id: nextItem.youtubeId, ai_user_id: nextItem.aiUserId }, { $set: { status: 'failed' } });
-          const gpuUtils = new GpuUtilsService();
-          await gpuUtils.notifyAiDescriptionFailure(nextItem.youtubeId, 'An error occurred while dispatching your request.');
-          this.videoProcessingQueue.shift();
+          logger.warn(`Dispatch failed for ${nextItem.youtubeId}: ${dispatchErr.message}. Dropping request.`);
+          try {
+            await MongoAICaptionRequestModel.updateOne({ youtube_id: nextItem.youtubeId, ai_user_id: nextItem.aiUserId }, { $set: { status: 'failed' } });
+            const gpuUtils = new GpuUtilsService();
+            await gpuUtils.notifyAiDescriptionFailure(nextItem.youtubeId, 'An error occurred while dispatching your request.');
+          } catch (cleanupErr: any) {
+            logger.error(`Cleanup after dispatch failure for ${nextItem.youtubeId} also failed: ${cleanupErr.message}`);
+          } finally {
+            // Always remove the item so the dispatcher doesn't re-process it next tick.
+            this.videoProcessingQueue.shift();
+          }
           break;
         }
       }

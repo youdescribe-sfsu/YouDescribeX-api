@@ -48,16 +48,16 @@ describe('UserService.getNewAudioDescriptionEmailBody', () => {
 });
 
 describe('UserService.processNextInQueueLana — concurrency gate', () => {
-  beforeEach(() => {
-    jest.resetAllMocks();
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('does not dispatch when inFlight >= AI_PIPELINE_CONCURRENCY', async () => {
     const svc = new UserService() as any;
     svc.videoProcessingQueue = [{ youtubeId: 'vid1', userId: 'u', aiUserId: 'ai', ydx_app_host: '' }];
 
-    (MongoAICaptionRequestModel as any).countDocuments = jest.fn().mockResolvedValue(2);
-    (MongoAICaptionRequestModel as any).find = jest.fn().mockResolvedValue([]);
+    jest.spyOn(MongoAICaptionRequestModel as any, 'countDocuments').mockResolvedValue(2);
+    jest.spyOn(MongoAICaptionRequestModel as any, 'find').mockResolvedValue([]);
     const sendSpy = jest.spyOn(svc, 'sendToApiService').mockResolvedValue(undefined);
 
     await svc.processNextInQueueLana();
@@ -74,17 +74,16 @@ describe('UserService.processNextInQueueLana — concurrency gate', () => {
       { youtubeId: 'vid3', userId: 'u3', aiUserId: 'ai', ydx_app_host: '' },
     ];
 
-    (MongoAICaptionRequestModel as any).countDocuments = jest.fn().mockResolvedValue(0);
-    (MongoAICaptionRequestModel as any).find = jest.fn().mockResolvedValue([]);
-    (MongoAICaptionRequestModel as any).findOne = jest.fn().mockResolvedValue(null);
-    (MongoAICaptionRequestModel as any).updateOne = jest.fn().mockResolvedValue({});
-    (MongoUsersModel as any).findById = jest.fn().mockResolvedValue({ _id: 'u1', email: 'x@y.z' });
+    jest.spyOn(MongoAICaptionRequestModel as any, 'countDocuments').mockResolvedValue(0);
+    jest.spyOn(MongoAICaptionRequestModel as any, 'find').mockResolvedValue([]);
+    jest.spyOn(MongoAICaptionRequestModel as any, 'findOne').mockResolvedValue(null);
+    jest.spyOn(MongoAICaptionRequestModel as any, 'updateOne').mockResolvedValue({} as any);
+    jest.spyOn(MongoUsersModel as any, 'findById').mockResolvedValue({ _id: 'u1', email: 'x@y.z' });
 
     const sendSpy = jest.spyOn(svc, 'sendToApiService').mockResolvedValue(undefined);
 
     await svc.processNextInQueueLana();
 
-    // Default AI_PIPELINE_CONCURRENCY is 2 → exactly 2 dispatches, 1 left.
     expect(sendSpy).toHaveBeenCalledTimes(2);
     expect(svc.videoProcessingQueue.length).toBe(1);
     expect(svc.videoProcessingQueue[0].youtubeId).toBe('vid3');
