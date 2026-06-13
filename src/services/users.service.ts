@@ -659,20 +659,28 @@ class UserService {
     }
   }
 
+  private computeVideosAhead(currentlyProcessing: number): number {
+    const inQueueAhead = Math.max(0, this.videoProcessingQueue.length - 1);
+    return inQueueAhead + currentlyProcessing;
+  }
+
   // Add this method after queueVideoForProcessing
   private async performImmediateOperations(userData: IUser, youtube_id: string, ydx_app_host: string, youtubeVideoData: any): Promise<void> {
     try {
-      // Increment counter in database
       await this.increaseRequestCount(youtube_id, userData._id.toString(), AI_USER_ID);
 
-      // Send initial notification email to user
+      const currentlyProcessing = await MongoAICaptionRequestModel.countDocuments({ status: 'processing' });
+      const videosAhead = this.computeVideosAhead(currentlyProcessing);
+
       await sendEmail(
         userData.email,
         `🎬 AI Description for "${youtubeVideoData.title}" is in the Works!`,
-        this.getNewAudioDescriptionEmailBody(userData.name, youtubeVideoData.title),
+        this.getNewAudioDescriptionEmailBody(userData.name, youtubeVideoData.title, videosAhead, currentlyProcessing),
       );
 
-      logger.info(`Immediate operations completed for video ${youtube_id}, user ${userData._id}`);
+      logger.info(
+        `Immediate operations completed for video ${youtube_id}, user ${userData._id} (videosAhead=${videosAhead}, processing=${currentlyProcessing})`,
+      );
     } catch (error: any) {
       logger.error(`Error in immediate operations for ${youtube_id}: ${error.message}`);
       throw error;
@@ -905,26 +913,33 @@ class UserService {
         `;
   }
 
-  private getNewAudioDescriptionEmailBody(userName: string, videoTitle: string) {
+  private getNewAudioDescriptionEmailBody(userName: string, videoTitle: string, videosAhead: number, currentlyProcessing: number) {
+    const queueLine =
+      videosAhead === 0
+        ? `Your video is next in line — processing will start shortly.`
+        : `There are currently ${videosAhead} video(s) ahead of yours in the queue (${currentlyProcessing} being processed right now).`;
+
     return `
       Dear ${userName},
-      
+
       Great news! We've received your request for an AI-generated audio description of "${videoTitle}". Our advanced AI is now hard at work crafting a detailed and engaging description just for you.
-      
+
       Here's what's happening:
-      
+
       - Our AI is analyzing the video content
       - It's identifying key visual elements and actions
       - Soon, it will generate a comprehensive audio description
-      
+
+      ${queueLine}
+
       We'll notify you as soon as your AI-enhanced audio description is ready to explore. This may take some time, depending on the video's length and complexity.
-      
+
       In the meantime, why not explore other audio-described videos on YouDescribe? There's always something new to discover!
-      
+
       Thank you for your patience and for being a valued member of the YouDescribe community. Your request helps us improve our AI and make more content accessible to everyone.
-      
+
       Stay tuned for your enhanced viewing experience!
-      
+
       Best regards,
       The YouDescribe Team
         `;
