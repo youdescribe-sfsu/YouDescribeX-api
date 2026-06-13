@@ -628,10 +628,6 @@ class UserService {
     try {
       logger.info(`Adding video ${youtube_id} to processing queue for user ${userData._id}`);
 
-      // First perform all immediate operations (database, email notification)
-      await this.performImmediateOperations(userData, youtube_id, ydx_app_host, youtubeVideoData);
-
-      // Add to queue
       this.videoProcessingQueue.push({
         youtubeId: youtube_id,
         userId: userData._id.toString(),
@@ -639,11 +635,9 @@ class UserService {
         ydx_app_host,
       });
 
-      // Start processing the queue if not already processing
-      if (!this.isProcessingQueue) {
-        //this.processNextInQueue();
-        this.processNextInQueueLana();
-      }
+      await this.performImmediateOperations(userData, youtube_id, ydx_app_host, youtubeVideoData);
+
+      this.processNextInQueueLana();
 
       return {
         message: 'Your request has been queued and will be processed in order',
