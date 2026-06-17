@@ -757,6 +757,21 @@ class UserService {
           this.videoProcessingQueue.shift();
           inFlight++;
         } catch (dispatchErr: any) {
+          const status = dispatchErr.response?.status;
+          if (status === 503) {
+            // AI side is at capacity — known race window between Mongo flipping to 'completed'
+            // and the AI service releasing its asyncio.Semaphore slot. Leave the item queued;
+            // the setTimeout(5s) retry will pick it up once the slot truly frees.
+            logger.warn(`AI service at capacity for ${nextItem.youtubeId}; will retry on next tick.`);
+            // Roll back the optimistic 'processing' flip so the next tick's countDocuments isn't inflated
+            try {
+              await MongoAICaptionRequestModel.updateOne({ youtube_id: nextItem.youtubeId, ai_user_id: nextItem.aiUserId }, { $set: { status: 'pending' } });
+            } catch (rollbackErr: any) {
+              logger.error(`Failed to roll back status for ${nextItem.youtubeId}: ${rollbackErr.message}`);
+            }
+            break;
+          }
+
           logger.warn(`Dispatch failed for ${nextItem.youtubeId}: ${dispatchErr.message}. Dropping request.`);
           try {
             await MongoAICaptionRequestModel.updateOne({ youtube_id: nextItem.youtubeId, ai_user_id: nextItem.aiUserId }, { $set: { status: 'failed' } });
@@ -765,7 +780,6 @@ class UserService {
           } catch (cleanupErr: any) {
             logger.error(`Cleanup after dispatch failure for ${nextItem.youtubeId} also failed: ${cleanupErr.message}`);
           } finally {
-            // Always remove the item so the dispatcher doesn't re-process it next tick.
             this.videoProcessingQueue.shift();
           }
           break;

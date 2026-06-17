@@ -88,4 +88,38 @@ describe('UserService.processNextInQueueLana — concurrency gate', () => {
     expect(svc.videoProcessingQueue.length).toBe(1);
     expect(svc.videoProcessingQueue[0].youtubeId).toBe('vid3');
   });
+
+  it('leaves the item in the queue on AI service 503 (transient) without notifying failure', async () => {
+    const svc = new UserService() as any;
+    svc.videoProcessingQueue = [{ youtubeId: 'busyvid', userId: 'u1', aiUserId: 'ai', ydx_app_host: '' }];
+
+    jest.spyOn(MongoAICaptionRequestModel as any, 'countDocuments').mockResolvedValue(0);
+    jest.spyOn(MongoAICaptionRequestModel as any, 'find').mockResolvedValue([]);
+    jest.spyOn(MongoAICaptionRequestModel as any, 'findOne').mockResolvedValue(null);
+    const updateSpy = jest.spyOn(MongoAICaptionRequestModel as any, 'updateOne').mockResolvedValue({} as any);
+    jest.spyOn(MongoUsersModel as any, 'findById').mockResolvedValue({ _id: 'u1', email: 'x@y.z' });
+
+    // Simulate AI service returning 503 (axios-shaped error)
+    const err: any = new Error('Request failed with status code 503');
+    err.response = { status: 503 };
+    jest.spyOn(svc, 'sendToApiService').mockRejectedValue(err);
+
+    // Spy on the failure-notify path to confirm it is NOT called
+    const GpuUtilsService = require('../services/gpu_utils.service').default;
+    const notifyFailureSpy = jest.spyOn(GpuUtilsService.prototype, 'notifyAiDescriptionFailure').mockResolvedValue(undefined);
+
+    await svc.processNextInQueueLana();
+
+    // Item must remain at head of queue for the next 5s tick to retry
+    expect(svc.videoProcessingQueue.length).toBe(1);
+    expect(svc.videoProcessingQueue[0].youtubeId).toBe('busyvid');
+    // Must have rolled back to 'pending' (not 'failed')
+    const pendingUpdate = (updateSpy.mock.calls || []).find(([, update]: any) => update?.$set?.status === 'pending');
+    expect(pendingUpdate).toBeDefined();
+    // Must NOT have been marked failed
+    const failedUpdate = (updateSpy.mock.calls || []).find(([, update]: any) => update?.$set?.status === 'failed');
+    expect(failedUpdate).toBeUndefined();
+    // Must NOT have notified the user about a failure
+    expect(notifyFailureSpy).not.toHaveBeenCalled();
+  });
 });
