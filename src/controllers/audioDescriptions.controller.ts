@@ -52,6 +52,15 @@ class AudioDescripionsController {
         return res.status(400).json({ message: 'youtube_id required' });
       }
 
+      // Mark any in-flight AICaptionRequest for this video as failed so the dispatcher
+      // doesn't keep counting it against the concurrency cap.
+      const result = await MongoAICaptionRequestModel.updateOne({ youtube_id, status: 'processing' }, { $set: { status: 'failed' } });
+      if (result.matchedCount === 0) {
+        logger.warn(`aidescriptionFailure: no processing caption request found for ${youtube_id}`);
+      } else {
+        logger.info(`Marked caption request ${youtube_id} as failed`);
+      }
+
       const gpuUtils = new GpuUtilsService();
       await gpuUtils.notifyAiDescriptionFailure(youtube_id, reason || 'Unknown failure');
 
