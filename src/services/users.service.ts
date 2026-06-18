@@ -708,6 +708,62 @@ class UserService {
     }
   }
 
+  private static readonly RECOVERY_WINDOW_MS = 24 * 60 * 60 * 1000; // only re-drive pending from the last 24h
+
+  /**
+   * Startup recovery: rebuild the in-memory processing queue from Mongo so requests survive
+   * a server restart (e.g. after a PR deploy). Called once, after Mongo connects.
+   *
+   * Single-instance invariant (AI runs on one m5.large): this process is the only thing that
+   * can hold an in-flight pipeline, so any record still 'processing' at startup is an orphan
+   * from the previous (now-dead) process. We recover:
+   *   - orphaned 'processing' -> unconditionally (they were actively in-flight; most important)
+   *   - 'pending' -> only those created within the last 24h (drops abandoned / legacy junk)
+   */
+  public async recoverPendingQueue(): Promise<void> {
+    try {
+      // Reclaim orphans first, then flip them to 'pending' so the dispatcher's
+      // countDocuments('processing') in-flight count starts clean.
+      const orphans = await MongoAICaptionRequestModel.find({ status: 'processing' });
+      if (orphans.length) {
+        await MongoAICaptionRequestModel.updateMany({ status: 'processing' }, { $set: { status: 'pending' } });
+        logger.info(`Queue recovery: reclaimed ${orphans.length} orphaned 'processing' request(s)`);
+      }
+
+      // Select: the reclaimed orphans + pending created within the recovery window.
+      const cutoff = new Date(Date.now() - UserService.RECOVERY_WINDOW_MS);
+      const toRecover = await MongoAICaptionRequestModel.find({
+        status: 'pending',
+        $or: [{ _id: { $in: orphans.map(o => o._id) } }, { createdAt: { $gte: cutoff } }],
+      }).sort({ createdAt: 1 });
+
+      let loaded = 0;
+      for (const doc of toRecover) {
+        const requesters = (doc.caption_requests ?? []) as unknown[];
+        const userId = requesters.length ? String(requesters[requesters.length - 1]) : '';
+        if (!userId) {
+          logger.warn(`Queue recovery: ${doc.youtube_id} has no requesting user; skipping`);
+          continue;
+        }
+        // Defensive: at startup the queue is empty, but guard against a double-enqueue anyway.
+        if (this.videoProcessingQueue.some(q => q.youtubeId === doc.youtube_id && q.aiUserId === doc.ai_user_id)) continue;
+
+        this.videoProcessingQueue.push({
+          youtubeId: doc.youtube_id,
+          userId,
+          aiUserId: doc.ai_user_id,
+          ydx_app_host: CURRENT_YDX_HOST, // unused by the dispatch path; safe default for recovered items
+        });
+        loaded++;
+      }
+      logger.info(`Queue recovery: loaded ${loaded} request(s) into the in-memory queue`);
+
+      if (loaded > 0) this.processNextInQueueLana(); // self-limits to AI_PIPELINE_CONCURRENCY
+    } catch (err: any) {
+      logger.error(`Queue recovery failed: ${err.message}`);
+    }
+  }
+
   //******** LANA CHANGE *********/
   private async processNextInQueueLana(): Promise<void> {
     // Re-entry guard: only one dispatch loop active at a time.
