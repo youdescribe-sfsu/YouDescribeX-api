@@ -18,6 +18,7 @@ import { initPassport, MongoAICaptionRequestModel, MongoVideosModel } from './mo
 import { checkAndNotify, gpuStatusCronJob, videoStatusCheckJob } from './utils/cron.utils';
 import moment from 'moment';
 import YouTubeProxyRoute from './routes/youtube-proxy.route';
+import UsersRoute from './routes/users.route';
 import mongoose from 'mongoose';
 
 class App {
@@ -40,6 +41,23 @@ class App {
     this.initializeSwagger();
     initPassport();
     this.initializeCronJobs();
+    this.initializeQueueRecovery(routes);
+  }
+
+  // Rebuild the in-memory AI-processing queue from Mongo once the DB is connected, so
+  // pending/orphaned requests survive a server restart. Reaches the single UserService
+  // instance the dispatcher actually uses (UsersRoute -> usersController.userService).
+  private initializeQueueRecovery(routes: Routes[]) {
+    const usersRoute = routes.find((r): r is UsersRoute => r instanceof UsersRoute);
+    if (!usersRoute) {
+      logger.warn('Queue recovery skipped: UsersRoute not found in routes');
+      return;
+    }
+    const run = () => usersRoute.usersController.userService.recoverPendingQueue().catch((err: any) => logger.error(`Queue recovery error: ${err.message}`));
+
+    // testDatabase() starts an un-awaited mongoose.connect(); run after it has connected.
+    if (mongoose.connection.readyState === 1) run();
+    else mongoose.connection.once('connected', run);
   }
 
   public listen() {

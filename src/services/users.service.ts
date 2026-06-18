@@ -708,6 +708,67 @@ class UserService {
     }
   }
 
+  private static readonly RECOVERY_WINDOW_MS = 24 * 60 * 60 * 1000; // only re-drive pending from the last 24h
+
+  /**
+   * Startup recovery: rebuild the in-memory processing queue from Mongo so requests survive
+   * a server restart (e.g. after a PR deploy). Called once, after Mongo connects.
+   *
+   * The AI pipeline runs as a SEPARATE process on its own instance and survives an api
+   * restart, so a 'processing' record at startup is NOT necessarily dead — a live pipeline
+   * may still be working on it and will call back to complete it. We therefore recover:
+   *   - STALE 'processing' (stuck past STALE_PROCESSING_TIMEOUT_MS — the pipeline that owned
+   *     it genuinely died) -> reclaim to 'pending' and re-drive. Fresh 'processing' is left
+   *     ALONE so we don't double-dispatch a job the AI box is still running.
+   *   - 'pending' -> only those created within the last 24h (drops abandoned / legacy junk)
+   */
+  public async recoverPendingQueue(): Promise<void> {
+    try {
+      // Reclaim ONLY stale 'processing' (older than the stale threshold = its pipeline died);
+      // flip just those to 'pending' so the dispatcher's countDocuments('processing') count is
+      // accurate and they get re-driven. Fresh 'processing' is untouched — its live pipeline
+      // on the AI box will still call back.
+      const staleThreshold = new Date(Date.now() - UserService.STALE_PROCESSING_TIMEOUT_MS);
+      const orphans = await MongoAICaptionRequestModel.find({ status: 'processing', updatedAt: { $lt: staleThreshold } });
+      if (orphans.length) {
+        await MongoAICaptionRequestModel.updateMany({ _id: { $in: orphans.map(o => o._id) } }, { $set: { status: 'pending' } });
+        logger.info(`Queue recovery: reclaimed ${orphans.length} stale orphaned 'processing' request(s)`);
+      }
+
+      // Select: the reclaimed orphans + pending created within the recovery window.
+      const cutoff = new Date(Date.now() - UserService.RECOVERY_WINDOW_MS);
+      const toRecover = await MongoAICaptionRequestModel.find({
+        status: 'pending',
+        $or: [{ _id: { $in: orphans.map(o => o._id) } }, { createdAt: { $gte: cutoff } }],
+      }).sort({ createdAt: 1 });
+
+      let loaded = 0;
+      for (const doc of toRecover) {
+        const requesters = (doc.caption_requests ?? []) as unknown[];
+        const userId = requesters.length ? String(requesters[requesters.length - 1]) : '';
+        if (!userId) {
+          logger.warn(`Queue recovery: ${doc.youtube_id} has no requesting user; skipping`);
+          continue;
+        }
+        // Defensive: at startup the queue is empty, but guard against a double-enqueue anyway.
+        if (this.videoProcessingQueue.some(q => q.youtubeId === doc.youtube_id && q.aiUserId === doc.ai_user_id)) continue;
+
+        this.videoProcessingQueue.push({
+          youtubeId: doc.youtube_id,
+          userId,
+          aiUserId: doc.ai_user_id,
+          ydx_app_host: CURRENT_YDX_HOST, // unused by the dispatch path; safe default for recovered items
+        });
+        loaded++;
+      }
+      logger.info(`Queue recovery: loaded ${loaded} request(s) into the in-memory queue`);
+
+      if (loaded > 0) this.processNextInQueueLana(); // self-limits to AI_PIPELINE_CONCURRENCY
+    } catch (err: any) {
+      logger.error(`Queue recovery failed: ${err.message}`);
+    }
+  }
+
   //******** LANA CHANGE *********/
   private async processNextInQueueLana(): Promise<void> {
     // Re-entry guard: only one dispatch loop active at a time.
