@@ -1028,24 +1028,16 @@ class UserService {
     return `
       Dear ${userName},
 
-      Great news! We've received your request for an AI-generated audio description of "${videoTitle}". Our advanced AI is now hard at work crafting a detailed and engaging description just for you.
+      We’ve received your request for an AI-generated audio description of "${videoTitle}". Our system is currently analyzing the video and generating the audio description.
 
-      Here's what's happening:
-
-      - Our AI is analyzing the video content
-      - It's identifying key visual elements and actions
-      - Soon, it will generate a comprehensive audio description
+      Processing time may vary depending on the video’s length and complexity.
 
       ${queueLine}
 
-      We'll notify you as soon as your AI-enhanced audio description is ready to explore. This may take some time, depending on the video's length and complexity.
+      We’ll notify you as soon as it’s ready. While you wait, consider exploring the recent requests on the YouDescribe wishlist-https://youdescribe.org/wishlist your descriptions help make more content accessible for everyone in the community.
 
-      In the meantime, why not explore other audio-described videos on YouDescribe? There's always something new to discover!
-
-      Thank you for your patience and for being a valued member of the YouDescribe community. Your request helps us improve our AI and make more content accessible to everyone.
-
-      Stay tuned for your enhanced viewing experience!
-
+      Thank you for your patience and for supporting accessible media through YouDescribe.
+      
       Best regards,
       The YouDescribe Team
         `;
