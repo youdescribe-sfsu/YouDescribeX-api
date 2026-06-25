@@ -30,6 +30,11 @@ import YoutubeCacheService from './youtube-cache.service';
 import { getResolvedVideoDurationSeconds } from '../utils/youtube-metadata.util';
 
 class VideosService {
+  // Single-flight guard for getHomePageVideos: when a cache key is being (re)built,
+  // concurrent callers share the in-progress promise instead of each re-running the
+  // expensive DB + YouTube fetch. Prevents a cache stampede from wedging the event loop.
+  private inflightHomeVideos = new Map<string, Promise<any>>();
+
   public async getVideobyYoutubeId(youtubeId: string): Promise<any> {
     if (isEmpty(youtubeId)) throw new HttpException(400, 'youtubeId is empty');
 
@@ -660,40 +665,57 @@ class VideosService {
   }
 
   public async getHomePageVideos(page: string) {
-    try {
-      const cacheKey = `home_videos_page_${page}`;
-      const cachedResult = await cacheService.get(cacheKey);
+    // 1) Fast path: serve straight from the in-memory cache when it is warm.
+    const cacheKey = `home_videos_page_${page}`;
+    const cachedResult = await cacheService.get(cacheKey);
 
-      if (cachedResult) {
-        logger.info(`Cache hit for home page videos: ${cacheKey}`);
-        return cachedResult;
-      }
+    if (cachedResult) {
+      logger.info(`Cache hit for home page videos: ${cacheKey}`);
+      return cachedResult;
+    }
 
+    // 2) Single-flight guard: if another request is already rebuilding this key,
+    //    reuse its in-progress promise instead of launching a duplicate build.
+    //    This is what prevents a cache stampede (every concurrent miss doing the
+    //    full expensive rebuild at once).
+    const existing = this.inflightHomeVideos.get(cacheKey);
+    if (existing) return existing;
+
+    // 3) We are the first miss for this key. Wrap the whole (expensive) rebuild in a
+    //    single promise via an async IIFE, so later concurrent callers can coalesce
+    //    onto this one promise (see step 4) rather than each running the work again.
+    const work = (async () => {
       logger.info(`Cache miss for home page videos: ${cacheKey}`);
 
-      // Get videos for the page
-      const pgNumber = Number(page);
+      // Expensive #1: multi-$lookup Mongo aggregation for this page of videos.
       const videos = await this.getAllVideos(page);
 
-      // Extract YouTube IDs for these videos
+      // Expensive #2: fetch YouTube metadata for those video ids (2nd-level cache).
       const youtubeIds = videos.map(video => video.youtube_id).join(',');
-
-      // Get YouTube data for these IDs
       const youtubeData = await this.getYoutubeDataFromCache(youtubeIds, `home-${page}`);
 
-      // Create combined response
       const combinedResponse = {
         videos: videos,
         youtubeData: youtubeData.result,
       };
 
-      // Cache the combined response (5 minute TTL)
+      // Populate the cache (5 minute TTL) so subsequent requests hit the fast path.
       await cacheService.set(cacheKey, combinedResponse, 5 * 60 * 1000);
 
       return combinedResponse;
+    })();
+
+    // 4) Register the in-flight promise (so step 2 can find it), await our own result,
+    //    and ALWAYS clear it in finally — even on failure — so a rejected build can
+    //    never wedge this key into a permanent "someone is building" state.
+    this.inflightHomeVideos.set(cacheKey, work);
+    try {
+      return await work;
     } catch (error) {
       logger.error(`Error fetching home page videos: ${error}`);
       throw error;
+    } finally {
+      this.inflightHomeVideos.delete(cacheKey);
     }
   }
 
