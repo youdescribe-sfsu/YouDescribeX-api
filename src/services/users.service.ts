@@ -2,7 +2,7 @@ import { google } from '@google-cloud/text-to-speech/build/protos/protos';
 import { CreateUserAudioDescriptionDto, CreateUserDto, NewUserDto } from '../dtos/users.dto';
 import { HttpException } from '../exceptions/HttpException';
 import { getYouTubeVideoStatus, isEmpty, nowUtc } from '../utils/util';
-import { CURRENT_DATABASE, CURRENT_YDX_HOST, GPU_URL, AI_USER_ID } from '../config';
+import { CURRENT_DATABASE, CURRENT_YDX_HOST, GPU_URL, AI_USER_ID, AI_PIPELINE_CONCURRENCY } from '../config';
 import GpuUtilsService from './gpu_utils.service';
 import { PostGres_Users, UsersAttributes } from '../models/postgres/init-models';
 import {
@@ -34,7 +34,8 @@ class UserService {
     aiUserId: string;
     ydx_app_host: string;
   }> = [];
-  private isProcessingQueue = false;
+  private isProcessingQueue = false; // legacy: used only by processNextInQueue (non-Lana)
+  private isDispatching = false; // new: used by processNextInQueueLana
   public audioClipsService = new AudioClipsService();
 
   public async findAllUser(): Promise<IUser[] | UsersAttributes[]> {
@@ -628,22 +629,24 @@ class UserService {
     try {
       logger.info(`Adding video ${youtube_id} to processing queue for user ${userData._id}`);
 
-      // First perform all immediate operations (database, email notification)
-      await this.performImmediateOperations(userData, youtube_id, ydx_app_host, youtubeVideoData);
-
-      // Add to queue
-      this.videoProcessingQueue.push({
+      const queueItem = {
         youtubeId: youtube_id,
         userId: userData._id.toString(),
         aiUserId: AI_USER_ID,
         ydx_app_host,
-      });
+      };
+      this.videoProcessingQueue.push(queueItem);
 
-      // Start processing the queue if not already processing
-      if (!this.isProcessingQueue) {
-        //this.processNextInQueue();
-        this.processNextInQueueLana();
+      try {
+        await this.performImmediateOperations(userData, youtube_id, ydx_app_host, youtubeVideoData);
+      } catch (preflightErr) {
+        // Roll back: remove the item we just enqueued so the dispatcher doesn't pick up a ghost
+        const idx = this.videoProcessingQueue.indexOf(queueItem);
+        if (idx >= 0) this.videoProcessingQueue.splice(idx, 1);
+        throw preflightErr;
       }
+
+      this.processNextInQueueLana();
 
       return {
         message: 'Your request has been queued and will be processed in order',
@@ -659,20 +662,28 @@ class UserService {
     }
   }
 
+  private computeVideosAhead(currentlyProcessing: number): number {
+    const inQueueAhead = Math.max(0, this.videoProcessingQueue.length - 1);
+    return inQueueAhead + currentlyProcessing;
+  }
+
   // Add this method after queueVideoForProcessing
   private async performImmediateOperations(userData: IUser, youtube_id: string, ydx_app_host: string, youtubeVideoData: any): Promise<void> {
     try {
-      // Increment counter in database
       await this.increaseRequestCount(youtube_id, userData._id.toString(), AI_USER_ID);
 
-      // Send initial notification email to user
+      const currentlyProcessing = await MongoAICaptionRequestModel.countDocuments({ status: 'processing' });
+      const videosAhead = this.computeVideosAhead(currentlyProcessing);
+
       await sendEmail(
         userData.email,
         `🎬 AI Description for "${youtubeVideoData.title}" is in the Works!`,
-        this.getNewAudioDescriptionEmailBody(userData.name, youtubeVideoData.title),
+        this.getNewAudioDescriptionEmailBody(userData.name, youtubeVideoData.title, videosAhead, currentlyProcessing),
       );
 
-      logger.info(`Immediate operations completed for video ${youtube_id}, user ${userData._id}`);
+      logger.info(
+        `Immediate operations completed for video ${youtube_id}, user ${userData._id} (videosAhead=${videosAhead}, processing=${currentlyProcessing})`,
+      );
     } catch (error: any) {
       logger.error(`Error in immediate operations for ${youtube_id}: ${error.message}`);
       throw error;
@@ -681,41 +692,120 @@ class UserService {
 
   private static readonly STALE_PROCESSING_TIMEOUT_MS = 30 * 60 * 1000;
 
+  private async recoverStaleProcessing(): Promise<void> {
+    const staleThreshold = new Date(Date.now() - UserService.STALE_PROCESSING_TIMEOUT_MS);
+    const staleRecords = await MongoAICaptionRequestModel.find({
+      status: 'processing',
+      updatedAt: { $lt: staleThreshold },
+    });
+
+    for (const record of staleRecords) {
+      const staleDuration = Date.now() - new Date((record as any).updatedAt).getTime();
+      logger.warn(`Stale processing detected for ${record.youtube_id} (stuck for ${Math.round(staleDuration / 60000)} min). Marking as failed.`);
+      await MongoAICaptionRequestModel.updateOne({ _id: record._id }, { $set: { status: 'failed' } });
+      const gpuUtils = new GpuUtilsService();
+      await gpuUtils.notifyAiDescriptionFailure(record.youtube_id, 'The processing timed out. The server may have been busy or encountered an error.');
+    }
+  }
+
+  private static readonly RECOVERY_WINDOW_MS = 24 * 60 * 60 * 1000; // only re-drive pending from the last 24h
+
+  /**
+   * Startup recovery: rebuild the in-memory processing queue from Mongo so requests survive
+   * a server restart (e.g. after a PR deploy). Called once, after Mongo connects.
+   *
+   * The AI pipeline runs as a SEPARATE process on its own instance and survives an api
+   * restart, so a 'processing' record at startup is NOT necessarily dead — a live pipeline
+   * may still be working on it and will call back to complete it. We therefore recover:
+   *   - STALE 'processing' (stuck past STALE_PROCESSING_TIMEOUT_MS — the pipeline that owned
+   *     it genuinely died) -> reclaim to 'pending' and re-drive. Fresh 'processing' is left
+   *     ALONE so we don't double-dispatch a job the AI box is still running.
+   *   - 'pending' -> only those created within the last 24h (drops abandoned / legacy junk)
+   */
+  public async recoverPendingQueue(): Promise<void> {
+    try {
+      // Reclaim ONLY stale 'processing' (older than the stale threshold = its pipeline died);
+      // flip just those to 'pending' so the dispatcher's countDocuments('processing') count is
+      // accurate and they get re-driven. Fresh 'processing' is untouched — its live pipeline
+      // on the AI box will still call back.
+      const staleThreshold = new Date(Date.now() - UserService.STALE_PROCESSING_TIMEOUT_MS);
+      const orphans = await MongoAICaptionRequestModel.find({ status: 'processing', updatedAt: { $lt: staleThreshold } });
+      if (orphans.length) {
+        await MongoAICaptionRequestModel.updateMany({ _id: { $in: orphans.map(o => o._id) } }, { $set: { status: 'pending' } });
+        logger.info(`Queue recovery: reclaimed ${orphans.length} stale orphaned 'processing' request(s)`);
+      }
+
+      // Select: the reclaimed orphans + pending created within the recovery window.
+      const cutoff = new Date(Date.now() - UserService.RECOVERY_WINDOW_MS);
+      const toRecover = await MongoAICaptionRequestModel.find({
+        status: 'pending',
+        $or: [{ _id: { $in: orphans.map(o => o._id) } }, { createdAt: { $gte: cutoff } }],
+      }).sort({ createdAt: 1 });
+
+      let loaded = 0;
+      for (const doc of toRecover) {
+        const requesters = (doc.caption_requests ?? []) as unknown[];
+        const userId = requesters.length ? String(requesters[requesters.length - 1]) : '';
+        if (!userId) {
+          logger.warn(`Queue recovery: ${doc.youtube_id} has no requesting user; skipping`);
+          continue;
+        }
+        // Defensive: at startup the queue is empty, but guard against a double-enqueue anyway.
+        if (this.videoProcessingQueue.some(q => q.youtubeId === doc.youtube_id && q.aiUserId === doc.ai_user_id)) continue;
+
+        this.videoProcessingQueue.push({
+          youtubeId: doc.youtube_id,
+          userId,
+          aiUserId: doc.ai_user_id,
+          ydx_app_host: CURRENT_YDX_HOST, // unused by the dispatch path; safe default for recovered items
+        });
+        loaded++;
+      }
+      logger.info(`Queue recovery: loaded ${loaded} request(s) into the in-memory queue`);
+
+      if (loaded > 0) this.processNextInQueueLana(); // self-limits to AI_PIPELINE_CONCURRENCY
+    } catch (err: any) {
+      logger.error(`Queue recovery failed: ${err.message}`);
+    }
+  }
+
   //******** LANA CHANGE *********/
   private async processNextInQueueLana(): Promise<void> {
-    if (this.videoProcessingQueue.length === 0) {
-      this.isProcessingQueue = false;
-      return;
-    }
+    // Re-entry guard: only one dispatch loop active at a time.
+    if (this.isDispatching) return;
+    if (this.videoProcessingQueue.length === 0) return;
 
-    this.isProcessingQueue = true;
-    const nextItem = this.videoProcessingQueue[0];
-
+    this.isDispatching = true;
     try {
-      const activeProcessing = await MongoAICaptionRequestModel.findOne({
-        status: { $in: ['processing'] },
-      });
+      // 1. Recover any stale 'processing' records so they don't permanently block dispatch.
+      await this.recoverStaleProcessing();
 
-      if (activeProcessing) {
-        logger.info(`System busy: ${activeProcessing.youtube_id} is still processing. Waiting...`);
-        setTimeout(() => this.processNextInQueueLana(), 30000);
-        return;
-      }
+      // 2. Read in-flight count. Mongo is the source of truth — survives api restarts.
+      let inFlight = await MongoAICaptionRequestModel.countDocuments({ status: 'processing' });
 
-      const currentVideoStatus = await MongoAICaptionRequestModel.findOne({
-        youtube_id: nextItem.youtubeId,
-        ai_user_id: nextItem.aiUserId,
-      });
+      // 3. Dispatch as many items as slots allow.
+      while (this.videoProcessingQueue.length > 0 && inFlight < AI_PIPELINE_CONCURRENCY) {
+        const nextItem = this.videoProcessingQueue[0];
 
-      if (currentVideoStatus?.status === 'completed') {
-        logger.info(`Video ${nextItem.youtubeId} already completed. Skipping.`);
-        this.videoProcessingQueue.shift();
-        return this.processNextInQueueLana();
-      }
+        // Skip items whose video has already been completed (e.g. by a parallel path).
+        const currentVideoStatus = await MongoAICaptionRequestModel.findOne({
+          youtube_id: nextItem.youtubeId,
+          ai_user_id: nextItem.aiUserId,
+        });
+        if (currentVideoStatus?.status === 'completed') {
+          logger.info(`Video ${nextItem.youtubeId} already completed. Skipping.`);
+          this.videoProcessingQueue.shift();
+          continue;
+        }
 
-      const user = await MongoUsersModel.findById(nextItem.userId);
-      if (user) {
-        logger.info(`Calling API service for video: ${nextItem.youtubeId}`);
+        const user = await MongoUsersModel.findById(nextItem.userId);
+        if (!user) {
+          logger.warn(`User ${nextItem.userId} not found for queued video ${nextItem.youtubeId}; dropping.`);
+          this.videoProcessingQueue.shift();
+          continue;
+        }
+
+        logger.info(`Dispatching ${nextItem.youtubeId} to AI service (inFlight=${inFlight}/${AI_PIPELINE_CONCURRENCY})`);
 
         await MongoAICaptionRequestModel.updateOne(
           { youtube_id: nextItem.youtubeId, ai_user_id: nextItem.aiUserId },
@@ -723,25 +813,49 @@ class UserService {
           { upsert: true },
         );
 
-        await this.sendToApiService(user, nextItem.youtubeId, nextItem.aiUserId);
+        try {
+          await this.sendToApiService(user, nextItem.youtubeId, nextItem.aiUserId);
+          this.videoProcessingQueue.shift();
+          inFlight++;
+        } catch (dispatchErr: any) {
+          const status = dispatchErr.response?.status;
+          if (status === 503) {
+            // AI side is at capacity — known race window between Mongo flipping to 'completed'
+            // and the AI service releasing its asyncio.Semaphore slot. Leave the item queued;
+            // the setTimeout(5s) retry will pick it up once the slot truly frees.
+            logger.warn(`AI service at capacity for ${nextItem.youtubeId}; will retry on next tick.`);
+            // Roll back the optimistic 'processing' flip so the next tick's countDocuments isn't inflated
+            try {
+              await MongoAICaptionRequestModel.updateOne({ youtube_id: nextItem.youtubeId, ai_user_id: nextItem.aiUserId }, { $set: { status: 'pending' } });
+            } catch (rollbackErr: any) {
+              logger.error(`Failed to roll back status for ${nextItem.youtubeId}: ${rollbackErr.message}`);
+            }
+            break;
+          }
 
-        this.videoProcessingQueue.shift();
+          logger.warn(`Dispatch failed for ${nextItem.youtubeId}: ${dispatchErr.message}. Dropping request.`);
+          try {
+            await MongoAICaptionRequestModel.updateOne({ youtube_id: nextItem.youtubeId, ai_user_id: nextItem.aiUserId }, { $set: { status: 'failed' } });
+            const gpuUtils = new GpuUtilsService();
+            await gpuUtils.notifyAiDescriptionFailure(nextItem.youtubeId, 'An error occurred while dispatching your request.');
+          } catch (cleanupErr: any) {
+            logger.error(`Cleanup after dispatch failure for ${nextItem.youtubeId} also failed: ${cleanupErr.message}`);
+          } finally {
+            this.videoProcessingQueue.shift();
+          }
+          break;
+        }
       }
     } catch (error: any) {
-      logger.error(`Error in queue processing for ${nextItem.youtubeId}: ${error.message}`);
-      try {
-        await MongoAICaptionRequestModel.updateOne({ youtube_id: nextItem.youtubeId, status: 'processing' }, { $set: { status: 'failed' } });
-        const gpuUtils = new GpuUtilsService();
-        await gpuUtils.notifyAiDescriptionFailure(nextItem.youtubeId, 'An error occurred while processing your request.');
-      } catch (dbErr: any) {
-        logger.error(`Failed to reset status for ${nextItem.youtubeId}: ${dbErr.message}`);
-      }
-      if (error.code !== 'ECONNABORTED') {
-        this.videoProcessingQueue.shift();
-      }
+      logger.error(`Error in queue dispatcher: ${error.message}`);
+    } finally {
+      this.isDispatching = false;
     }
 
-    setTimeout(() => this.processNextInQueueLana(), 5000);
+    // Re-schedule a tick if there's more work and we're capacity-bound.
+    if (this.videoProcessingQueue.length > 0) {
+      setTimeout(() => this.processNextInQueueLana(), 5000);
+    }
   }
 
   private async sendToApiService(user: IUser, youtube_id: string, aiUserId: string): Promise<void> {
@@ -905,25 +1019,24 @@ class UserService {
         `;
   }
 
-  private getNewAudioDescriptionEmailBody(userName: string, videoTitle: string) {
+  private getNewAudioDescriptionEmailBody(userName: string, videoTitle: string, videosAhead: number, currentlyProcessing: number) {
+    const queueLine =
+      videosAhead === 0
+        ? `Your video is next in line — processing will start shortly.`
+        : `There are currently ${videosAhead} video(s) ahead of yours in the queue (${currentlyProcessing} being processed right now).`;
+
     return `
       Dear ${userName},
-      
-      Great news! We've received your request for an AI-generated audio description of "${videoTitle}". Our advanced AI is now hard at work crafting a detailed and engaging description just for you.
-      
-      Here's what's happening:
-      
-      - Our AI is analyzing the video content
-      - It's identifying key visual elements and actions
-      - Soon, it will generate a comprehensive audio description
-      
-      We'll notify you as soon as your AI-enhanced audio description is ready to explore. This may take some time, depending on the video's length and complexity.
-      
-      In the meantime, why not explore other audio-described videos on YouDescribe? There's always something new to discover!
-      
-      Thank you for your patience and for being a valued member of the YouDescribe community. Your request helps us improve our AI and make more content accessible to everyone.
-      
-      Stay tuned for your enhanced viewing experience!
+
+      We’ve received your request for an AI-generated audio description of "${videoTitle}". Our system is currently analyzing the video and generating the audio description.
+
+      Processing time may vary depending on the video’s length and complexity.
+
+      ${queueLine}
+
+      We’ll notify you as soon as it’s ready. While you wait, consider exploring the recent requests on the YouDescribe wishlist-https://youdescribe.org/wishlist your descriptions help make more content accessible for everyone in the community.
+
+      Thank you for your patience and for supporting accessible media through YouDescribe.
       
       Best regards,
       The YouDescribe Team

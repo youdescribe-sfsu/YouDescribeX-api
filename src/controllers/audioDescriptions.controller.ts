@@ -6,6 +6,7 @@ import { logger } from '../utils/logger';
 import { IUser } from '../models/mongodb/User.mongo';
 import sendEmail from '../utils/emailService';
 import GpuUtilsService from '../services/gpu_utils.service';
+import { AuthenticationError } from '../utils/customErrors';
 
 class AudioDescripionsController {
   public audioDescriptionsService = new AudioDescriptionsService();
@@ -49,6 +50,15 @@ class AudioDescripionsController {
       const { youtube_id, reason } = req.body;
       if (!youtube_id) {
         return res.status(400).json({ message: 'youtube_id required' });
+      }
+
+      // Mark any in-flight AICaptionRequest for this video as failed so the dispatcher
+      // doesn't keep counting it against the concurrency cap.
+      const result = await MongoAICaptionRequestModel.updateOne({ youtube_id, status: 'processing' }, { $set: { status: 'failed' } });
+      if (result.matchedCount === 0) {
+        logger.warn(`aidescriptionFailure: no processing caption request found for ${youtube_id}`);
+      } else {
+        logger.info(`Marked caption request ${youtube_id} as failed`);
       }
 
       const gpuUtils = new GpuUtilsService();
@@ -145,7 +155,7 @@ class AudioDescripionsController {
       const paginate = req.query.paginate !== 'false';
 
       if (!userData) {
-        throw new Error('User not logged in');
+        throw new AuthenticationError('User not logged in');
       }
 
       const audioDescription = await this.audioDescriptionsService.getMyDescriptions(userData._id, <string>pageNumber, paginate);
@@ -162,7 +172,7 @@ class AudioDescripionsController {
       const pageNumber = req.query.page;
 
       if (!userData) {
-        throw new Error('User not logged in');
+        throw new AuthenticationError('User not logged in');
       }
 
       const audioDescription = await this.audioDescriptionsService.getMyDraftDescriptions(userData._id, <string>pageNumber);
@@ -179,7 +189,7 @@ class AudioDescripionsController {
       const pageNumber = req.query.pageNumber;
 
       if (!userData) {
-        throw new Error('User not logged in');
+        throw new AuthenticationError('User not logged in');
       }
 
       const audioDescription = await this.audioDescriptionsService.getAllAIDescriptions(userData._id, <string>pageNumber);

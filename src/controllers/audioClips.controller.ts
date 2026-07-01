@@ -4,6 +4,7 @@ import { AddNewAudioClipDto, UpdateAudioClipDescriptionDto, UpdateAudioClipStart
 import AudioClipsService from '../services/audioClips.service';
 import { IUser } from '../models/mongodb/User.mongo';
 import { MongoAudioClipsModel } from '../models/mongodb/init-models.mongo';
+import { AuthenticationError } from '../utils/customErrors';
 
 export class AudioClipsController {
   public audioClipsService = new AudioClipsService();
@@ -132,7 +133,7 @@ export class AudioClipsController {
       const userData = req.user as unknown as IUser;
       const videoId = req.query.youtubeVideoId;
       if (!userData) {
-        throw new Error('User not logged in');
+        throw new AuthenticationError('User not logged in');
       }
       const deletedAudioClip = await this.audioClipsService.deleteAudioClip(clipId, userData._id, <string>videoId);
       res.status(200).json(deletedAudioClip);
@@ -147,7 +148,7 @@ export class AudioClipsController {
       const userData = req.user as unknown as IUser;
       const videoId = req.body.youtubeVideoId;
       if (!userData) {
-        throw new Error('User not logged in');
+        throw new AuthenticationError('User not logged in');
       }
       const restoredClip = await this.audioClipsService.undoDeletedAudioClip(userData._id, videoId);
       if (restoredClip) {

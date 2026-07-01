@@ -91,6 +91,7 @@ interface AppConfig {
   nodeEnv: string;
   audioDirectory: string;
   aiUserId: string;
+  aiPipelineConcurrency: number;
   currentYdxHost: string | undefined;
   email: {
     user: string | undefined;
@@ -181,6 +182,7 @@ export const CONFIG = {
     nodeEnv: ENV.nodeEnv,
     audioDirectory: process.env.AUDIO_DIRECTORY || '/public/audio',
     aiUserId: process.env.AI_USER_ID || '650506db3ff1c2140ea10ece',
+    aiPipelineConcurrency: parseInt(process.env.AI_PIPELINE_CONCURRENCY || '2', 10),
     currentYdxHost: process.env.CURRENT_YDX_HOST,
     email: {
       user: process.env.GMAIL_USER,
@@ -279,6 +281,7 @@ export const {
   GPU_PIPELINE_PORT,
   CURRENT_YDX_HOST,
   AI_USER_ID,
+  AI_PIPELINE_CONCURRENCY,
   GMAIL_USER,
   GMAIL_APP_PASSWORD,
   OPENAI_API_KEY,
@@ -320,6 +323,7 @@ export const {
   GPU_PIPELINE_PORT: CONFIG.gpu.port,
   CURRENT_YDX_HOST: CONFIG.app.currentYdxHost,
   AI_USER_ID: CONFIG.app.aiUserId,
+  AI_PIPELINE_CONCURRENCY: CONFIG.app.aiPipelineConcurrency,
   GMAIL_USER: CONFIG.app.email.user,
   GMAIL_APP_PASSWORD: CONFIG.app.email.password,
   OPENAI_API_KEY: CONFIG.app.openai.apiKey,

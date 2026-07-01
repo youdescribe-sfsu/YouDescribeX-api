@@ -227,9 +227,13 @@ class AudioDescriptionsService {
         if (!new_timestamp) throw new HttpException(409, "Dialog Timestamps couldn't be created");
 
         await ad.save();
-        const result = await MongoAICaptionRequestModel.updateOne({ youtube_id, ai_user_id: aiUserId }, { $set: { status: 'completed' } });
+        // Filter by youtube_id + status='processing' only. The AI pipeline rewrites
+        // aiUserId to a model-specific value (see prepare_final_data.py) so the value
+        // in the callback payload doesn't match what the dispatcher wrote. Matching on
+        // the in-flight status is robust to that rewrite.
+        const result = await MongoAICaptionRequestModel.updateOne({ youtube_id, status: 'processing' }, { $set: { status: 'completed' } });
         if (result.matchedCount === 0) {
-          logger.error(`No caption request matched for ${youtube_id} / ${aiUserId}`);
+          logger.error(`No caption request matched for ${youtube_id} (aiUserId reported by AI=${aiUserId})`);
         } else {
           logger.info(`Marked caption request ${youtube_id} as completed`);
         }
@@ -246,7 +250,8 @@ class AudioDescriptionsService {
         return ad;
       } catch (err: any) {
         logger.error(`Fatal error in newAiDescription for ${youtube_id}: ${err.message}`);
-        await MongoAICaptionRequestModel.updateOne({ youtube_id, ai_user_id: aiUserId }, { $set: { status: 'failed' } }).catch(e =>
+        // Match on status, not ai_user_id — see comment on the success-path update above.
+        await MongoAICaptionRequestModel.updateOne({ youtube_id, status: 'processing' }, { $set: { status: 'failed' } }).catch(e =>
           logger.error(`Failed to mark ${youtube_id} as failed: ${e.message}`),
         );
         throw err;
