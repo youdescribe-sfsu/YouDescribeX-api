@@ -690,23 +690,14 @@ class UserService {
     }
   }
 
-  private static readonly STALE_PROCESSING_TIMEOUT_MS = 30 * 60 * 1000;
+  // 4h: an AI pipeline can legitimately run for hours on the CPU-only box, so a shorter
+  // window false-fails live work. Liveness is confirmed via the AI /status endpoint;
+  // this timeout is only the backstop for when the AI can't be reached.
+  private static readonly STALE_PROCESSING_TIMEOUT_MS = 4 * 60 * 60 * 1000;
 
-  private async recoverStaleProcessing(): Promise<void> {
-    const staleThreshold = new Date(Date.now() - UserService.STALE_PROCESSING_TIMEOUT_MS);
-    const staleRecords = await MongoAICaptionRequestModel.find({
-      status: 'processing',
-      updatedAt: { $lt: staleThreshold },
-    });
-
-    for (const record of staleRecords) {
-      const staleDuration = Date.now() - new Date((record as any).updatedAt).getTime();
-      logger.warn(`Stale processing detected for ${record.youtube_id} (stuck for ${Math.round(staleDuration / 60000)} min). Marking as failed.`);
-      await MongoAICaptionRequestModel.updateOne({ _id: record._id }, { $set: { status: 'failed' } });
-      const gpuUtils = new GpuUtilsService();
-      await gpuUtils.notifyAiDescriptionFailure(record.youtube_id, 'The processing timed out. The server may have been busy or encountered an error.');
-    }
-  }
+  // Failing out stale 'processing' records lives in the standalone cron sweeper
+  // (utils/aiRequestSweeper.utils.ts), which is /status-aware. recoverStaleProcessing
+  // was removed to avoid two mechanisms judging the same thing.
 
   private static readonly RECOVERY_WINDOW_MS = 24 * 60 * 60 * 1000; // only re-drive pending from the last 24h
 
@@ -777,10 +768,10 @@ class UserService {
 
     this.isDispatching = true;
     try {
-      // 1. Recover any stale 'processing' records so they don't permanently block dispatch.
-      await this.recoverStaleProcessing();
+      // Stale 'processing' cleanup is handled by the /status-aware cron sweeper
+      // (utils/aiRequestSweeper.utils.ts), not inline here.
 
-      // 2. Read in-flight count. Mongo is the source of truth — survives api restarts.
+      // Read in-flight count. Mongo is the source of truth — survives api restarts.
       let inFlight = await MongoAICaptionRequestModel.countDocuments({ status: 'processing' });
 
       // 3. Dispatch as many items as slots allow.
