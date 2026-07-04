@@ -15,7 +15,7 @@ import options from './swaggerOptions';
 import yaml from 'js-yaml';
 import fs from 'fs';
 import { initPassport, MongoAICaptionRequestModel, MongoVideosModel } from './models/mongodb/init-models.mongo';
-import { checkAndNotify, gpuStatusCronJob, videoStatusCheckJob } from './utils/cron.utils';
+import { videoStatusCheckJob } from './utils/cron.utils';
 import { stuckProcessingSweeperJob } from './utils/aiRequestSweeper.utils';
 import moment from 'moment';
 import YouTubeProxyRoute from './routes/youtube-proxy.route';
@@ -163,8 +163,6 @@ class App {
     console.log('Initializing Cron Jobs');
     logger.info('Initializing Cron Jobs');
     this.resetNumOfVideos();
-    checkAndNotify();
-    gpuStatusCronJob.start();
     videoStatusCheckJob.start();
     stuckProcessingSweeperJob.start();
     this.setupVideoCountIntervals();
