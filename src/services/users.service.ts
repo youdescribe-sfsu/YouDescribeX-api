@@ -76,6 +76,32 @@ class UserService {
     }
   }
 
+  public async updateOptIn(userId: string, choices: boolean[]): Promise<IUser> {
+    if (isEmpty(userId)) throw new HttpException(400, 'UserId is empty');
+    if (!Array.isArray(choices)) throw new HttpException(400, 'choices must be an array');
+
+    // opt_in is the overall flag (true if any option selected); the two boolean
+    // fields persist each checkbox individually. choices[0] = wishlist published,
+    // choices[1] = automated AI feedback.
+    const optedIn = choices.some(Boolean);
+
+    const updatedUser = await MongoUsersModel.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          opt_in: optedIn,
+          opt_in_wishlist_published: !!choices[0],
+          opt_in_ai_feedback: !!choices[1],
+          policy_review: true,
+          updated_at: nowUtc(),
+        },
+      },
+      { new: true },
+    );
+    if (!updatedUser) throw new HttpException(404, "User doesn't exist");
+    return updatedUser;
+  }
+
   public async createUser(userData: CreateUserDto): Promise<IUser | UsersAttributes> {
     if (isEmpty(userData)) throw new HttpException(400, 'userData is empty');
 
