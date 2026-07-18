@@ -99,6 +99,18 @@ class UsersController {
     }
   };
 
+  public updateOptIn = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId: string = req.body.id;
+      const choices: boolean[] = req.body.choices;
+      const updatedUser = await this.userService.updateOptIn(userId, choices);
+
+      res.status(200).json({ result: updatedUser, message: 'Opt-in choices updated' });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   /**
    * @swagger
    * /users/add-new-user:
