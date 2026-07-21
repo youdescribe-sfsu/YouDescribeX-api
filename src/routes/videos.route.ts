@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import VideosController from '../controllers/videos.controller';
 import { Routes } from '../interfaces/routes.interface';
-// import validationMiddleware from '../middlewares/validation.middleware';
-import authMiddleware from '../middlewares/auth.middleware';
+import authMiddleware from '../middlewares/auth.middleware'; // xiao: session guard for protected routes
 
 class VideosRoute implements Routes {
   public path = '/videos';

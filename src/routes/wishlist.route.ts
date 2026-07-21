@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import WishListController from '../controllers/wishlist.controller';
 import { Routes } from '../interfaces/routes.interface';
-import authMiddleware from '../middlewares/auth.middleware';
+import authMiddleware from '../middlewares/auth.middleware'; // xiao: session guard for protected routes
 
 class WishListRoute implements Routes {
   public path = '/wishlist';

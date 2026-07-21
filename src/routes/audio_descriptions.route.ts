@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import AudioDescriptionsController from '../controllers/audioDescriptions.controller';
 import { Routes } from '../interfaces/routes.interface';
-import authMiddleware from '../middlewares/auth.middleware';
+import authMiddleware from '../middlewares/auth.middleware'; // xiao: session guard for protected routes
 
 class AudioDescriptionsRoute implements Routes {
   public path = '/audio-descriptions';

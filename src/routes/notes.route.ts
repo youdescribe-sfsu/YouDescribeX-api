@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import NotesController from '../controllers/notes.controller';
 import { Routes } from '../interfaces/routes.interface';
-import authMiddleware from '../middlewares/auth.middleware';
+import authMiddleware from '../middlewares/auth.middleware'; // xiao: session guard for protected routes
 
 class NotesRoute implements Routes {
   public path = '/notes';

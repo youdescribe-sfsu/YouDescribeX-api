@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { upload } from '../utils/audioClips.util';
 import { Routes } from '../interfaces/routes.interface';
 import { AudioClipsController } from '../controllers/audioClips.controller';
-import authMiddleware from '../middlewares/auth.middleware';
+import authMiddleware from '../middlewares/auth.middleware'; // xiao: session guard for protected routes
 
 class AudioClipsRoute implements Routes {
   public path = '/audio-clips';

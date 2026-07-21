@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { Routes } from '../interfaces/routes.interface';
 import YouTubeProxyController from '../controllers/youtube-proxy.controller';
-import authMiddleware from '../middlewares/auth.middleware';
+import authMiddleware from '../middlewares/auth.middleware'; // xiao: session guard for protected routes
 
 class YouTubeProxyRoute implements Routes {
   public path = '/youtube-proxy';
