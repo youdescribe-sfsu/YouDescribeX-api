@@ -32,6 +32,7 @@ class UsersRoute implements Routes {
     this.router.get(`${this.path}/get-Visited-Videos-History`, authMiddleware, this.usersController.getVisitedVideosHistory);
     this.router.post(`${this.path}/pipeline-failure`, this.usersController.handlePipelineFailure);
     this.router.post(`${this.path}/request-ai-descriptions-with-lana`, authMiddleware, this.usersController.requestAiDescriptionsWithLana);
+    this.router.post(`${this.path}/updateoptin`, authMiddleware, this.usersController.updateOptIn);
 
     this.router.get(`${this.path}/:userId`, authMiddleware, this.usersController.getUserById);
   }
