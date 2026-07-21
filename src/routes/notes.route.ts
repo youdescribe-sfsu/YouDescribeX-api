@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import NotesController from '../controllers/notes.controller';
 import { Routes } from '../interfaces/routes.interface';
+import authMiddleware from '../middlewares/auth.middleware'; // xiao: session guard for protected routes
 
 class NotesRoute implements Routes {
   public path = '/notes';
@@ -12,7 +13,7 @@ class NotesRoute implements Routes {
   }
 
   private initializeRoutes() {
-    this.router.post(`${this.path}/post-note`, this.notesController.postNoteByAdId);
+    this.router.post(`${this.path}/post-note`, authMiddleware, this.notesController.postNoteByAdId);
   }
 }
 
