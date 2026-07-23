@@ -637,7 +637,7 @@ class WishListService {
         return { status: 200, message: 'Video successfully removed from the wishlist.' };
       } else {
         // Decrease the vote count by 1 and update the wishlist item.
-        wishListItem.votes = Number(1) - 1;
+        wishListItem.votes = Number(wishListItem.votes) - 1;
         wishListItem.updated_at = Number(formattedDate(new Date()));
 
         await wishListItem.save();
