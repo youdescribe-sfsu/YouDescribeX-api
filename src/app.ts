@@ -79,16 +79,21 @@ class App {
   }
 
   private async initializeMiddlewares() {
-    if (NODE_ENV === 'development') {
-      this.app.use(
-        cors({
-          origin: ['http://localhost:3000', 'https://ydx-dev.youdescribe.org'],
-          credentials: true,
-          methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-          allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'audiodescription'],
-        }),
-      );
-    }
+    const devOrigins = ['http://localhost:3000', 'https://ydx-dev.youdescribe.org'];
+    const prodOrigins = process.env.ORIGIN ? [process.env.ORIGIN] : ['https://youdescribe.org'];
+    const baseOrigins = NODE_ENV === 'development' ? devOrigins : prodOrigins;
+    // Set EXTENSION_ORIGIN in the server's .env once the extension ID is known from the manifest key.
+    const extensionOrigin = process.env.EXTENSION_ORIGIN || 'chrome-extension://REPLACE_WITH_EXTENSION_ID';
+    const allowedOrigins = [...baseOrigins, extensionOrigin];
+
+    this.app.use(
+      cors({
+        origin: allowedOrigins,
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'audiodescription'],
+      }),
+    );
     this.app.set('trust proxy', 1);
     this.app.use(compression());
     this.app.use(express.json());
