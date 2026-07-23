@@ -79,6 +79,20 @@ class WishListController {
     }
   };
 
+  public checkInWishlist = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userData = req.user as unknown as IUser;
+      if (!userData) {
+        throw new AuthenticationError('User not logged in');
+      }
+      const { youtubeId } = req.params;
+      const inWishlist = await this.wishlistService.checkInWishlist(String(userData._id), youtubeId);
+      res.status(200).json({ inWishlist });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   public removeOne = async (req: Request, res: Response) => {
     const userId: string = req.body.userId;
     const youTubeId: string = req.body.youTubeId;

@@ -13,6 +13,7 @@ class WishListRoute implements Routes {
   }
 
   private initializeRoutes() {
+    this.router.get(`${this.path}/check/:youtubeId`, authMiddleware, this.wishListController.checkInWishlist);
     this.router.post(`${this.path}/add-one-wishlist-item`, authMiddleware, this.wishListController.addOneWishlistItem);
     this.router.post(`${this.path}/get-all-wishlist`, this.wishListController.getAllWishlist);
     this.router.get(`${this.path}/get-user-wishlist`, authMiddleware, this.wishListController.getUserWishlist);
