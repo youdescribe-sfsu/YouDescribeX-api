@@ -93,13 +93,19 @@ class WishListController {
     }
   };
 
-  public removeOne = async (req: Request, res: Response) => {
-    const userId: string = req.body.userId;
-    const youTubeId: string = req.body.youTubeId;
-
-    const result = await this.wishlistService.removeOne(userId, youTubeId);
-
-    return res.status(result.status).json({ message: result.message });
+  public removeOne = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userData = req.user as unknown as IUser;
+      if (!userData) {
+        throw new AuthenticationError('User not logged in');
+      }
+      const userId = String(userData._id);
+      const youTubeId: string = req.body.youTubeId;
+      const result = await this.wishlistService.removeOne(userId, youTubeId);
+      return res.status(result.status).json({ message: result.message });
+    } catch (error) {
+      next(error);
+    }
   };
 }
 
