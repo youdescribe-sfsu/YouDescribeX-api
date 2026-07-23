@@ -613,6 +613,11 @@ class WishListService {
     }
   }
 
+  public async checkInWishlist(userId: string, youtubeId: string): Promise<boolean> {
+    const vote = await MongoUserVotesModel.findOne({ user: userId, youtube_id: youtubeId }).lean();
+    return vote !== null;
+  }
+
   public async removeOne(userId: string, youTubeId: string) {
     try {
       const wishListItem = await MongoWishListModel.findOne({ youtube_id: youTubeId }).exec();
