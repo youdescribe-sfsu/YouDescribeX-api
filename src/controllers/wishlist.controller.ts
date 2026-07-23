@@ -39,12 +39,12 @@ class WishListController {
   public addOneWishlistItem = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { youTubeId } = req.body;
-      const { userId } = req.body;
+      const userData = req.user as unknown as IUser;
 
-      if (!userId) {
+      if (!userData) {
         throw new AuthenticationError('User not logged in');
       }
-      const user = await MongoUsersModel.findById(userId);
+      const user = await MongoUsersModel.findById(userData._id);
       if (!user) {
         throw new Error('User not found');
       }
