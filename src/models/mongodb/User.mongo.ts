@@ -25,6 +25,8 @@ interface IUser extends Document {
   dialects: string;
   name: string;
   opt_in: boolean;
+  opt_in_wishlist_published: boolean;
+  opt_in_ai_feedback: boolean;
   picture: string;
   policy_review: boolean;
   token: string;
@@ -75,6 +77,16 @@ const UserSchema: Schema = new Schema(
     opt_in: {
       type: Boolean,
       required: true,
+      default: false,
+    },
+    opt_in_wishlist_published: {
+      type: Boolean,
+      required: false,
+      default: false,
+    },
+    opt_in_ai_feedback: {
+      type: Boolean,
+      required: false,
       default: false,
     },
     picture: {

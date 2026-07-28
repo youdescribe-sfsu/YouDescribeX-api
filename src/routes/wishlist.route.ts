@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import WishListController from '../controllers/wishlist.controller';
 import { Routes } from '../interfaces/routes.interface';
+import authMiddleware from '../middlewares/auth.middleware'; // xiao: session guard for protected routes
 
 class WishListRoute implements Routes {
   public path = '/wishlist';
@@ -12,12 +13,12 @@ class WishListRoute implements Routes {
   }
 
   private initializeRoutes() {
-    this.router.post(`${this.path}/add-one-wishlist-item`, this.wishListController.addOneWishlistItem);
+    this.router.post(`${this.path}/add-one-wishlist-item`, authMiddleware, this.wishListController.addOneWishlistItem);
     this.router.post(`${this.path}/get-all-wishlist`, this.wishListController.getAllWishlist);
-    this.router.get(`${this.path}/get-user-wishlist`, this.wishListController.getUserWishlist);
+    this.router.get(`${this.path}/get-user-wishlist`, authMiddleware, this.wishListController.getUserWishlist);
     this.router.get(`${this.path}/get-top-wishlist`, this.wishListController.getTopWishList);
     this.router.get(`${this.path}/top`, this.wishListController.getTopWishListItems);
-    this.router.delete(`${this.path}/removeone`, this.wishListController.removeOne);
+    this.router.delete(`${this.path}/removeone`, authMiddleware, this.wishListController.removeOne);
   }
 }
 

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import AudioDescriptionsRatingController from '../controllers/audioDescriptionRating.controller';
 import { Routes } from '../interfaces/routes.interface';
+import authMiddleware from '../middlewares/auth.middleware'; // xiao: session guard for protected routes
 
 class AudioDescriptionRatingRoute implements Routes {
   public path = '/audio-descriptions/ratings';
@@ -12,8 +13,8 @@ class AudioDescriptionRatingRoute implements Routes {
   }
 
   private initializeRoutes() {
-    this.router.post(`${this.path}/addOne/:audioDescriptionId`, this.audioDescriptionsRatingController.addOne);
-    this.router.get(`${this.path}/user/:audioDescriptionId`, this.audioDescriptionsRatingController.getUserRating);
+    this.router.post(`${this.path}/addOne/:audioDescriptionId`, authMiddleware, this.audioDescriptionsRatingController.addOne);
+    this.router.get(`${this.path}/user/:audioDescriptionId`, authMiddleware, this.audioDescriptionsRatingController.getUserRating);
   }
 }
 
