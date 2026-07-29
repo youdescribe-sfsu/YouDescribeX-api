@@ -16,7 +16,8 @@ const MONGODB_CONNECTION_STRING =
     : `mongodb://${MONGO_DB_HOST}:${MONGO_DB_PORT}/${MONGO_DB_DATABASE}?replicaSet=rs0`);
 
 logger.info(`NODE`);
-logger.info(process.env);
+// xiao: 0728 removed
+// logger.info(process.env);
 logger.info(`MONGODB_CONNECTION_STRING: ${MONGODB_CONNECTION_STRING}`);
 
 // PostgreSQL connection object
