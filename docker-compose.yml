@@ -30,9 +30,12 @@ services:
       - PASSPORT_REDIRECT_URL=${PASSPORT_REDIRECT_URL}
       - PASSPORT_CALLBACK_URL=${PASSPORT_CALLBACK_URL}
       - FRONTEND_URL=${FRONTEND_URL}
-      # xiao: 0728 change to remove the old session cookie
+      # xiao: 0728 removed — cookie is now host-only (no shared domain), see app.ts
       # - SESSION_COOKIE_DOMAIN=.youdescribe.org
+      # xiao: 0728 session isolation — secret/name read from env vars (per-environment values
+      # to be set in GitLab CI); code falls back safely if unset, see app.ts
       - SESSION_SECRET=${SESSION_SECRET}
+      - SESSION_COOKIE_NAME=${SESSION_COOKIE_NAME}
       - ALLOWED_REDIRECT_DOMAIN=${ALLOWED_REDIRECT_DOMAIN}
       - CRYPTO_SECRET=${CRYPTO_SECRET}
       - CRYPTO_SEED=${CRYPTO_SEED}
