@@ -22,7 +22,7 @@ class UsersRoute implements Routes {
     this.router.post(`${this.path}/create-user`, this.usersController.createNewUser);
     this.router.post(`${this.path}/request-ai-descriptions-with-gpu`, authMiddleware, this.usersController.requestAiDescriptionsWithGpu);
     this.router.get(`${this.path}/ai-service-status`, this.usersController.getAiServiceStatus);
-    this.router.get(`${this.path}/processAllClipsInDB/:ad_id`, authMiddleware, this.usersController.processAllClipsInDBController);
+    this.router.get(`${this.path}/processAllClipsInDB/:ad_id`, this.usersController.processAllClipsInDBController);
     this.router.post(`${this.path}/generate-audio-desc-gpu`, authMiddleware, this.usersController.generateAudioDescGpu);
     this.router.post(`${this.path}/generate-ai-descriptions`, authMiddleware, this.usersController.generateAiDescriptions);
     this.router.post(`${this.path}/increase-Request-Count`, authMiddleware, this.usersController.increaseRequestCount);
