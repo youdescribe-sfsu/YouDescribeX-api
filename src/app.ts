@@ -94,16 +94,24 @@ class App {
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
     this.app.use(cookieParser());
+
+    // xiao: isolate session cookies per environment. dev/prod previously shared the same
+    // cookie name + secret + domain (.youdescribe.org) — one browser slot, so any
+    // Set-Cookie from one environment silently killed the other's session (root cause
+    // of the recurring "mystery logout" / demo logout loop).
+    if (!process.env.SESSION_SECRET) {
+      logger.warn('SESSION_SECRET not set — using per-environment fallback. Set it in .env for production hardening.');
+    }
     this.app.use(
       cookieSession({
-        name: 'auth-session-dev-v2',
+        name: process.env.SESSION_COOKIE_NAME || `ydx-session-${NODE_ENV || 'development'}`,
         maxAge: 30 * 24 * 60 * 60 * 1000,
-        secret: 'YouDescribe Secret',
-        domain: process.env.SESSION_COOKIE_DOMAIN || undefined,
+        secret: process.env.SESSION_SECRET || `ydx-fallback-${NODE_ENV || 'development'}`,
         sameSite: NODE_ENV === 'production' ? 'none' : 'lax',
         secure: NODE_ENV === 'production',
       }),
     );
+
     this.app.use(passport.initialize());
     this.app.use(passport.session());
     logger.info(`AUDIO_DIRECTORY: ${AUDIO_DIRECTORY}`);
