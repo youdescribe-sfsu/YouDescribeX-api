@@ -613,6 +613,11 @@ class WishListService {
     }
   }
 
+  public async checkInWishlist(userId: string, youtubeId: string): Promise<boolean> {
+    const vote = await MongoUserVotesModel.findOne({ user: userId, youtube_id: youtubeId }).lean();
+    return vote !== null;
+  }
+
   public async removeOne(userId: string, youTubeId: string) {
     try {
       const wishListItem = await MongoWishListModel.findOne({ youtube_id: youTubeId }).exec();
@@ -632,7 +637,7 @@ class WishListService {
         return { status: 200, message: 'Video successfully removed from the wishlist.' };
       } else {
         // Decrease the vote count by 1 and update the wishlist item.
-        wishListItem.votes = Number(1) - 1;
+        wishListItem.votes = Number(wishListItem.votes) - 1;
         wishListItem.updated_at = Number(formattedDate(new Date()));
 
         await wishListItem.save();
