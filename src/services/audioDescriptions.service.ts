@@ -12,6 +12,7 @@ import {
   MongoVideosModel,
   MongoAICaptionRequestModel,
   MongoWishListModel,
+  MongoUserVotesModel,
 } from '../models/mongodb/init-models.mongo';
 import {
   Audio_DescriptionsAttributes,
@@ -26,6 +27,7 @@ import { getYouTubeVideoStatus, isEmpty, nowUtc } from '../utils/util';
 import { isVideoAvailable } from '../utils/videos.util';
 import cacheService from '../utils/cacheService';
 import GpuUtilsService from './gpu_utils.service';
+import sendEmail from '../utils/emailService';
 
 const fs = require('fs');
 
@@ -404,6 +406,8 @@ class AudioDescriptionsService {
 
       await MongoWishListModel.updateOne({ youtube_id: youtube_id, status: 'queued' }, { $set: { status: 'fulfilled' } });
 
+      await this.notifyWishlistSubscribers(youtube_id, videoIdStatus.title);
+
       logger.info(`[COLLAB] Audio description ${audioDescriptionId} published successfully`);
 
       await cacheService.invalidateByPrefix('home_videos');
@@ -418,6 +422,44 @@ class AudioDescriptionsService {
       throw error;
     }
   };
+
+  private async notifyWishlistSubscribers(youtube_id: string, videoTitle: string): Promise<void> {
+    try {
+      const voters = await MongoUserVotesModel.find({ youtube_id });
+      if (!voters.length) return;
+
+      const subscribers = await MongoUsersModel.find({
+        _id: { $in: voters.map(voter => voter.user) },
+        opt_in_wishlist_published: true,
+      });
+
+      for (const subscriber of subscribers) {
+        if (!subscriber.email) continue;
+        await sendEmail(
+          subscriber.email,
+          `Your wishlisted video now has an audio description!`,
+          this.getWishlistPublishedEmailBody(subscriber.name, videoTitle, youtube_id),
+        );
+      }
+    } catch (error: any) {
+      logger.error(`[COLLAB] Error notifying wishlist subscribers for video ${youtube_id}: ${error.message}`);
+    }
+  }
+
+  private getWishlistPublishedEmailBody(userName: string, videoTitle: string, youtube_id: string) {
+    return `
+      Dear ${userName},
+
+      Good news! A video on your wishlist, "${videoTitle}", now has an audio description published.
+
+      Watch it here: https://www.youtube.com/watch?v=${youtube_id}
+
+      Thank you for being a valued member of the YouDescribe community.
+
+      Best regards,
+      The YouDescribe Team
+  `;
+  }
 
   public unpublishAudioDescription = async (audioDescriptionId: string, youtube_id: string, user_id: string): Promise<string> => {
     try {

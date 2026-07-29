@@ -1,7 +1,9 @@
-import { MongoAudio_Descriptions_Model, MongoAudioDescriptionRatingModel } from '../models/mongodb/init-models.mongo';
+import { MongoAudio_Descriptions_Model, MongoAudioDescriptionRatingModel, MongoUsersModel, MongoVideosModel } from '../models/mongodb/init-models.mongo';
 import { IAudioDescriptionRating } from '../models/mongodb/AudioDescriptionRating.mongo';
 import { nowUtc } from '../utils/util';
 import { Types } from 'mongoose';
+import sendEmail from '../utils/emailService';
+import { logger } from '../utils/logger';
 
 class AudioDescriptionRatingService {
   public async getUserRating(userId: string, audioDescriptionId: string): Promise<number | null> {
@@ -51,6 +53,8 @@ class AudioDescriptionRatingService {
         user: new Types.ObjectId(userId),
       });
 
+      let result: IAudioDescriptionRating;
+
       if (existingRating) {
         const updatedRating = await MongoAudioDescriptionRatingModel.findOneAndUpdate(
           { _id: existingRating._id },
@@ -67,7 +71,7 @@ class AudioDescriptionRatingService {
         }
 
         await this.updateOverallRating(audioDescriptionId, existingRating.rating, rating);
-        return updatedRating;
+        result = updatedRating;
       } else {
         const newRating = new MongoAudioDescriptionRatingModel({
           user: new Types.ObjectId(userId),
@@ -80,12 +84,52 @@ class AudioDescriptionRatingService {
 
         const createdRating = await newRating.save();
         await this.updateOverallRating(audioDescriptionId, 0, rating);
-        return createdRating;
+        result = createdRating;
       }
+
+      await this.notifyOwnerOfFeedback(userId, audioDescriptionId, rating, feedback);
+      return result;
     } catch (error) {
       console.error(`Error adding/updating rating for user ${userId} on audio description ${audioDescriptionId}:`, error);
       throw error;
     }
+  }
+
+  private async notifyOwnerOfFeedback(raterId: string, audioDescriptionId: string, rating: number, feedback: string[]): Promise<void> {
+    try {
+      const audioDescription = await MongoAudio_Descriptions_Model.findById(audioDescriptionId);
+      if (!audioDescription || audioDescription.user.toString() === raterId) return;
+
+      const owner = await MongoUsersModel.findOne({ _id: audioDescription.user, opt_in_ai_feedback: true });
+      if (!owner || !owner.email) return;
+
+      const video = await MongoVideosModel.findById(audioDescription.video);
+      const videoTitle = video ? video.title : 'your video';
+
+      await sendEmail(
+        owner.email,
+        `You've received feedback on your audio description`,
+        this.getFeedbackNotificationEmailBody(owner.name, videoTitle, rating, feedback),
+      );
+    } catch (error: any) {
+      logger.error(`Error notifying owner of feedback on audio description ${audioDescriptionId}: ${error.message}`);
+    }
+  }
+
+  private getFeedbackNotificationEmailBody(userName: string, videoTitle: string, rating: number, feedback: string[]) {
+    return `
+      Dear ${userName},
+
+      Someone has left feedback on your audio description for "${videoTitle}".
+
+      Rating: ${rating} / 5
+      ${feedback.length ? `Feedback: ${feedback.join(', ')}` : ''}
+
+      Thank you for contributing to the YouDescribe community.
+
+      Best regards,
+      The YouDescribe Team
+  `;
   }
 }
 
