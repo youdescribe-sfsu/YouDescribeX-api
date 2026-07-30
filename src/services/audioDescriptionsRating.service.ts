@@ -109,14 +109,23 @@ class AudioDescriptionRatingService {
       await sendEmail(
         owner.email,
         `You've received feedback on your audio description`,
-        this.getFeedbackNotificationEmailBody(owner.name, videoTitle, rating, feedback),
+        this.getFeedbackNotificationEmailBody(owner.name, videoTitle, rating, feedback, video?.youtube_id, audioDescriptionId),
       );
     } catch (error: any) {
       logger.error(`Error notifying owner of feedback on audio description ${audioDescriptionId}: ${error.message}`);
     }
   }
 
-  private getFeedbackNotificationEmailBody(userName: string, videoTitle: string, rating: number, feedback: string[]) {
+  private getFeedbackNotificationEmailBody(
+    userName: string,
+    videoTitle: string,
+    rating: number,
+    feedback: string[],
+    youtube_id: string | undefined,
+    audioDescriptionId: string,
+  ) {
+    const ydx_app_host = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const previewURL = youtube_id ? `${ydx_app_host}/video/${youtube_id}?ad=${audioDescriptionId}` : undefined;
     return `
       Dear ${userName},
 
@@ -124,6 +133,7 @@ class AudioDescriptionRatingService {
 
       Rating: ${rating} / 5
       ${feedback.length ? `Feedback: ${feedback.join(', ')}` : ''}
+      ${previewURL ? `Check out the video and its rating here: ${previewURL}` : ''}
 
       Thank you for contributing to the YouDescribe community.
 

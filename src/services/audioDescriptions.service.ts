@@ -406,7 +406,7 @@ class AudioDescriptionsService {
 
       await MongoWishListModel.updateOne({ youtube_id: youtube_id, status: 'queued' }, { $set: { status: 'fulfilled' } });
 
-      await this.notifyWishlistSubscribers(youtube_id, videoIdStatus.title);
+      await this.notifyWishlistSubscribers(youtube_id, videoIdStatus.title, audioDescriptionId);
 
       logger.info(`[COLLAB] Audio description ${audioDescriptionId} published successfully`);
 
@@ -423,7 +423,7 @@ class AudioDescriptionsService {
     }
   };
 
-  private async notifyWishlistSubscribers(youtube_id: string, videoTitle: string): Promise<void> {
+  private async notifyWishlistSubscribers(youtube_id: string, videoTitle: string, audioDescriptionId: string): Promise<void> {
     try {
       const voters = await MongoUserVotesModel.find({ youtube_id });
       if (!voters.length) return;
@@ -438,7 +438,7 @@ class AudioDescriptionsService {
         await sendEmail(
           subscriber.email,
           `Your wishlisted video now has an audio description!`,
-          this.getWishlistPublishedEmailBody(subscriber.name, videoTitle, youtube_id),
+          this.getWishlistPublishedEmailBody(subscriber.name, videoTitle, youtube_id, audioDescriptionId),
         );
       }
     } catch (error: any) {
@@ -446,13 +446,15 @@ class AudioDescriptionsService {
     }
   }
 
-  private getWishlistPublishedEmailBody(userName: string, videoTitle: string, youtube_id: string) {
+  private getWishlistPublishedEmailBody(userName: string, videoTitle: string, youtube_id: string, audioDescriptionId: string) {
+    const ydx_app_host = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const previewURL = `${ydx_app_host}/video/${youtube_id}?ad=${audioDescriptionId}`;
     return `
       Dear ${userName},
 
       Good news! A video on your wishlist, "${videoTitle}", now has an audio description published.
 
-      Watch it here: https://www.youtube.com/watch?v=${youtube_id}
+      Watch it here: ${previewURL}
 
       Thank you for being a valued member of the YouDescribe community.
 
