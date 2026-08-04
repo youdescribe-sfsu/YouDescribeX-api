@@ -10,8 +10,10 @@ class AudioDescriptionRatingController {
       const audioDescriptionId = req.params.audioDescriptionId;
       const rating = req.body.rating;
       const feedback = req.body.feedback || [];
+      const enjoymentRating = req.body.enjoymentRating;
+      const comment = req.body.comment;
 
-      const newRating = await this.audioDescriptionRatingService.addRating(userId, audioDescriptionId, rating, feedback);
+      const newRating = await this.audioDescriptionRatingService.addRating(userId, audioDescriptionId, rating, feedback, enjoymentRating, comment);
 
       res.status(200).json({ result: newRating });
     } catch (error) {

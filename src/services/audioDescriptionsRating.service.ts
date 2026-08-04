@@ -5,15 +5,29 @@ import { Types } from 'mongoose';
 import sendEmail from '../utils/emailService';
 import { logger } from '../utils/logger';
 
+export interface IUserRating {
+  rating: number | null;
+  enjoymentRating: number | null;
+  comment: string;
+}
+
 class AudioDescriptionRatingService {
-  public async getUserRating(userId: string, audioDescriptionId: string): Promise<number | null> {
+  public async getUserRating(userId: string, audioDescriptionId: string): Promise<IUserRating | null> {
     try {
       const rating = await MongoAudioDescriptionRatingModel.findOne({
         audio_description: new Types.ObjectId(audioDescriptionId),
         user: new Types.ObjectId(userId),
       });
 
-      return rating ? rating.rating : null;
+      if (!rating) {
+        return null;
+      }
+
+      return {
+        rating: rating.rating ?? null,
+        enjoymentRating: rating.enjoyment_rating ?? null,
+        comment: rating.comment ?? '',
+      };
     } catch (error) {
       console.error(`Error fetching user rating for user ${userId} on audio description ${audioDescriptionId}:`, error);
       throw error;
@@ -46,7 +60,14 @@ class AudioDescriptionRatingService {
     }
   }
 
-  public async addRating(userId: string, audioDescriptionId: string, rating: number, feedback: string[]): Promise<IAudioDescriptionRating> {
+  public async addRating(
+    userId: string,
+    audioDescriptionId: string,
+    rating: number,
+    feedback: string[],
+    enjoymentRating?: number,
+    comment?: string,
+  ): Promise<IAudioDescriptionRating> {
     try {
       const existingRating = await MongoAudioDescriptionRatingModel.findOne({
         audio_description: new Types.ObjectId(audioDescriptionId),
@@ -56,15 +77,19 @@ class AudioDescriptionRatingService {
       let result: IAudioDescriptionRating;
 
       if (existingRating) {
-        const updatedRating = await MongoAudioDescriptionRatingModel.findOneAndUpdate(
-          { _id: existingRating._id },
-          {
-            rating: rating,
-            feedback: feedback,
-            updated_at: nowUtc(),
-          },
-          { new: true },
-        );
+        const updateFields: Record<string, unknown> = {
+          rating: rating,
+          feedback: feedback,
+          updated_at: nowUtc(),
+        };
+        if (enjoymentRating !== undefined) {
+          updateFields.enjoyment_rating = enjoymentRating;
+        }
+        if (comment !== undefined) {
+          updateFields.comment = comment;
+        }
+
+        const updatedRating = await MongoAudioDescriptionRatingModel.findOneAndUpdate({ _id: existingRating._id }, updateFields, { new: true });
 
         if (!updatedRating) {
           throw new Error('Failed to update rating');
@@ -77,6 +102,8 @@ class AudioDescriptionRatingService {
           user: new Types.ObjectId(userId),
           audio_description: new Types.ObjectId(audioDescriptionId),
           rating: rating,
+          enjoyment_rating: enjoymentRating,
+          comment: comment,
           feedback: feedback,
           created_at: nowUtc(),
           updated_at: nowUtc(),
