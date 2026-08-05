@@ -114,7 +114,7 @@ class AudioDescriptionRatingService {
         result = createdRating;
       }
 
-      await this.notifyOwnerOfFeedback(userId, audioDescriptionId, rating, feedback);
+      await this.notifyOwnerOfFeedback(userId, audioDescriptionId, rating, enjoymentRating, comment);
       return result;
     } catch (error) {
       console.error(`Error adding/updating rating for user ${userId} on audio description ${audioDescriptionId}:`, error);
@@ -122,7 +122,7 @@ class AudioDescriptionRatingService {
     }
   }
 
-  private async notifyOwnerOfFeedback(raterId: string, audioDescriptionId: string, rating: number, feedback: string[]): Promise<void> {
+  private async notifyOwnerOfFeedback(raterId: string, audioDescriptionId: string, rating: number, enjoymentRating?: number, comment?: string): Promise<void> {
     try {
       const audioDescription = await MongoAudio_Descriptions_Model.findById(audioDescriptionId);
       if (!audioDescription || audioDescription.user.toString() === raterId) return;
@@ -136,7 +136,7 @@ class AudioDescriptionRatingService {
       await sendEmail(
         owner.email,
         `You've received feedback on your audio description`,
-        this.getFeedbackNotificationEmailBody(owner.name, videoTitle, rating, feedback, video?.youtube_id, audioDescriptionId),
+        this.getFeedbackNotificationEmailBody(owner.name, videoTitle, rating, enjoymentRating, comment, video?.youtube_id, audioDescriptionId),
       );
     } catch (error: any) {
       logger.error(`Error notifying owner of feedback on audio description ${audioDescriptionId}: ${error.message}`);
@@ -147,7 +147,8 @@ class AudioDescriptionRatingService {
     userName: string,
     videoTitle: string,
     rating: number,
-    feedback: string[],
+    enjoymentRating: number | undefined,
+    comment: string | undefined,
     youtube_id: string | undefined,
     audioDescriptionId: string,
   ) {
@@ -159,7 +160,8 @@ class AudioDescriptionRatingService {
       Someone has left feedback on your audio description for "${videoTitle}".
 
       Rating: ${rating} / 5
-      ${feedback.length ? `Feedback: ${feedback.join(', ')}` : ''}
+      ${enjoymentRating !== undefined ? `Enjoyment: ${enjoymentRating} / 5` : ''}
+      ${comment ? `Comment: ${comment}` : ''}
       ${previewURL ? `Check out the video and its rating here: ${previewURL}` : ''}
 
       Thank you for contributing to the YouDescribe community.
