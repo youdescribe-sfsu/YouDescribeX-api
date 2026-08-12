@@ -13,9 +13,18 @@ class AudioDescriptionRatingController {
       const enjoymentRating = req.body.enjoymentRating;
       const comment = req.body.comment;
 
-      const newRating = await this.audioDescriptionRatingService.addRating(userId, audioDescriptionId, rating, feedback, enjoymentRating, comment);
+      const { rating: newRating, overallRating } = await this.audioDescriptionRatingService.addRating(
+        userId,
+        audioDescriptionId,
+        rating,
+        feedback,
+        enjoymentRating,
+        comment,
+      );
 
-      res.status(200).json({ result: newRating });
+      // `overallRating` lets the client show the description's new average
+      // without recomputing it, which is what used to drift on re-ratings.
+      res.status(200).json({ result: newRating, overallRating });
     } catch (error) {
       next(error);
     }
