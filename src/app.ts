@@ -81,10 +81,10 @@ class App {
   private async initializeMiddlewares() {
     const devOrigins = ['http://localhost:3000', 'https://ydx-dev.youdescribe.org'];
     const prodOrigins = process.env.ORIGIN ? [process.env.ORIGIN] : ['https://youdescribe.org'];
-    const baseOrigins = NODE_ENV === 'development' ? devOrigins : prodOrigins;
-    // Set EXTENSION_ORIGIN in the server's .env once the extension ID is known from the manifest key.
-    const extensionOrigin = process.env.EXTENSION_ORIGIN || 'chrome-extension://REPLACE_WITH_EXTENSION_ID';
-    const allowedOrigins = [...baseOrigins, extensionOrigin];
+    // Chrome extensions with `host_permissions` bypass CORS entirely for requests from
+    // privileged extension pages (e.g. the popup), regardless of Access-Control-Allow-Origin —
+    // confirmed live: the wishlist extension works on dev without EXTENSION_ORIGIN ever being set.
+    const allowedOrigins = NODE_ENV === 'development' ? devOrigins : prodOrigins;
 
     this.app.use(
       cors({
