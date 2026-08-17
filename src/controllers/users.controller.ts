@@ -470,6 +470,19 @@ class UsersController {
       next(error);
     }
   };
+
+  public getMe = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userData = req.user as unknown as IUser;
+      const user = await MongoUsersModel.findById(userData._id).select('_id name email picture admin_level user_type opt_in opt_in_wishlist_published');
+      if (!user) {
+        throw new Error('User not found');
+      }
+      res.status(200).json({ data: user });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export default UsersController;
