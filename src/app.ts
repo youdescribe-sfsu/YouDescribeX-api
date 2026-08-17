@@ -79,13 +79,16 @@ class App {
   }
 
   private async initializeMiddlewares() {
-    // HOTFIX 2026-08-17: production already gets CORS headers from an existing
-    // Cloudflare-level rule (added back when this Express app never ran cors() in
-    // prod at all). Enabling cors() here unconditionally made prod send its OWN
-    // Access-Control-Allow-Origin/-Credentials on top of Cloudflare's, and two
-    // browsers reject responses with duplicate CORS headers — broke the entire
-    // site. Reverting production to the pre-#131 behavior (Cloudflare-only) until
-    // the Cloudflare-side rule is removed and this can be safely re-enabled.
+    // Chrome extensions with `host_permissions` bypass CORS entirely for requests from
+    // privileged extension pages (e.g. the popup), regardless of Access-Control-Allow-Origin —
+    // confirmed live: the wishlist extension works on dev without EXTENSION_ORIGIN ever being set.
+    //
+    // Production's CORS is handled entirely by an existing Cloudflare-level rule (added
+    // back when this app never ran cors() in prod at all). Running cors() unconditionally
+    // here made prod send its own Access-Control-Allow-Origin/-Credentials on top of
+    // Cloudflare's — two browsers reject responses with a duplicate CORS header, which
+    // broke the entire site on 2026-08-17. Keep this dev-only until the Cloudflare-side
+    // rule is removed and Express can safely own CORS in every environment.
     if (NODE_ENV === 'development') {
       const devOrigins = ['http://localhost:3000', 'https://ydx-dev.youdescribe.org'];
       this.app.use(
