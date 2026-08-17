@@ -79,21 +79,24 @@ class App {
   }
 
   private async initializeMiddlewares() {
-    const devOrigins = ['http://localhost:3000', 'https://ydx-dev.youdescribe.org'];
-    const prodOrigins = process.env.ORIGIN ? [process.env.ORIGIN] : ['https://youdescribe.org'];
-    const baseOrigins = NODE_ENV === 'development' ? devOrigins : prodOrigins;
-    // Set EXTENSION_ORIGIN in the server's .env once the extension ID is known from the manifest key.
-    const extensionOrigin = process.env.EXTENSION_ORIGIN || 'chrome-extension://REPLACE_WITH_EXTENSION_ID';
-    const allowedOrigins = [...baseOrigins, extensionOrigin];
-
-    this.app.use(
-      cors({
-        origin: allowedOrigins,
-        credentials: true,
-        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'audiodescription'],
-      }),
-    );
+    // HOTFIX 2026-08-17: production already gets CORS headers from an existing
+    // Cloudflare-level rule (added back when this Express app never ran cors() in
+    // prod at all). Enabling cors() here unconditionally made prod send its OWN
+    // Access-Control-Allow-Origin/-Credentials on top of Cloudflare's, and two
+    // browsers reject responses with duplicate CORS headers — broke the entire
+    // site. Reverting production to the pre-#131 behavior (Cloudflare-only) until
+    // the Cloudflare-side rule is removed and this can be safely re-enabled.
+    if (NODE_ENV === 'development') {
+      const devOrigins = ['http://localhost:3000', 'https://ydx-dev.youdescribe.org'];
+      this.app.use(
+        cors({
+          origin: devOrigins,
+          credentials: true,
+          methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+          allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'audiodescription'],
+        }),
+      );
+    }
     this.app.set('trust proxy', 1);
     this.app.use(compression());
     this.app.use(express.json());
