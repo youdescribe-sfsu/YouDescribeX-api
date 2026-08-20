@@ -753,78 +753,75 @@ class AudioDescriptionsService {
     }
   }
 
-  public async getAllAIDescriptions(user_id: string, pageNumber: string) {
-    if (!user_id) {
-      throw new HttpException(400, 'No data provided');
-    }
-
+  public async getAllAIDescriptions(pageNumber: string) {
     try {
-      const page = parseInt(pageNumber, 10) || 1;
-      const perPage = 5;
+      const page = Math.max(parseInt(pageNumber, 10) || 1, 1);
+      const perPage = 20;
       const skipCount = (page - 1) * perPage;
+
       const pipeline: any[] = [
-        { $match: { status: 'completed' } },
+        {
+          $match: {
+            status: 'draft',
+            admin_review: false,
+          },
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'user',
+            foreignField: '_id',
+            as: 'userData',
+          },
+        },
+        { $unwind: '$userData' },
+        {
+          $match: {
+            'userData.user_type': 'AI',
+          },
+        },
         {
           $lookup: {
             from: 'videos',
-            localField: 'youtube_id',
-            foreignField: 'youtube_id',
-            as: 'video',
+            localField: 'video',
+            foreignField: '_id',
+            as: 'videoData',
           },
         },
-        { $unwind: '$video' },
-        {
-          $group: {
-            _id: '$_id',
-            status: { $first: '$status' },
-            video: { $first: '$video' },
-            requestCreatedAt: { $first: '$createdAt' },
-            requestUpdatedAt: { $first: '$updatedAt' },
-          },
-        },
-        {
-          $addFields: {
-            sortTier: {
-              $cond: [{ $ne: ['$requestUpdatedAt', null] }, 0, { $cond: [{ $ne: ['$requestCreatedAt', null] }, 1, 2] }],
-            },
-            sortDate: {
-              $ifNull: ['$requestUpdatedAt', '$requestCreatedAt'],
-            },
-          },
-        },
+        { $unwind: '$videoData' },
         {
           $project: {
-            _id: 1,
+            _id: 0,
+            audio_description_id: '$_id',
+            video_id: '$videoData._id',
+            youtube_id: '$videoData.youtube_id',
+            video_name: '$videoData.title',
+            video_length: '$videoData.duration',
+            createdAt: '$created_at',
+            updatedAt: '$updated_at',
             status: 1,
-            video_id: '$video._id',
-            youtube_id: '$video.youtube_id',
-            video_name: '$video.title',
-            video_length: '$video.duration',
-            createdAt: '$requestCreatedAt',
-            updatedAt: '$requestUpdatedAt',
-            sortTier: 1,
-            sortDate: 1,
+            admin_review: 1,
           },
         },
-        { $sort: { sortTier: 1, sortDate: -1, youtube_id: 1, _id: -1 } },
+        { $sort: { updatedAt: -1 } },
         {
           $facet: {
-            videos: [
-              { $skip: skipCount },
-              { $limit: perPage },
-              { $project: { sortTier: 0, sortDate: 0 } }, // hide internal sort fields
-            ],
+            videos: [{ $skip: skipCount }, { $limit: perPage }],
             totalCount: [{ $count: 'count' }],
           },
         },
         {
           $project: {
-            videos: '$videos',
-            total: { $arrayElemAt: ['$totalCount.count', 0] },
+            videos: 1,
+            total: {
+              $ifNull: [{ $arrayElemAt: ['$totalCount.count', 0] }, 0],
+            },
           },
         },
       ];
-      const result = await MongoAICaptionRequestModel.aggregate(pipeline).exec();
+
+      const result = await MongoAudio_Descriptions_Model.aggregate(pipeline).exec();
+
       return {
         result: result[0]?.videos || [],
         totalVideos: result[0]?.total || 0,
