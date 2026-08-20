@@ -23,6 +23,7 @@ import {
   PostGres_Videos,
 } from '../models/postgres/init-models';
 import { logger } from '../utils/logger';
+import { AuthorizationError } from '../utils/customErrors';
 import { getYouTubeVideoStatus, isEmpty, nowUtc } from '../utils/util';
 import { isVideoAvailable } from '../utils/videos.util';
 import cacheService from '../utils/cacheService';
@@ -56,6 +57,14 @@ class AudioDescriptionsService {
       });
 
       if (!audioDescriptions) throw new HttpException(409, "Audio Description for this YouTube Video doesn't exist");
+
+      // The editor is the only consumer of this endpoint, so restrict it to the owner.
+      // `userId` was previously accepted and ignored, letting any signed-in user load
+      // someone else's AD — including unpublished drafts, since the editor always sends
+      // preview=true — and see live edit/unpublish controls for it.
+      if (audioDescriptions.user.toString() !== userId.toString()) {
+        throw new AuthorizationError('You do not have permission to view this audio description');
+      }
 
       // Only enforce published status check if not in preview mode
       if (!preview && audioDescriptions.status !== 'published') {
@@ -370,19 +379,23 @@ class AudioDescriptionsService {
         throw new HttpException(404, 'No audioDescriptionId Found');
       }
 
+      // Only the owner may publish. Every supported flow hands the caller a document it
+      // already owns (own draft, AI adoption via create-new-user-ad, collaborative fork
+      // via create-collaborative-ad), so this never rejects a legitimate publish.
+      if (checkIfAudioDescriptionExists.user.toString() !== user_id.toString()) {
+        throw new AuthorizationError('You do not have permission to publish this audio description');
+      }
+
       const updateFields: any = {
         status: 'published',
         updated_at: nowUtc(),
         collaborative_editing: enrolled_in_collaborative_editing,
       };
 
-      // Only update user if this is NOT a collaborative edit
-      if (!checkIfAudioDescriptionExists.prev_audio_description) {
-        updateFields.user = user_id;
-      }
-
-      const audioDescription = await MongoAudio_Descriptions_Model.findByIdAndUpdate(
-        audioDescriptionId,
+      // `user` is deliberately not written here: it already equals user_id, and assigning
+      // it let any signed-in user publish someone else's AD and take ownership of it.
+      const audioDescription = await MongoAudio_Descriptions_Model.findOneAndUpdate(
+        { _id: audioDescriptionId, user: user_id },
         updateFields,
         { new: true }, // Return the updated document
       );
@@ -471,19 +484,24 @@ class AudioDescriptionsService {
         throw new HttpException(400, 'No videoIdStatus provided');
       }
 
-      // 1. Update the Description status to 'draft'
-      const audioDescription = await MongoAudio_Descriptions_Model.findByIdAndUpdate(
-        audioDescriptionId,
+      // 1. Update the Description status to 'draft'. Scoped to the owner so a signed-in
+      // user cannot unpublish someone else's AD; `user` is no longer written, since
+      // assigning it transferred ownership of the AD to whoever unpublished it.
+      const audioDescription = await MongoAudio_Descriptions_Model.findOneAndUpdate(
+        { _id: audioDescriptionId, user: user_id },
         {
           status: 'draft',
           updated_at: nowUtc(),
-          user: user_id,
         },
         { new: true }, // Return the updated doc
       );
 
       // FIX: TypeScript Null Guard
       if (!audioDescription) {
+        const existsForAnotherUser = await MongoAudio_Descriptions_Model.exists({ _id: audioDescriptionId });
+        if (existsForAnotherUser) {
+          throw new AuthorizationError('You do not have permission to unpublish this audio description');
+        }
         throw new HttpException(404, 'Audio Description not found');
       }
 
