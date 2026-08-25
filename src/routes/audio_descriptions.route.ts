@@ -22,7 +22,7 @@ class AudioDescriptionsRoute implements Routes {
     this.router.get(`${this.path}/get-audio-description/:audioDescriptionId`, this.audioDescriptionsController.getAudioDescription);
     this.router.get(`${this.path}/get-my-descriptions`, authMiddleware, this.audioDescriptionsController.getMyDescriptions);
     this.router.get(`${this.path}/get-my-draft-descriptions`, authMiddleware, this.audioDescriptionsController.getMyDraftDescriptions);
-    this.router.get(`${this.path}/get-All-AI-descriptions`, authMiddleware, this.audioDescriptionsController.getAllAIDescriptions);
+    this.router.get(`${this.path}/get-All-AI-descriptions`, this.audioDescriptionsController.getAllAIDescriptions);
   }
 }
 
