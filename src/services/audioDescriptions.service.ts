@@ -753,15 +753,15 @@ class AudioDescriptionsService {
     }
   }
 
-  public async getAllAIDescriptions(user_id: string, pageNumber: string) {
-    if (!user_id) {
-      throw new HttpException(400, 'No data provided');
-    }
-
+  public async getAllAIDescriptions(pageNumber: string, search?: string) {
     try {
       const page = parseInt(pageNumber, 10) || 1;
       const perPage = 5;
       const skipCount = (page - 1) * perPage;
+      const sanitizedSearch = search
+        ?.trim()
+        .slice(0, 100)
+        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const pipeline: any[] = [
         { $match: { status: 'completed' } },
         {
@@ -773,6 +773,7 @@ class AudioDescriptionsService {
           },
         },
         { $unwind: '$video' },
+        ...(sanitizedSearch ? [{ $match: { 'video.title': { $regex: sanitizedSearch, $options: 'i' } } }] : []),
         {
           $group: {
             _id: '$_id',
