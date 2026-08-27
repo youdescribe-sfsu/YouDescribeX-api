@@ -185,14 +185,10 @@ class AudioDescripionsController {
 
   public getAllAIDescriptions = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userData = req.user as unknown as IUser;
       const pageNumber = req.query.pageNumber;
+      const search = req.query.search;
 
-      if (!userData) {
-        throw new AuthenticationError('User not logged in');
-      }
-
-      const audioDescription = await this.audioDescriptionsService.getAllAIDescriptions(userData._id, <string>pageNumber);
+      const audioDescription = await this.audioDescriptionsService.getAllAIDescriptions(<string>pageNumber, <string>search);
 
       res.status(200).json(audioDescription);
     } catch (error) {

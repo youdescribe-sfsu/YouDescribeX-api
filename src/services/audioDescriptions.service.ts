@@ -753,11 +753,7 @@ class AudioDescriptionsService {
     }
   }
 
-  public async getAllAIDescriptions(user_id: string, pageNumber: string) {
-    if (!user_id) {
-      throw new HttpException(400, 'No data provided');
-    }
-
+  public async getAllAIDescriptions(pageNumber: string, search?: string) {
     try {
       const page = parseInt(pageNumber, 10) || 1;
       const perPage = 5;
@@ -773,6 +769,7 @@ class AudioDescriptionsService {
           },
         },
         { $unwind: '$video' },
+        ...(search && search.trim() !== '' ? [{ $match: { 'video.title': { $regex: search.trim(), $options: 'i' } } }] : []),
         {
           $group: {
             _id: '$_id',
