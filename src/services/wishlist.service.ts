@@ -433,9 +433,18 @@ class WishListService {
       }
 
       const userVote = await MongoUserVotesModel.findOne({ user: user._id, youtube_id: youtube_id });
+      const wishListItem = await MongoWishListModel.findOne({ youtube_id: youtube_id });
 
       if (userVote) {
-        return { status: 400, message: 'User has already voted for this video' };
+        if (wishListItem?.status === 'queued') {
+          // Still an active, live duplicate vote — genuinely already requested.
+          return { status: 400, message: 'User has already voted for this video' };
+        }
+        // Stale vote left over from a previous queued->fulfilled cycle (publishing
+        // never cleans up UserVotes). We already confirmed above the video has no
+        // published AD right now, so this can't be a live duplicate — clean it up
+        // so the user can re-request now that it needs describing again.
+        await MongoUserVotesModel.deleteOne({ _id: userVote._id });
       }
 
       const currentDate = formattedDate(new Date());
@@ -447,10 +456,9 @@ class WishListService {
         created_at: currentDate,
       });
 
-      const wishListItem = await MongoWishListModel.findOne({ youtube_id: youtube_id });
-
       if (wishListItem) {
         wishListItem.votes = Number(wishListItem.votes) + 1;
+        wishListItem.status = 'queued'; // reset in case a prior cycle marked it 'fulfilled'
         wishListItem.updated_at = Number(currentDate);
 
         await wishListItem.save();
