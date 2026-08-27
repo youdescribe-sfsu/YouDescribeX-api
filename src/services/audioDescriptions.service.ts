@@ -756,7 +756,10 @@ class AudioDescriptionsService {
   public async getAllAIDescriptions(pageNumber: string, search?: string) {
     try {
       const page = parseInt(pageNumber, 10) || 1;
-      const perPage = 5;
+      // 12 is divisible by 2, 3, and 4 — the AI Drafts grid's column count at
+      // every breakpoint (col-sm-6/col-md-4/col-lg-3) — so pages always fill
+      // complete rows instead of leaving a partial row.
+      const perPage = 12;
       const skipCount = (page - 1) * perPage;
       const sanitizedSearch = search
         ?.trim()
