@@ -175,7 +175,7 @@ export const CONFIG = {
     host: process.env.GPU_HOST,
     port: process.env.GPU_PIPELINE_PORT,
     url: process.env.GPU_HOST && process.env.GPU_PIPELINE_PORT ? `http://${process.env.GPU_HOST}:${process.env.GPU_PIPELINE_PORT}` : null,
-    notifyEmails: ['smirani1@mail.sfsu.edu'],
+    notifyEmails: ['smirani1@mail.sfsu.edu', 'youdescribeadm@gmail.com'],
   } as GpuConfig,
 
   app: {
