@@ -17,6 +17,7 @@ import fs from 'fs';
 import { initPassport, MongoAICaptionRequestModel, MongoVideosModel } from './models/mongodb/init-models.mongo';
 import { videoStatusCheckJob } from './utils/cron.utils';
 import { stuckProcessingSweeperJob } from './utils/aiRequestSweeper.utils';
+import { aiHealthCronJob } from './utils/aiHealthMonitor.utils';
 import moment from 'moment';
 import YouTubeProxyRoute from './routes/youtube-proxy.route';
 import UsersRoute from './routes/users.route';
@@ -184,6 +185,7 @@ class App {
     this.resetNumOfVideos();
     videoStatusCheckJob.start();
     stuckProcessingSweeperJob.start();
+    aiHealthCronJob.start();
     this.setupVideoCountIntervals();
   }
 
