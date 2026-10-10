@@ -24,7 +24,13 @@ export const checkAiServiceHealth = async (): Promise<void> => {
   const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
   let healthy: boolean;
   try {
-    await axios.get(`${aiServiceUrl}/health`, { timeout: 5000 });
+    // 30s: the AI service is single-process, so a synchronous burst (e.g. uploading
+    // hundreds of keyframe images to S3 one at a time) blocks its event loop and
+    // delays /health along with everything else. Measured one such burst at ~16s
+    // (2026-09-07 outage false alarm) — 5s was tripping on normal processing, not
+    // real downtime. A truly dead process still fails fast (connection refused),
+    // so this only affects the "alive but busy" case.
+    await axios.get(`${aiServiceUrl}/health`, { timeout: 30000 });
     healthy = true;
   } catch (err: any) {
     logger.warn(`[ai-health] GET ${aiServiceUrl}/health failed: ${err?.message}`);
