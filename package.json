@@ -46,6 +46,7 @@
     "envalid": "^7.3.1",
     "express": "^4.17.3",
     "get-mp3-duration": "^1.0.0",
+    "google-auth-library": "^7.14.1",
     "js-yaml": "^4.1.0",
     "lru-cache": "^11.0.1",
     "memory-cache": "^0.2.0",

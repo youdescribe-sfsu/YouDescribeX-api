@@ -9,6 +9,7 @@ import ParticipantsRoute from './routes/participants.route';
 import AudioDescriptionsRoute from './routes/audio_descriptions.route';
 import AudioClipsRoute from './routes/audioClips.route';
 import AuthRoute from './routes/auth.route';
+import MobileAuthRoute from './routes/mobileAuth.route';
 import WishListRoute from './routes/wishlist.route';
 import GpuUtilsRoute from './routes/gpu_utils.route';
 import audioDescriptionRatingRoute from './routes/audioDescriptionRating.route';
@@ -26,6 +27,7 @@ const app = new App([
   new AudioDescriptionsRoute(),
   new AudioClipsRoute(),
   new AuthRoute(),
+  new MobileAuthRoute(),
   new WishListRoute(),
   new GpuUtilsRoute(),
   new audioDescriptionRatingRoute(),
