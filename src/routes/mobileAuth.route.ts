@@ -13,6 +13,7 @@ class MobileAuthRoute implements Routes {
 
   private initializeRoutes() {
     this.router.post(`${this.path}/google`, this.mobileAuthController.google);
+    this.router.post(`${this.path}/apple`, this.mobileAuthController.apple);
   }
 }
 
