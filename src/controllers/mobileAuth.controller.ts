@@ -3,6 +3,7 @@ import { NextFunction, Request, Response } from 'express';
 import { OAuth2Client } from 'google-auth-library';
 import moment from 'moment';
 import { CRYPTO_SECRET, CRYPTO_SEED } from '../config';
+import MobileAccountService from '../services/mobileAccount.service';
 import MobileAuthService from '../services/mobileAuth.service';
 import { verifyAppleIdentityToken } from '../utils/appleIdToken';
 import { logger } from '../utils/logger';
@@ -25,6 +26,7 @@ const newSessionToken = () =>
 class MobileAuthController {
   private readonly googleClient = new OAuth2Client();
   private readonly mobileAuthService = new MobileAuthService();
+  private readonly mobileAccountService = new MobileAccountService();
 
   public google = async (req: Request, res: Response, next: NextFunction) => {
     const idToken = req.body?.idToken;
@@ -97,6 +99,24 @@ class MobileAuthController {
       logger.error('Error signing in with mobile Apple token: ', error);
       next(error);
     }
+  };
+
+  /** Deletes the signed-in account (see MobileAccountService) and ends the session. */
+  public deleteAccount = async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user as { _id?: unknown } | undefined;
+    if (!user?._id) return res.status(401).json({ message: 'Authentication required' });
+    const code = req.body?.appleAuthorizationCode;
+
+    try {
+      await this.mobileAccountService.deleteAccount(String(user._id), typeof code === 'string' && code !== '' ? code : undefined);
+    } catch (error) {
+      logger.error('Error deleting mobile account: ', error);
+      return next(error);
+    }
+    // passport 0.5 logs out synchronously; clearing the cookie session drops the cookie.
+    req.logout(() => undefined);
+    req.session = null;
+    res.status(200).json({ message: 'Account deleted' });
   };
 
   private startSession(req: Request, res: Response, next: NextFunction, user: unknown) {
