@@ -13,6 +13,8 @@ import WishListRoute from './routes/wishlist.route';
 import GpuUtilsRoute from './routes/gpu_utils.route';
 import audioDescriptionRatingRoute from './routes/audioDescriptionRating.route';
 import YouTubeProxyRoute from './routes/youtube-proxy.route';
+// xiao1009 RefineAD
+import RefineRoute from './routes/refine.route';
 
 validateEnv();
 
@@ -30,6 +32,8 @@ const app = new App([
   new GpuUtilsRoute(),
   new audioDescriptionRatingRoute(),
   new YouTubeProxyRoute(),
+  // xiao1009 RefineAD
+  new RefineRoute(),
 ]);
 
 app.listen();

@@ -32,6 +32,7 @@ tts_api_key.json
 AuthKey_57HVXW9Y8Z.p8
 sa-text-to-speech.json
 app/credentials/
+credentials/
 
 #env
 .env

@@ -100,6 +100,11 @@ interface AppConfig {
   openai: {
     apiKey: string | undefined;
   };
+  // xiao1009 RefineAD config shape
+  refine: {
+    model: string;
+    timeoutMs: number;
+  };
 }
 
 // Configuration object
@@ -190,6 +195,11 @@ export const CONFIG = {
     },
     openai: {
       apiKey: process.env.OPENAI_API_KEY,
+    },
+    // xiao1009 RefineAD (AI description refinement). Model name is read from config, never hard-coded in business code.
+    refine: {
+      model: process.env.REFINE_LLM_MODEL || 'gpt-4o-mini',
+      timeoutMs: parseInt(process.env.REFINE_TIMEOUT_MS || '20000', 10),
     },
     ttsEngine: process.env.TTS_ENGINE || 'google', // 'coqui' or 'google'
   } as AppConfig,
@@ -285,6 +295,9 @@ export const {
   GMAIL_USER,
   GMAIL_APP_PASSWORD,
   OPENAI_API_KEY,
+  // xiao1009 RefineAD config named exports
+  REFINE_LLM_MODEL,
+  REFINE_TIMEOUT_MS,
   GPU_URL,
   GPU_NOTIFY_EMAILS,
   APPLE_REDIRECT_URL,
@@ -327,6 +340,9 @@ export const {
   GMAIL_USER: CONFIG.app.email.user,
   GMAIL_APP_PASSWORD: CONFIG.app.email.password,
   OPENAI_API_KEY: CONFIG.app.openai.apiKey,
+  // xiao1009 RefineAD config export values
+  REFINE_LLM_MODEL: CONFIG.app.refine.model,
+  REFINE_TIMEOUT_MS: CONFIG.app.refine.timeoutMs,
   GPU_URL: CONFIG.gpu.url,
   GPU_NOTIFY_EMAILS: CONFIG.gpu.notifyEmails,
   APPLE_REDIRECT_URL: CONFIG.auth.appleRedirectUrl,
