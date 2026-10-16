@@ -2,7 +2,7 @@ import { google } from '@google-cloud/text-to-speech/build/protos/protos';
 import { CreateUserAudioDescriptionDto, CreateUserDto, NewUserDto } from '../dtos/users.dto';
 import { HttpException } from '../exceptions/HttpException';
 import { getYouTubeVideoStatus, isEmpty, nowUtc } from '../utils/util';
-import { CURRENT_DATABASE, CURRENT_YDX_HOST, GPU_URL, AI_USER_ID, AI_PIPELINE_CONCURRENCY } from '../config';
+import { CURRENT_DATABASE, CURRENT_YDX_HOST, GPU_URL, AI_USER_ID, AI_PIPELINE_CONCURRENCY, AI_SERVICE_URL } from '../config';
 import GpuUtilsService from './gpu_utils.service';
 import { PostGres_Users, UsersAttributes } from '../models/postgres/init-models';
 import {
@@ -25,6 +25,7 @@ import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
 import { VideoNotFoundError, AIProcessingError } from '../utils/customErrors';
 import moment from 'moment';
 import { PipelineFailureDto } from '../dtos/pipelineFailure.dto';
+import { AdaptADRequestDto } from '../dtos/adaptADRequest.dto';
 import cacheService from '../utils/cacheService';
 
 class UserService {
@@ -1676,6 +1677,43 @@ class UserService {
     } catch (error) {
       logger.error('Error fetching video history:', error);
       throw error;
+    }
+  }
+
+  /**
+   * adaptAD: relay a "describe this moment" or spoken question to the AI
+   * service (FastAPI, port 8000) and return its plain-text answer.
+   */
+  public async adaptADGenerateAnswer(adaptADRequest: AdaptADRequestDto): Promise<string> {
+    try {
+      const { youtubeVideoId, question, timeStamp } = adaptADRequest;
+
+      if (!youtubeVideoId || timeStamp === undefined || timeStamp === null) {
+        throw new HttpException(400, 'youtubeVideoId and timeStamp are required');
+      }
+
+      const requestBody = {
+        video_id: youtubeVideoId,
+        question,
+        current_time: timeStamp.toString(),
+      };
+
+      logger.info(`adaptAD request for ${youtubeVideoId} at ${requestBody.current_time}s`, { question });
+      const response = await axios.post(`${AI_SERVICE_URL}/api/info-bot`, requestBody);
+
+      if (response?.data?.status === 'success') {
+        logger.info(`adaptAD response for ${youtubeVideoId}: ${response.data.response}`);
+        return response.data.response;
+      }
+
+      logger.warn(`adaptAD: AI service returned no answer for ${youtubeVideoId}`, { data: response?.data });
+      return 'Not Found Description or Answer';
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      logger.error(`adaptAD: request to AI service failed: ${error.message}`);
+      throw new HttpException(500, 'Request for AI answer failed');
     }
   }
 }
