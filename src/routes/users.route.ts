@@ -2,6 +2,15 @@ import { Router } from 'express';
 import UsersController from '../controllers/users.controller';
 import { Routes } from '../interfaces/routes.interface';
 import authMiddleware from '../middlewares/auth.middleware'; // xiao: session guard for protected routes
+import rateLimit from 'express-rate-limit';
+
+const adaptADRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many AdaptAD requests. Please try again in a minute.' },
+});
 
 class UsersRoute implements Routes {
   public path = '/users';
@@ -33,6 +42,7 @@ class UsersRoute implements Routes {
     this.router.post(`${this.path}/pipeline-failure`, this.usersController.handlePipelineFailure);
     this.router.post(`${this.path}/request-ai-descriptions-with-lana`, authMiddleware, this.usersController.requestAiDescriptionsWithLana);
     this.router.post(`${this.path}/updateoptin`, authMiddleware, this.usersController.updateOptIn);
+    this.router.post(`${this.path}/adapt-ad`, adaptADRateLimit, this.usersController.adaptADGenerateAnswer);
 
     this.router.get(`${this.path}/me`, authMiddleware, this.usersController.getMe);
     this.router.get(`${this.path}/:userId`, authMiddleware, this.usersController.getUserById);

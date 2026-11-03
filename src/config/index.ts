@@ -93,6 +93,7 @@ interface AppConfig {
   aiUserId: string;
   aiPipelineConcurrency: number;
   currentYdxHost: string | undefined;
+  aiServiceUrl: string;
   email: {
     user: string | undefined;
     password: string | undefined;
@@ -184,6 +185,7 @@ export const CONFIG = {
     aiUserId: process.env.AI_USER_ID || '650506db3ff1c2140ea10ece',
     aiPipelineConcurrency: parseInt(process.env.AI_PIPELINE_CONCURRENCY || '2', 10),
     currentYdxHost: process.env.CURRENT_YDX_HOST,
+    aiServiceUrl: process.env.AI_SERVICE_URL || 'http://localhost:8000',
     email: {
       user: process.env.GMAIL_USER,
       password: process.env.GMAIL_APP_PASSWORD,
@@ -282,6 +284,7 @@ export const {
   CURRENT_YDX_HOST,
   AI_USER_ID,
   AI_PIPELINE_CONCURRENCY,
+  AI_SERVICE_URL,
   GMAIL_USER,
   GMAIL_APP_PASSWORD,
   OPENAI_API_KEY,
@@ -324,6 +327,7 @@ export const {
   CURRENT_YDX_HOST: CONFIG.app.currentYdxHost,
   AI_USER_ID: CONFIG.app.aiUserId,
   AI_PIPELINE_CONCURRENCY: CONFIG.app.aiPipelineConcurrency,
+  AI_SERVICE_URL: CONFIG.app.aiServiceUrl,
   GMAIL_USER: CONFIG.app.email.user,
   GMAIL_APP_PASSWORD: CONFIG.app.email.password,
   OPENAI_API_KEY: CONFIG.app.openai.apiKey,

@@ -2,7 +2,7 @@ import { google } from '@google-cloud/text-to-speech/build/protos/protos';
 import { CreateUserAudioDescriptionDto, CreateUserDto, NewUserDto } from '../dtos/users.dto';
 import { HttpException } from '../exceptions/HttpException';
 import { getYouTubeVideoStatus, isEmpty, nowUtc } from '../utils/util';
-import { CURRENT_DATABASE, CURRENT_YDX_HOST, GPU_URL, AI_USER_ID, AI_PIPELINE_CONCURRENCY } from '../config';
+import { CURRENT_DATABASE, CURRENT_YDX_HOST, GPU_URL, AI_USER_ID, AI_PIPELINE_CONCURRENCY, AI_SERVICE_URL } from '../config';
 import GpuUtilsService from './gpu_utils.service';
 import { PostGres_Users, UsersAttributes } from '../models/postgres/init-models';
 import {
@@ -25,6 +25,7 @@ import { IAudioDescription } from '../models/mongodb/AudioDescriptions.mongo';
 import { VideoNotFoundError, AIProcessingError } from '../utils/customErrors';
 import moment from 'moment';
 import { PipelineFailureDto } from '../dtos/pipelineFailure.dto';
+import { AdaptADRequestDto } from '../dtos/adaptADRequest.dto';
 import cacheService from '../utils/cacheService';
 
 class UserService {
@@ -1676,6 +1677,66 @@ class UserService {
     } catch (error) {
       logger.error('Error fetching video history:', error);
       throw error;
+    }
+  }
+
+  /**
+   * adaptAD: relay a "describe this moment" or spoken question to the AI
+   * service (FastAPI, port 8000) and return its plain-text answer.
+   */
+  public async adaptADGenerateAnswer(adaptADRequest: AdaptADRequestDto): Promise<string> {
+    try {
+      if (!adaptADRequest || typeof adaptADRequest !== 'object') {
+        throw new HttpException(400, 'Request body is required');
+      }
+      const { youtubeVideoId, question, timeStamp } = adaptADRequest;
+
+      if (typeof youtubeVideoId !== 'string' || !/^[A-Za-z0-9_-]{11}$/.test(youtubeVideoId)) {
+        throw new HttpException(400, 'youtubeVideoId must be a valid 11-character YouTube video ID');
+      }
+
+      if (timeStamp === undefined || timeStamp === null) {
+        throw new HttpException(400, 'youtubeVideoId and timeStamp are required');
+      }
+
+      const currentTime = typeof timeStamp === 'number' ? timeStamp : typeof timeStamp === 'string' && timeStamp.trim() !== '' ? Number(timeStamp) : Number.NaN;
+      if (!Number.isFinite(currentTime) || currentTime < 0) {
+        throw new HttpException(400, 'timeStamp must be a finite, non-negative number');
+      }
+      if (question !== undefined && typeof question !== 'string') {
+        throw new HttpException(400, 'question must be a string');
+      }
+
+      const requestBody = {
+        video_id: youtubeVideoId,
+        question,
+        current_time: String(currentTime),
+      };
+
+      logger.info(`adaptAD request for ${youtubeVideoId} at ${requestBody.current_time}s`, { question });
+      const response = await axios.post(`${AI_SERVICE_URL}/api/info-bot`, requestBody, { timeout: 60000 });
+
+      if (response?.data?.status === 'success' && typeof response.data.response === 'string' && response.data.response.trim()) {
+        logger.info(`adaptAD response for ${youtubeVideoId}: ${response.data.response}`);
+        return response.data.response;
+      }
+
+      logger.warn(`adaptAD: AI service returned no answer for ${youtubeVideoId}`, { data: response?.data });
+      throw new HttpException(502, 'AI service returned no description or answer');
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      if (axios.isAxiosError(error) && ['ECONNABORTED', 'ETIMEDOUT'].includes(error.code || '')) {
+        logger.error(`adaptAD: AI service request timed out for ${adaptADRequest.youtubeVideoId}`);
+        throw new HttpException(504, 'AI service request timed out');
+      }
+      if (axios.isAxiosError(error)) {
+        logger.error(`adaptAD: request to AI service failed: ${error.message}`);
+        throw new HttpException(502, 'AI service request failed');
+      }
+      logger.error(`adaptAD: request to AI service failed: ${error.message}`);
+      throw new HttpException(500, 'Request for AI answer failed');
     }
   }
 }

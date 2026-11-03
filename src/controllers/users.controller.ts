@@ -12,6 +12,7 @@ import { getYouTubeVideoStatus } from '../utils/util';
 import { deepCopyAudioClip, repairMissingTtsAudio } from '../utils/audioClips.util';
 import { deepCopyAudioDescriptionWithoutNewClips, findExistingCollaborativeDraft, updateAutoClips, updateContributions } from '../utils/audiodescriptions.util';
 import { PipelineFailureDto } from '../dtos/pipelineFailure.dto';
+import { AdaptADRequestDto } from '../dtos/adaptADRequest.dto';
 import { AuthenticationError } from '../utils/customErrors';
 
 class UsersController {
@@ -466,6 +467,16 @@ class UsersController {
       const failureData: PipelineFailureDto = req.body;
       await this.userService.handlePipelineFailure(failureData);
       res.status(200).json({ message: 'Pipeline failure handled successfully' });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public adaptADGenerateAnswer = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const requestBody: AdaptADRequestDto = req.body;
+      const response = await this.userService.adaptADGenerateAnswer(requestBody);
+      res.status(200).json(response);
     } catch (error) {
       next(error);
     }
