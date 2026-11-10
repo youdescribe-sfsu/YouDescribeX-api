@@ -36,6 +36,8 @@ export interface TimingInputs {
   videoDuration?: number;
   wordsPerSecond: number;
   minWordBudget: number;
+  // Leijie False for a description that must stay word for word: shortening is skipped. Default true.
+  canShorten?: boolean;
 }
 
 export type TimingPlan =
@@ -111,7 +113,7 @@ export const planTiming = (inputs: TimingInputs): TimingPlan => {
   }
 
   const wordBudget = Math.round(availableSeconds * inputs.wordsPerSecond);
-  if (wordBudget >= inputs.minWordBudget && wordBudget >= inputs.wordCount * SHORTEN_MIN_KEEP_RATIO) {
+  if (inputs.canShorten !== false && wordBudget >= inputs.minWordBudget && wordBudget >= inputs.wordCount * SHORTEN_MIN_KEEP_RATIO) {
     return { kind: 'shorten', availableSeconds, wordBudget };
   }
 

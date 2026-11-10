@@ -48,6 +48,9 @@ export const MIN_LENGTH_LIMIT = 1;
 /** Leijie Reported as `model` when Fix timing answered from its rules alone, without calling the LLM. */
 export const RULES_ONLY_MODEL = 'none';
 
+// Leijie The description_type value the editor stores for a description of on-screen text.
+export const TEXT_ON_SCREEN_TYPE = 'Text on Screen';
+
 // xiao1009 What the controller hands over. `currentText` is the text in the describer's edit box,
 // which can differ from what the database holds, because the editor keeps unsaved edits in local
 // state (EditClip.tsx:81-83). The clip is still looked up in the database, for the ownership check,
@@ -122,12 +125,13 @@ class RefineService {
     // time budget; buildClipContext still computes it, for the log. Fix timing has its own gap rules
     // (refineTiming.util.ts). A free-text request has no preset and so no limit.
     const lengthBase = preset?.requiresInstruction ? `${input.currentText} ${input.instruction || ''}` : input.currentText;
-    const lengthLimit = preset ? this.computeLengthLimit(lengthBase, preset.lengthRatio) : undefined;
+    const lengthLimit = preset ? this.computeLengthLimit(lengthBase, preset.lengthRatio, preset.minExtraWords) : undefined;
 
     const userPrompt = buildRefineUserPrompt({
       currentText: input.currentText,
       videoTitle: context.videoTitle,
       videoGenre: context.videoGenre,
+      descriptionType: context.descriptionType,
       previousText: context.previousText,
       nextText: context.nextText,
       lengthLimit,
@@ -234,6 +238,8 @@ class RefineService {
       videoDuration: context.videoDuration,
       wordsPerSecond: SPEECH_WORDS_PER_SECOND,
       minWordBudget: MIN_WORD_BUDGET,
+      // Leijie On-screen text is kept word for word (core constraint 7), so it can only move or pause.
+      canShorten: context.descriptionType !== TEXT_ON_SCREEN_TYPE,
     });
 
     logger.info(
@@ -258,7 +264,7 @@ class RefineService {
             suggestion: currentText,
             unchanged: true,
             timingChange: this.timingChangeFor(plan, context.playbackType),
-            reason: this.timingReason(plan, timing.estimatedSeconds, timing.availableSeconds),
+            reason: this.timingReason(plan, timing.estimatedSeconds, timing.availableSeconds, context.descriptionType === TEXT_ON_SCREEN_TYPE),
           },
         ],
       };
@@ -268,6 +274,7 @@ class RefineService {
       currentText: input.currentText,
       videoTitle: context.videoTitle,
       videoGenre: context.videoGenre,
+      descriptionType: context.descriptionType,
       previousText: context.previousText,
       nextText: context.nextText,
       availableSeconds: plan.availableSeconds,
@@ -319,7 +326,7 @@ class RefineService {
   }
 
   /** Leijie One plain sentence or two for the panel, saying what was decided and why. */
-  private timingReason(plan: TimingPlan, estimatedSeconds: number, availableSeconds?: number): string {
+  private timingReason(plan: TimingPlan, estimatedSeconds: number, availableSeconds?: number, textOnScreen = false): string {
     const need = `about ${estimatedSeconds.toFixed(1)} s of narration`;
     const room = availableSeconds != null ? `${availableSeconds.toFixed(1)} s available` : 'no limit before the next dialogue or description';
     switch (plan.kind) {
@@ -330,9 +337,9 @@ class RefineService {
       case 'shorten':
         return `Too long for the gap (${need}, ${room}). Shortened to ${plan.wordBudget} words or fewer.`;
       case 'move':
-        return `Too long for the gap (${need}, ${room}), and shortening would drop key information. Starting at ${plan.startTime.toFixed(
-          2,
-        )} s, it fits without overlapping dialogue or another description.`;
+        return `Too long for the gap (${need}, ${room}), and ${
+          textOnScreen ? 'on-screen text is kept word for word' : 'shortening would drop key information'
+        }. Starting at ${plan.startTime.toFixed(2)} s, it fits without overlapping dialogue or another description.`;
       case 'extended':
         return `Too long for the gap (${need}, ${room}), and no free gap within ${MOVE_WINDOW_SECONDS} s. Use extended playback so the video pauses for it.`;
       default:
@@ -380,9 +387,13 @@ class RefineService {
     return Math.max(MIN_WORD_BUDGET, Math.round(availableSeconds * SPEECH_WORDS_PER_SECOND));
   }
 
-  /** Leijie Word count of the original times the preset's ratio, never below the floor. */
-  private computeLengthLimit(text: string, ratio: number): number {
-    return Math.max(MIN_LENGTH_LIMIT, Math.round(this.countWords(text) * ratio));
+  /**
+   * Leijie Word count of the original times the preset's ratio, never below the floor, and never
+   * below the original plus `minExtraWords` when the preset sets it.
+   */
+  private computeLengthLimit(text: string, ratio: number, minExtraWords = 0): number {
+    const words = this.countWords(text);
+    return Math.max(MIN_LENGTH_LIMIT, Math.round(words * ratio), minExtraWords > 0 ? words + minExtraWords : 0);
   }
 
   private countWords(text: string): number {

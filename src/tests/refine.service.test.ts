@@ -316,8 +316,8 @@ describe('RefineService.getSuggestion — prompt assembly', () => {
     await service.getSuggestion({ ...baseInput, presetId: 'polish' });
     await service.getSuggestion({ ...baseInput, presetId: 'style-action-focus' });
 
-    // 13 words × 1.15 and × 1.2
-    expect(mockedCallLlmChat.mock.calls[0][0].userPrompt).toContain('LENGTH LIMIT: 15 words or fewer.');
+    // Polish: max(13 × 1.15, 13 + 5); Style: 13 × 1.2
+    expect(mockedCallLlmChat.mock.calls[0][0].userPrompt).toContain('LENGTH LIMIT: 18 words or fewer.');
     expect(mockedCallLlmChat.mock.calls[1][0].userPrompt).toContain('LENGTH LIMIT: 16 words or fewer.');
   });
 
@@ -368,6 +368,21 @@ describe('RefineService.getSuggestion — prompt assembly', () => {
       expect(preset.instruction).toContain('This is a style change.');
       expect(preset.instruction).toContain('Never exceed the length limit.');
     });
+  });
+
+  // Leijie Core constraints 4 and 7.
+  it('treats ALL-CAPS runs as on-screen text and keeps Text on Screen descriptions word for word', () => {
+    expect(REFINE_SYSTEM_PROMPT).toContain('Two or more consecutive words in ALL CAPITALS');
+    expect(REFINE_SYSTEM_PROMPT).toContain('If the DESCRIPTION TYPE is "Text on Screen"');
+    expect(REFINE_SYSTEM_PROMPT).toContain('VIDEO GENRE, DESCRIPTION TYPE, PREVIOUS DESCRIPTION');
+  });
+
+  it('sends the clip description type', async () => {
+    stubHappyWorld();
+
+    await new RefineService().getSuggestion({ ...baseInput, presetId: 'polish' });
+
+    expect(mockedCallLlmChat.mock.calls[0][0].userPrompt).toContain('DESCRIPTION TYPE: "Visual"');
   });
 
   it('keeps the 13 principles as the lowest layer under the new core constraints', () => {
@@ -460,6 +475,34 @@ describe('RefineService.getSuggestion — response', () => {
     await new RefineService().getSuggestion({ ...baseInput, currentText: 'Colette uncovers the baked ratatouille.', presetId: 'polish' });
 
     expect(mockedCallLlmChat).toHaveBeenCalledTimes(1);
+  });
+
+  // Leijie CONCISE_MIN_WORDS: a description of 4 words or fewer has nothing left to cut.
+  it('answers a description under 5 words unchanged for Make concise, without calling the model', async () => {
+    stubHappyWorld();
+
+    const response = await new RefineService().getSuggestion({ ...baseInput, currentText: 'Spider rests; bat hangs.', presetId: 'make-concise' });
+
+    expect(mockedCallLlmChat).not.toHaveBeenCalled();
+    expect(response.suggestions[0]).toMatchObject({ unchanged: true, reason: 'This description is already concise.' });
+  });
+
+  it('still calls the model for Make concise at exactly 5 words', async () => {
+    stubHappyWorld();
+
+    await new RefineService().getSuggestion({ ...baseInput, currentText: 'Orange-shirted man addresses camera, jungle today.', presetId: 'make-concise' });
+
+    expect(mockedCallLlmChat).toHaveBeenCalledTimes(1);
+  });
+
+  // Leijie POLISH_MIN_EXTRA_WORDS: a fragment gets room to become a full sentence.
+  it('gives Polish at least five extra words for a short fragment', async () => {
+    stubHappyWorld();
+
+    await new RefineService().getSuggestion({ ...baseInput, currentText: 'Two track snow; one walks dunes.', presetId: 'polish' });
+
+    // 6 words: max(6 × 1.15 = 7, 6 + 5 = 11)
+    expect(mockedCallLlmChat.mock.calls[0][0].userPrompt).toContain('LENGTH LIMIT: 11 words or fewer.');
   });
 
   it('gives every request its own requestId', async () => {
@@ -591,6 +634,21 @@ describe('RefineService.getSuggestion — Fix timing', () => {
     expect(prompt).toContain('TASK: Shorten this description');
     expect(response.suggestions[0]).toMatchObject({ suggestion: 'She tips the plant out.', unchanged: false, timing: { availableSeconds: 2 } });
     expect(response.suggestions[0].reason).toMatch(/Shortened to 6 words/);
+  });
+
+  it('never shortens a Text on Screen description, and says why', async () => {
+    stubAudioDescription(ownedAudioDescription);
+    stubClips([{ ...makeClip(CLIP_ID, 10, 'ENTER CODE BEAST FORTY NOW TODAY PLEASE'), description_type: 'Text on Screen' }]);
+    stubVideo({ title: 'A video', duration: 60 });
+    stubNextDialog(null);
+    // 8 unsaved words -> 2.67 s; 2 s gap would allow shortening to 6 words for a Visual clip
+    stubDialogs([{ dialog_start_time: 12, dialog_end_time: 13 }]);
+
+    const response = await fixTiming({ currentText: 'ENTER CODE BEAST FORTY NOW TODAY PLEASE NOW' });
+
+    expect(mockedCallLlmChat).not.toHaveBeenCalled();
+    expect(response.suggestions[0].unchanged).toBe(true);
+    expect(response.suggestions[0].reason).toMatch(/on-screen text is kept word for word/);
   });
 
   it('turns a reply over the word budget into a 502', async () => {

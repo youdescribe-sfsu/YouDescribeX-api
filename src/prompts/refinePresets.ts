@@ -30,9 +30,12 @@ export interface RefinePreset {
   // the model when they say "shorten". Its length limit is the word budget, so lengthRatio is unused.
   timing?: boolean;
   // Leijie A description with fewer words than this is returned unchanged, without calling the model,
-  // because there is nothing to rearrange. Shown to the describer as `tooShortReason`.
+  // because the preset has nothing left to do. Shown to the describer as `tooShortReason`.
   minWords?: number;
   tooShortReason?: string;
+  // Leijie The length limit is never below original words + this. A ratio alone leaves a short
+  // fragment no room to become a full sentence (6 words × 1.15 = 7).
+  minExtraWords?: number;
   instruction: string;
 }
 
@@ -44,6 +47,13 @@ export const STYLE_LENGTH_RATIO = 1.2;
 // Leijie Applied to (original words + the describer's detail words): the details are added, nothing
 // else is, so the sum is already the natural upper bound.
 export const ADD_DETAILS_LENGTH_RATIO = 1;
+
+// Leijie Below this many words there is nothing left to cut.
+export const CONCISE_MIN_WORDS = 5;
+const CONCISE_TOO_SHORT_REASON = 'This description is already concise.';
+
+// Leijie Room for Polish to complete a fragment: add the missing articles and verbs.
+export const POLISH_MIN_EXTRA_WORDS = 5;
 
 // Leijie Below this many words a style change has nothing to rearrange (e.g. "Colette uncovers the
 // baked ratatouille."), so the service answers without calling the model.
@@ -72,6 +82,8 @@ const PRESETS = [
     id: 'make-concise',
     label: 'Make concise',
     lengthRatio: CONCISE_LENGTH_RATIO,
+    minWords: CONCISE_MIN_WORDS,
+    tooShortReason: CONCISE_TOO_SHORT_REASON,
     instruction: [
       'Make this description concise. Keep only what a blind listener needs at this moment.',
       'Keep, in this priority order:',
@@ -91,11 +103,13 @@ const PRESETS = [
     id: 'polish',
     label: 'Polish',
     lengthRatio: POLISH_LENGTH_RATIO,
+    minExtraWords: POLISH_MIN_EXTRA_WORDS,
     temperature: 0.2,
     instruction: [
       'Polish this description so it reads naturally and clearly when spoken aloud. Making it readable and natural comes first; fixing grammar comes second.',
       'Do:',
       '- Turn written-style sentences into clear spoken sentences: subject first, one main idea per sentence.',
+      '- Turn fragments into complete spoken sentences. Replace a semicolon that joins two separate images with a full stop, and add the articles and verbs a fragment is missing. Example: "Spider rests; bat hangs." becomes "A spider rests. A bat hangs."',
       '- Change passive voice to active voice.',
       '- Replace a weak verb plus adverb with one precise verb. Example: "walks quickly" becomes "hurries".',
       '- Use a pronoun ("he", "she", "it", "they") when it is clear who or what it refers to. Repeat the name only when the pronoun would be unclear.',
@@ -106,7 +120,7 @@ const PRESETS = [
       '- Split the description into many short one-fact sentences. Keep related actions together in one sentence.',
       '- Drop articles ("a", "an", "the") that the sentence needs.',
       '- Replace technical or domain-specific terms with simpler words.',
-      '- Make it noticeably longer than the original.',
+      '- Make it longer than completing its sentences requires.',
     ].join('\n'),
   },
   // Leijie Text-only Add details (option B): the model cannot see the video and the AI draft's source

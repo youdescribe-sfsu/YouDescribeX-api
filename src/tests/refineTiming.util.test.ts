@@ -73,6 +73,12 @@ describe('planTiming', () => {
     expect(planTiming(baseInputs({ dialogs: [{ start: 12, end: 13 }] }))).toEqual({ kind: 'shorten', availableSeconds: 2, wordBudget: 6 });
   });
 
+  // Leijie A "Text on Screen" description is kept word for word, so it is never shortened.
+  it('moves instead of shortening when the text may not be shortened', () => {
+    const plan = planTiming(baseInputs({ dialogs: [{ start: 12, end: 13 }], canShorten: false }));
+    expect(plan.kind).not.toBe('shorten');
+  });
+
   it('moves instead of shortening when the budget would drop too much', () => {
     // 1 s gap -> 3 words, 3 < 9 x 0.6
     const plan = planTiming(baseInputs({ dialogs: [{ start: 11, end: 12 }] }));
