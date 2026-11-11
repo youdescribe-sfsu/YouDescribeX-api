@@ -36,7 +36,7 @@ LAYER 1 - CORE CONSTRAINTS (always apply)
 1. Change only what the TASK asks for. Keep every other word, name, and fact as it is.
 2. Never add people, objects, actions, places, or text that are not in the CURRENT DESCRIPTION, the PREVIOUS or NEXT DESCRIPTION, or the ADDITIONAL REQUEST.
 3. If the ADDITIONAL REQUEST states a fact, trust it over the current description.
-4. Keep any on-screen text inside quotation marks exactly as written. Two or more consecutive words in ALL CAPITALS, such as THE COMMERCE COLLECTION or LONE RUNNER, are also on-screen text: keep them exactly as written, in capitals, even without quotation marks.
+4. Text inside single or double quotation marks is on-screen text. Never remove it, and keep it exactly as written. Two or more consecutive words in ALL CAPITALS, such as THE COMMERCE COLLECTION or LONE RUNNER, are also on-screen text: keep them exactly as written, in capitals, even without quotation marks.
 5. Stay objective. Do not add interpretations, guesses about thoughts or intentions, or opinions. Facial expressions and body language that the description already mentions may stay.
 6. Keep character names and domain-specific terms. Use the same name for the same person or object throughout.
 7. If the DESCRIPTION TYPE is "Text on Screen", the whole CURRENT DESCRIPTION is text shown on screen. Keep every word of it exactly as written, in the same order. Do not shorten, reword, or restyle it: reply with it unchanged.

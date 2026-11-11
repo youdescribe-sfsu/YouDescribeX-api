@@ -70,7 +70,9 @@ const buildStyleInstruction = (styleName: string, styleRules: string[]): string 
     '- Use only information from the current description and the context. If the description does not contain what this style needs, stay close to the original instead of inventing details.',
     '- Never add a person, place, or object that the description does not mention. Wrong: "The sun sets." becomes "People watch the sun set." Wrong: "Colette uncovers the ratatouille." becomes "On the table, Colette uncovers the ratatouille."',
     '- Keep every person, action, and object the description already mentions. Change the order and the emphasis, not the content.',
-    '- Keep any on-screen text in quotation marks, exactly as written, even when it moves to a new position.',
+    '- Keep the actions in the order they happen. Moving the setting or a person to the front must not change the order of events. Wrong: "The man notices the paper and jumps back, dropping his phone." becomes "A dropped phone is on the ground. The man jumps back and notices the paper."',
+    '- A style change never removes information. That includes what something represents or stands for, and what is written on screen. If a phrase in the middle of a sentence does not fit the new order, make it its own sentence instead of deleting it. Example: "The paper, representing \'research\', looms over him." becomes "The paper represents \'research\'. It looms over him."',
+    '- Keep any on-screen text, in single or double quotation marks, exactly as written, even when it moves to a new position. Never remove it.',
     '- Never exceed the length limit.',
     '- Match the tone of the video. Consider its title and genre.',
   ].join('\n');
@@ -167,7 +169,8 @@ const PRESETS = [
     instruction: buildStyleInstruction('character', [
       'Lead with the people: who they are, what they visibly look like when it matters to the story, and their facial expressions, body language, and reactions.',
       'Introduce a new character with a descriptor before the name, such as "a bearded man, Jack".',
-      'Move setting details after the characters, or drop the ones that are not needed.',
+      'Move setting details after the characters. Keep them: change only their position.',
+      'Introduce each person fully in the first sentence: appearance, expression, and posture come before or right next to the action, which is part of describing the person. Example: "A young man with short hair and a speckled shirt leans against a fountain, looking at his phone."',
     ]),
   },
   {
@@ -178,7 +181,8 @@ const PRESETS = [
     tooShortReason: STYLE_TOO_SHORT_REASON,
     instruction: buildStyleInstruction('action', [
       'Lead with what happens: the actions in the order they occur, using precise verbs.',
-      'Mention people mainly as the ones doing the actions. Drop appearance and setting details unless they are needed to understand the action.',
+      'Mention people mainly as the ones doing the actions. Move appearance and setting details after the actions. Keep them: change only their position.',
+      'The first sentence says only who does what: a short subject followed directly by the verb. Put appearance and setting in a later, separate sentence. Example: "A young man leans against a fountain and looks at his phone. He has short hair and a speckled shirt." Wrong: "A young man with short hair and a speckled shirt leans against a fountain."',
       'For instructional content, state the step first, then any detail needed to perform it.',
     ]),
   },
@@ -191,7 +195,7 @@ const PRESETS = [
     instruction: buildStyleInstruction('environment', [
       'Lead with the setting: the location, the time of day, weather or lighting, key objects, and where things are placed in the space.',
       'Compare sizes and shapes to familiar objects when that helps.',
-      'Then mention the people and the action briefly.',
+      'Then mention the people and their actions.',
     ]),
   },
   {
