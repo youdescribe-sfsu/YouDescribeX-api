@@ -36,13 +36,31 @@ export class RefineSuggestDto {
   public instruction?: string;
 }
 
-// xiao1009 Response shapes. `wordBudget` is only present for presets that use a time budget, so the
-// panel can show "aim for about N words" next to the suggestion.
+// xiao1009 Response shapes.
+// Leijie `unchanged` is true when the model returned the description as it was, which is a valid
+// answer ("no change needed"), not an error. Phase 1 dropped `wordBudget`: no preset uses the time
+// budget until Fix timing in Phase 2.
 export interface RefineSuggestionDto {
   clipId: string;
   original: string;
   suggestion: string;
-  wordBudget?: number;
+  unchanged: boolean;
+  // Leijie Fix timing only. `availableSeconds` is left out when nothing bounds the clip.
+  timing?: RefineTimingDto;
+  timingChange?: RefineTimingChangeDto;
+  reason?: string;
+}
+
+export interface RefineTimingDto {
+  estimatedSeconds: number;
+  availableSeconds?: number;
+}
+
+// Leijie A suggestion only. RefineAD never applies it: the describer changes the start time or the
+// playback type in the editor and saves, which goes through the existing clip-update endpoints.
+export interface RefineTimingChangeDto {
+  startTime?: number;
+  track?: 'inline' | 'extended';
 }
 
 export interface RefineSuggestResponseDto {

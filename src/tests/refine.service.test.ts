@@ -3,7 +3,9 @@
 // (construct the service directly, cast to any, stub what it reaches for).
 import { LlmError, callLlmChat } from '../utils/llm.util';
 import { MongoAudioClipsModel, MongoAudio_Descriptions_Model, MongoDialog_Timestamps_Model, MongoVideosModel } from '../models/mongodb/init-models.mongo';
-import RefineService, { MIN_WORD_BUDGET, SPEECH_WORDS_PER_SECOND } from '../services/refine.service';
+import RefineService, { MIN_LENGTH_LIMIT, MIN_WORD_BUDGET, RULES_ONLY_MODEL, SPEECH_WORDS_PER_SECOND } from '../services/refine.service';
+import { CONCISE_LENGTH_RATIO, REFINE_PRESETS } from '../prompts/refinePresets';
+import { REFINE_SYSTEM_PROMPT } from '../prompts/refine.prompt';
 
 // xiao1009 Only callLlmChat is replaced; LlmError stays real so the timeout test can throw the same
 // class the util would throw in production.
@@ -32,6 +34,7 @@ interface StubClip {
   end_time?: number;
   duration?: number;
   transcript?: { sentence: string }[];
+  playback_type?: 'inline' | 'extended';
 }
 
 const makeClip = (id: string, startTime: number, text: string, duration = 3): StubClip => ({
@@ -58,6 +61,10 @@ const stubNextDialog = (doc: unknown) =>
     sort: () => ({ exec: async () => doc }),
   } as any);
 
+// Leijie Fix timing reads every dialogue line of the video with find(), not findOne().
+const stubDialogs = (docs: { dialog_start_time: number; dialog_end_time: number }[]) =>
+  jest.spyOn(MongoDialog_Timestamps_Model as any, 'find').mockReturnValue({ exec: async () => docs } as any);
+
 const ownedAudioDescription = { _id: AD_ID, user: USER_ID, video: VIDEO_ID };
 
 // xiao1009 The default world every test starts from: an owned description with three clips, the
@@ -69,7 +76,7 @@ const stubHappyWorld = () => {
     makeClip(CLIP_ID, 10, 'She very carefully tips the plant out of its really small plastic pot.'),
     makeClip(NEXT_CLIP_ID, 14.5, 'She presses fresh compost around the roots.'),
   ]);
-  stubVideo({ _id: VIDEO_ID, title: 'How to repot a houseplant', duration: 60 });
+  stubVideo({ _id: VIDEO_ID, title: 'How to repot a houseplant', category: 'Howto & Style', duration: 60 });
   stubNextDialog(null);
 };
 
@@ -107,6 +114,21 @@ describe('RefineService.computeWordBudget', () => {
   });
 });
 
+// Leijie The length limit every preset gets in Phase 1: round(original words × ratio), floored.
+describe('RefineService.computeLengthLimit', () => {
+  it('scales the word count of the original by the ratio', () => {
+    const service = new RefineService() as any;
+    // baseInput.currentText has 13 words
+    expect(service.computeLengthLimit(baseInput.currentText, CONCISE_LENGTH_RATIO)).toBe(9);
+    expect(service.computeLengthLimit('  one   two three  ', 1.2)).toBe(4);
+  });
+
+  it('never drops below the floor', () => {
+    const service = new RefineService() as any;
+    expect(service.computeLengthLimit('Hi', 0.3)).toBe(MIN_LENGTH_LIMIT);
+  });
+});
+
 describe('RefineService.buildClipContext', () => {
   it('returns both neighbours, the video title and a budget from the next clip', async () => {
     stubHappyWorld();
@@ -118,6 +140,7 @@ describe('RefineService.buildClipContext', () => {
     expect(context.previousText).toBe('A woman kneels beside a row of terracotta pots.');
     expect(context.nextText).toBe('She presses fresh compost around the roots.');
     expect(context.videoTitle).toBe('How to repot a houseplant');
+    expect(context.videoGenre).toBe('Howto & Style');
     // next clip starts at 14.5, this one at 10
     expect(context.availableSeconds).toBeCloseTo(4.5);
     expect(context.wordBudget).toBe(14);
@@ -216,7 +239,7 @@ describe('RefineService.getSuggestion — request validation', () => {
   it('names the valid preset ids in the 400 message', async () => {
     stubHappyWorld();
 
-    await expect(new RefineService().getSuggestion({ ...baseInput, presetId: 'make-it-pop' })).rejects.toThrow(/shorten-to-fit/);
+    await expect(new RefineService().getSuggestion({ ...baseInput, presetId: 'make-it-pop' })).rejects.toThrow(/make-concise/);
   });
 
   it('rejects a request with neither a preset nor an instruction', async () => {
@@ -235,7 +258,7 @@ describe('RefineService.getSuggestion — request validation', () => {
   it('rejects a malformed audioDescriptionId with 400 rather than letting Mongoose cast it', async () => {
     stubHappyWorld();
 
-    await expect(new RefineService().getSuggestion({ ...baseInput, audioDescriptionId: 'not-an-id', presetId: 'simplify' })).rejects.toMatchObject({
+    await expect(new RefineService().getSuggestion({ ...baseInput, audioDescriptionId: 'not-an-id', presetId: 'polish' })).rejects.toMatchObject({
       status: 400,
     });
   });
@@ -248,7 +271,7 @@ describe('RefineService.getSuggestion — ownership', () => {
     stubVideo(null);
     stubNextDialog(null);
 
-    await expect(new RefineService().getSuggestion({ ...baseInput, presetId: 'simplify' })).rejects.toMatchObject({
+    await expect(new RefineService().getSuggestion({ ...baseInput, presetId: 'polish' })).rejects.toMatchObject({
       name: 'AuthorizationError',
     });
     expect(mockedCallLlmChat).not.toHaveBeenCalled();
@@ -257,33 +280,115 @@ describe('RefineService.getSuggestion — ownership', () => {
   it('rejects a description that does not exist with 404', async () => {
     stubAudioDescription(null);
 
-    await expect(new RefineService().getSuggestion({ ...baseInput, presetId: 'simplify' })).rejects.toMatchObject({ status: 404 });
+    await expect(new RefineService().getSuggestion({ ...baseInput, presetId: 'polish' })).rejects.toMatchObject({ status: 404 });
   });
 });
 
 describe('RefineService.getSuggestion — prompt assembly', () => {
   const sentUserPrompt = () => mockedCallLlmChat.mock.calls[0][0].userPrompt;
 
-  it('sends the preset instruction, both neighbours, the title and the time budget', async () => {
+  it('sends the preset instruction, both neighbours, the title, the genre and the length limit', async () => {
     stubHappyWorld();
 
-    await new RefineService().getSuggestion({ ...baseInput, presetId: 'shorten-to-fit' });
+    await new RefineService().getSuggestion({ ...baseInput, presetId: 'make-concise' });
 
     const prompt = sentUserPrompt();
     expect(prompt).toContain('VIDEO TITLE: "How to repot a houseplant"');
+    expect(prompt).toContain('VIDEO GENRE: "Howto & Style"');
     expect(prompt).toContain('PREVIOUS DESCRIPTION');
     expect(prompt).toContain('NEXT DESCRIPTION');
-    expect(prompt).toContain('AVAILABLE TIME: 4.50 seconds');
-    expect(prompt).toContain('aim for about 14 words');
-    expect(prompt).toContain('fits the available narration time');
+    expect(prompt).toContain('LENGTH LIMIT: 9 words or fewer.');
+    expect(prompt).toContain('TASK: Make this description concise.');
   });
 
-  it('withholds the time budget from a preset that does not use one', async () => {
+  it('never sends the time budget in Phase 1', async () => {
     stubHappyWorld();
 
-    await new RefineService().getSuggestion({ ...baseInput, presetId: 'fix-grammar' });
+    await new RefineService().getSuggestion({ ...baseInput, presetId: 'make-concise' });
 
     expect(sentUserPrompt()).not.toContain('AVAILABLE TIME');
+  });
+
+  it('gives each preset its own length limit from its ratio', async () => {
+    stubHappyWorld();
+    const service = new RefineService();
+
+    await service.getSuggestion({ ...baseInput, presetId: 'polish' });
+    await service.getSuggestion({ ...baseInput, presetId: 'style-action-focus' });
+
+    // Polish: max(13 × 1.15, 13 + 5); Style: 13 × 1.2
+    expect(mockedCallLlmChat.mock.calls[0][0].userPrompt).toContain('LENGTH LIMIT: 18 words or fewer.');
+    expect(mockedCallLlmChat.mock.calls[1][0].userPrompt).toContain('LENGTH LIMIT: 16 words or fewer.');
+  });
+
+  it('sends no length limit for a free-text request', async () => {
+    stubHappyWorld();
+
+    await new RefineService().getSuggestion({ ...baseInput, instruction: 'make it sound less robotic' });
+
+    expect(sentUserPrompt()).not.toContain('LENGTH LIMIT');
+  });
+
+  it('passes the preset temperature through, and leaves the default for presets without one', async () => {
+    stubHappyWorld();
+    const service = new RefineService();
+
+    await service.getSuggestion({ ...baseInput, presetId: 'polish' });
+    await service.getSuggestion({ ...baseInput, presetId: 'make-concise' });
+
+    expect(mockedCallLlmChat.mock.calls[0][0].temperature).toBe(0.2);
+    expect(mockedCallLlmChat.mock.calls[1][0].temperature).toBeUndefined();
+  });
+
+  it("rejects Add details without the describer's details, before calling the model", async () => {
+    stubHappyWorld();
+
+    await expect(new RefineService().getSuggestion({ ...baseInput, presetId: 'add-details' })).rejects.toMatchObject({ status: 400 });
+    await expect(new RefineService().getSuggestion({ ...baseInput, presetId: 'add-details', instruction: '  ' })).rejects.toMatchObject({ status: 400 });
+    expect(mockedCallLlmChat).not.toHaveBeenCalled();
+  });
+
+  it('sends the details as the additional request and counts them in the length limit', async () => {
+    stubHappyWorld();
+
+    await new RefineService().getSuggestion({ ...baseInput, presetId: 'add-details', instruction: 'the pot is terracotta' });
+
+    const prompt = sentUserPrompt();
+    expect(prompt).toContain('TASK: Add the details given in the ADDITIONAL REQUEST');
+    expect(prompt).toContain('ADDITIONAL REQUEST FROM THE DESCRIBER: the pot is terracotta');
+    // 13 original words + 4 detail words
+    expect(prompt).toContain('LENGTH LIMIT: 17 words or fewer.');
+  });
+
+  it('builds every Style option from the shared shell', () => {
+    const styles = REFINE_PRESETS.filter(preset => preset.id.startsWith('style-'));
+
+    expect(styles.map(preset => preset.id)).toEqual(['style-character-focus', 'style-action-focus', 'style-environment-focus', 'style-simple-language']);
+    styles.forEach(preset => {
+      expect(preset.instruction).toContain('This is a style change.');
+      expect(preset.instruction).toContain('Never exceed the length limit.');
+    });
+  });
+
+  // Leijie Core constraints 4 and 7.
+  it('treats ALL-CAPS runs as on-screen text and keeps Text on Screen descriptions word for word', () => {
+    expect(REFINE_SYSTEM_PROMPT).toContain('Two or more consecutive words in ALL CAPITALS');
+    expect(REFINE_SYSTEM_PROMPT).toContain('If the DESCRIPTION TYPE is "Text on Screen"');
+    expect(REFINE_SYSTEM_PROMPT).toContain('VIDEO GENRE, DESCRIPTION TYPE, PREVIOUS DESCRIPTION');
+  });
+
+  it('sends the clip description type', async () => {
+    stubHappyWorld();
+
+    await new RefineService().getSuggestion({ ...baseInput, presetId: 'polish' });
+
+    expect(mockedCallLlmChat.mock.calls[0][0].userPrompt).toContain('DESCRIPTION TYPE: "Visual"');
+  });
+
+  it('keeps the 13 principles as the lowest layer under the new core constraints', () => {
+    expect(REFINE_SYSTEM_PROMPT.indexOf('LAYER 1 - CORE CONSTRAINTS')).toBeLessThan(REFINE_SYSTEM_PROMPT.indexOf('LAYER 4 - WRITE FOR THE EAR'));
+    expect(REFINE_SYSTEM_PROMPT.indexOf('LAYER 4 - WRITE FOR THE EAR')).toBeLessThan(REFINE_SYSTEM_PROMPT.indexOf('LAYER 5 - AUDIO DESCRIPTION PRINCIPLES'));
+    expect(REFINE_SYSTEM_PROMPT).toContain('Do not give away surprises');
   });
 
   it('labels a free-text request as the task when no preset was chosen', async () => {
@@ -299,10 +404,10 @@ describe('RefineService.getSuggestion — prompt assembly', () => {
   it('keeps both sections when a preset and a free-text request are sent together', async () => {
     stubHappyWorld();
 
-    await new RefineService().getSuggestion({ ...baseInput, presetId: 'fix-grammar', instruction: 'british spelling please' });
+    await new RefineService().getSuggestion({ ...baseInput, presetId: 'polish', instruction: 'british spelling please' });
 
     const prompt = sentUserPrompt();
-    expect(prompt).toContain('TASK: Correct only grammar');
+    expect(prompt).toContain('TASK: Polish this description');
     expect(prompt).toContain('ADDITIONAL REQUEST FROM THE DESCRIBER: british spelling please');
   });
 
@@ -312,7 +417,7 @@ describe('RefineService.getSuggestion — prompt assembly', () => {
     const response = await new RefineService().getSuggestion({
       ...baseInput,
       currentText: 'UNSAVED EDITOR TEXT',
-      presetId: 'simplify',
+      presetId: 'polish',
     });
 
     expect(sentUserPrompt()).toContain('UNSAVED EDITOR TEXT');
@@ -322,10 +427,10 @@ describe('RefineService.getSuggestion — prompt assembly', () => {
 });
 
 describe('RefineService.getSuggestion — response', () => {
-  it('returns one suggestion with the model, a requestId and the word budget', async () => {
+  it('returns one suggestion with the model and a requestId', async () => {
     stubHappyWorld();
 
-    const response = await new RefineService().getSuggestion({ ...baseInput, presetId: 'shorten-to-fit' });
+    const response = await new RefineService().getSuggestion({ ...baseInput, presetId: 'make-concise' });
 
     expect(response.model).toBe('gpt-4o-mini');
     expect(response.requestId).toMatch(/^[0-9a-f-]{36}$/);
@@ -334,24 +439,78 @@ describe('RefineService.getSuggestion — response', () => {
       clipId: CLIP_ID,
       original: baseInput.currentText,
       suggestion: 'She tips the plant out of its pot.',
-      wordBudget: 14,
+      unchanged: false,
     });
+    expect(response.suggestions[0]).not.toHaveProperty('wordBudget');
   });
 
-  it('omits wordBudget for a preset that does not use one', async () => {
+  it('marks an unchanged reply as valid rather than failing it', async () => {
+    stubHappyWorld();
+    mockedCallLlmChat.mockResolvedValue({ text: baseInput.currentText, model: 'gpt-4o-mini', responseId: 'r' });
+
+    const response = await new RefineService().getSuggestion({ ...baseInput, presetId: 'make-concise' });
+
+    expect(response.suggestions[0]).toMatchObject({ suggestion: baseInput.currentText, unchanged: true });
+  });
+
+  // Leijie STYLE_MIN_WORDS: a description too short to restyle never reaches the model.
+  it('answers a too-short description unchanged for a Style option, without calling the model', async () => {
     stubHappyWorld();
 
-    const response = await new RefineService().getSuggestion({ ...baseInput, presetId: 'fix-grammar' });
+    const response = await new RefineService().getSuggestion({
+      ...baseInput,
+      currentText: 'Colette uncovers the baked ratatouille.',
+      presetId: 'style-character-focus',
+    });
 
-    expect(response.suggestions[0].wordBudget).toBeUndefined();
+    expect(mockedCallLlmChat).not.toHaveBeenCalled();
+    expect(response.model).toBe(RULES_ONLY_MODEL);
+    expect(response.suggestions[0]).toMatchObject({ suggestion: 'Colette uncovers the baked ratatouille.', unchanged: true });
+    expect(response.suggestions[0].reason).toMatch(/too short/);
+  });
+
+  it('still calls the model for a short description when the preset is not a Style option', async () => {
+    stubHappyWorld();
+
+    await new RefineService().getSuggestion({ ...baseInput, currentText: 'Colette uncovers the baked ratatouille.', presetId: 'polish' });
+
+    expect(mockedCallLlmChat).toHaveBeenCalledTimes(1);
+  });
+
+  // Leijie CONCISE_MIN_WORDS: a description of 4 words or fewer has nothing left to cut.
+  it('answers a description under 5 words unchanged for Make concise, without calling the model', async () => {
+    stubHappyWorld();
+
+    const response = await new RefineService().getSuggestion({ ...baseInput, currentText: 'Spider rests; bat hangs.', presetId: 'make-concise' });
+
+    expect(mockedCallLlmChat).not.toHaveBeenCalled();
+    expect(response.suggestions[0]).toMatchObject({ unchanged: true, reason: 'This description is already concise.' });
+  });
+
+  it('still calls the model for Make concise at exactly 5 words', async () => {
+    stubHappyWorld();
+
+    await new RefineService().getSuggestion({ ...baseInput, currentText: 'Orange-shirted man addresses camera, jungle today.', presetId: 'make-concise' });
+
+    expect(mockedCallLlmChat).toHaveBeenCalledTimes(1);
+  });
+
+  // Leijie POLISH_MIN_EXTRA_WORDS: a fragment gets room to become a full sentence.
+  it('gives Polish at least five extra words for a short fragment', async () => {
+    stubHappyWorld();
+
+    await new RefineService().getSuggestion({ ...baseInput, currentText: 'Two track snow; one walks dunes.', presetId: 'polish' });
+
+    // 6 words: max(6 × 1.15 = 7, 6 + 5 = 11)
+    expect(mockedCallLlmChat.mock.calls[0][0].userPrompt).toContain('LENGTH LIMIT: 11 words or fewer.');
   });
 
   it('gives every request its own requestId', async () => {
     stubHappyWorld();
     const service = new RefineService();
 
-    const first = await service.getSuggestion({ ...baseInput, presetId: 'simplify' });
-    const second = await service.getSuggestion({ ...baseInput, presetId: 'simplify' });
+    const first = await service.getSuggestion({ ...baseInput, presetId: 'polish' });
+    const second = await service.getSuggestion({ ...baseInput, presetId: 'polish' });
 
     expect(first.requestId).not.toBe(second.requestId);
   });
@@ -362,7 +521,7 @@ describe('RefineService.getSuggestion — cleaning what the model returns', () =
     stubHappyWorld();
     mockedCallLlmChat.mockResolvedValue({ text: modelReply, model: 'gpt-4o-mini', responseId: 'r' });
 
-    const response = await new RefineService().getSuggestion({ ...baseInput, presetId: 'simplify' });
+    const response = await new RefineService().getSuggestion({ ...baseInput, presetId: 'polish' });
 
     expect(response.suggestions[0].suggestion).toBe(expected);
   };
@@ -393,7 +552,7 @@ describe('RefineService.getSuggestion — failures', () => {
     stubHappyWorld();
     mockedCallLlmChat.mockRejectedValue(new LlmError('timeout', 503, 'AI service timed out, please try again'));
 
-    await expect(new RefineService().getSuggestion({ ...baseInput, presetId: 'simplify' })).rejects.toMatchObject({
+    await expect(new RefineService().getSuggestion({ ...baseInput, presetId: 'polish' })).rejects.toMatchObject({
       status: 503,
       kind: 'timeout',
     });
@@ -403,28 +562,142 @@ describe('RefineService.getSuggestion — failures', () => {
     stubHappyWorld();
     mockedCallLlmChat.mockRejectedValue(new LlmError('upstream', 502, 'AI service request failed'));
 
-    await expect(new RefineService().getSuggestion({ ...baseInput, presetId: 'simplify' })).rejects.toMatchObject({ status: 502 });
+    await expect(new RefineService().getSuggestion({ ...baseInput, presetId: 'polish' })).rejects.toMatchObject({ status: 502 });
   });
 
   it('turns an empty reply into a 502', async () => {
     stubHappyWorld();
     mockedCallLlmChat.mockResolvedValue({ text: '   ', model: 'gpt-4o-mini', responseId: 'r' });
 
-    await expect(new RefineService().getSuggestion({ ...baseInput, presetId: 'simplify' })).rejects.toMatchObject({ status: 502 });
+    await expect(new RefineService().getSuggestion({ ...baseInput, presetId: 'polish' })).rejects.toMatchObject({ status: 502 });
   });
 
   it('turns a reply that is only a label into a 502', async () => {
     stubHappyWorld();
     mockedCallLlmChat.mockResolvedValue({ text: 'Suggestion:', model: 'gpt-4o-mini', responseId: 'r' });
 
-    await expect(new RefineService().getSuggestion({ ...baseInput, presetId: 'simplify' })).rejects.toMatchObject({ status: 502 });
+    await expect(new RefineService().getSuggestion({ ...baseInput, presetId: 'polish' })).rejects.toMatchObject({ status: 502 });
   });
 
   it('turns a rambling reply into a 502', async () => {
     stubHappyWorld();
     mockedCallLlmChat.mockResolvedValue({ text: 'x'.repeat(5000), model: 'gpt-4o-mini', responseId: 'r' });
 
-    await expect(new RefineService().getSuggestion({ ...baseInput, presetId: 'simplify' })).rejects.toMatchObject({ status: 502 });
+    await expect(new RefineService().getSuggestion({ ...baseInput, presetId: 'polish' })).rejects.toMatchObject({ status: 502 });
+  });
+});
+
+describe('RefineService.getSuggestion — Fix timing', () => {
+  const fixTiming = (overrides: Record<string, unknown> = {}) => new RefineService().getSuggestion({ ...baseInput, presetId: 'fix-timing', ...overrides });
+
+  it('answers from the rules alone when the saved clip already fits', async () => {
+    stubHappyWorld();
+    stubDialogs([]);
+
+    const response = await fixTiming();
+
+    expect(mockedCallLlmChat).not.toHaveBeenCalled();
+    expect(response.model).toBe('none');
+    // saved text, so the TTS duration (3 s) is used; the next clip starts 4.5 s later
+    expect(response.suggestions[0]).toMatchObject({
+      suggestion: baseInput.currentText,
+      unchanged: true,
+      timing: { estimatedSeconds: 3, availableSeconds: 4.5 },
+    });
+    expect(response.suggestions[0].timingChange).toBeUndefined();
+    expect(response.suggestions[0].reason).toMatch(/already fits/);
+  });
+
+  it('suggests inline for an extended clip that fits', async () => {
+    stubAudioDescription(ownedAudioDescription);
+    stubClips([{ ...makeClip(CLIP_ID, 10, baseInput.currentText), playback_type: 'extended' }, makeClip(NEXT_CLIP_ID, 14.5, 'Next.')]);
+    stubVideo({ title: 'A video', duration: 60 });
+    stubNextDialog(null);
+    stubDialogs([]);
+
+    const response = await fixTiming();
+
+    expect(response.suggestions[0].timingChange).toEqual({ track: 'inline' });
+  });
+
+  it('shortens unsaved text to the word budget, estimating its length from the words', async () => {
+    stubHappyWorld();
+    stubDialogs([{ dialog_start_time: 12, dialog_end_time: 13 }]);
+    mockedCallLlmChat.mockResolvedValue({ text: 'She tips the plant out.', model: 'gpt-4o-mini', responseId: 'r' });
+
+    // 8 unsaved words -> 2.67 s; 2 s gap -> 6 words, and 6 >= 8 x 0.6
+    const response = await fixTiming({ currentText: 'She carefully tips the plant out of it.' });
+
+    const prompt = mockedCallLlmChat.mock.calls[0][0].userPrompt;
+    expect(prompt).toContain('AVAILABLE TIME: 2.00 seconds');
+    expect(prompt).toContain('LENGTH LIMIT: 6 words or fewer.');
+    expect(prompt).toContain('TASK: Shorten this description');
+    expect(response.suggestions[0]).toMatchObject({ suggestion: 'She tips the plant out.', unchanged: false, timing: { availableSeconds: 2 } });
+    expect(response.suggestions[0].reason).toMatch(/Shortened to 6 words/);
+  });
+
+  it('never shortens a Text on Screen description, and says why', async () => {
+    stubAudioDescription(ownedAudioDescription);
+    stubClips([{ ...makeClip(CLIP_ID, 10, 'ENTER CODE BEAST FORTY NOW TODAY PLEASE'), description_type: 'Text on Screen' }]);
+    stubVideo({ title: 'A video', duration: 60 });
+    stubNextDialog(null);
+    // 8 unsaved words -> 2.67 s; 2 s gap would allow shortening to 6 words for a Visual clip
+    stubDialogs([{ dialog_start_time: 12, dialog_end_time: 13 }]);
+
+    const response = await fixTiming({ currentText: 'ENTER CODE BEAST FORTY NOW TODAY PLEASE NOW' });
+
+    expect(mockedCallLlmChat).not.toHaveBeenCalled();
+    expect(response.suggestions[0].unchanged).toBe(true);
+    expect(response.suggestions[0].reason).toMatch(/on-screen text is kept word for word/);
+  });
+
+  it('turns a reply over the word budget into a 502', async () => {
+    stubHappyWorld();
+    stubDialogs([{ dialog_start_time: 12, dialog_end_time: 13 }]);
+    mockedCallLlmChat.mockResolvedValue({ text: 'She still very carefully tips the plant out of it.', model: 'gpt-4o-mini', responseId: 'r' });
+
+    await expect(fixTiming({ currentText: 'She carefully tips the plant out of it.' })).rejects.toMatchObject({ status: 502 });
+  });
+
+  it('suggests a new start time when shortening would drop too much', async () => {
+    stubAudioDescription(ownedAudioDescription);
+    stubClips([makeClip(PREV_CLIP_ID, 2, 'Earlier.'), makeClip(CLIP_ID, 10, baseInput.currentText, 4), makeClip(NEXT_CLIP_ID, 20, 'Later.', 4)]);
+    stubVideo({ title: 'A video', duration: 60 });
+    stubNextDialog(null);
+    stubDialogs([{ dialog_start_time: 11, dialog_end_time: 12.5 }]);
+
+    const response = await fixTiming();
+
+    expect(mockedCallLlmChat).not.toHaveBeenCalled();
+    expect(response.suggestions[0].timingChange).toEqual({ startTime: 12.5 });
+    expect(response.suggestions[0].unchanged).toBe(true);
+  });
+
+  it('suggests extended playback when there is no gap nearby', async () => {
+    stubAudioDescription(ownedAudioDescription);
+    stubClips([makeClip(CLIP_ID, 10, baseInput.currentText, 4)]);
+    stubVideo({ title: 'A video', duration: 60 });
+    stubNextDialog(null);
+    stubDialogs([{ dialog_start_time: 6, dialog_end_time: 20 }]);
+
+    const response = await fixTiming();
+
+    expect(response.suggestions[0].timingChange).toEqual({ track: 'extended' });
+    expect(response.suggestions[0].reason).toMatch(/extended playback/);
+  });
+
+  it('writes nothing to the database', async () => {
+    stubHappyWorld();
+    stubDialogs([]);
+    const writeSpies = [
+      jest.spyOn(MongoAudioClipsModel as any, 'updateOne'),
+      jest.spyOn(MongoAudioClipsModel as any, 'updateMany'),
+      jest.spyOn(MongoAudioClipsModel as any, 'findByIdAndUpdate'),
+    ];
+
+    await fixTiming();
+
+    writeSpies.forEach(spy => expect(spy).not.toHaveBeenCalled());
   });
 });
 
@@ -444,7 +717,7 @@ describe('RefineService.getSuggestion — read-only guarantee', () => {
       jest.spyOn(MongoAudio_Descriptions_Model as any, 'updateOne'),
     ];
 
-    await new RefineService().getSuggestion({ ...baseInput, presetId: 'shorten-to-fit' });
+    await new RefineService().getSuggestion({ ...baseInput, presetId: 'make-concise' });
 
     writeSpies.forEach(spy => expect(spy).not.toHaveBeenCalled());
   });
